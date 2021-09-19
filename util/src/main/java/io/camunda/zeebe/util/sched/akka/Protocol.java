@@ -1,7 +1,7 @@
 package io.camunda.zeebe.util.sched.akka;
 
 import akka.actor.typed.ActorRef;
-import java.io.Serializable;
+import akka.pattern.StatusReply;
 import java.util.concurrent.Callable;
 
 public interface Protocol {
@@ -17,31 +17,32 @@ public interface Protocol {
     }
   }
 
-  final class Callback<V> implements Operation {
-    private final SerializableCallable<V> operation;
-    private final ActorRef<Result<V>> replyTo;
+  final class Compute<V> implements Operation, Callable<V> {
+    private final Callable<V> operation;
+    private final ActorRef<StatusReply<Result<V>>> replyTo;
 
-    public Callback(final SerializableCallable<V> operation, final ActorRef<Result<V>> replyTo) {
+    public Compute(final Callable<V> operation, final ActorRef<StatusReply<Result<V>>> replyTo) {
       this.operation = operation;
       this.replyTo = replyTo;
     }
 
-    public SerializableCallable<V> getOperation() {
+    public Callable<V> getOperation() {
       return operation;
     }
 
-    public ActorRef<Result<V>> getReplyTo() {
+    public ActorRef<StatusReply<Result<V>>> getReplyTo() {
       return replyTo;
     }
+
+    @Override
+    public V call() throws Exception {
+      return operation.call();
+    }
   }
+
+  interface Execute extends Operation, Runnable {}
 
   interface Message {}
 
   interface Operation extends Message {}
-
-  @FunctionalInterface
-  interface SerializableRunnable extends Runnable, Serializable, Operation {}
-
-  @FunctionalInterface
-  interface SerializableCallable<V> extends Callable<V>, Serializable, Operation {}
 }
