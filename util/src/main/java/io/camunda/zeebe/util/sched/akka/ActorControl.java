@@ -1,6 +1,7 @@
 package io.camunda.zeebe.util.sched.akka;
 
 import akka.actor.typed.ActorRef;
+import akka.actor.typed.ActorSystem;
 import akka.actor.typed.Scheduler;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.AskPattern;
@@ -15,9 +16,11 @@ import io.camunda.zeebe.util.sched.akka.messages.Close;
 import io.camunda.zeebe.util.sched.akka.messages.Close.Closed;
 import io.camunda.zeebe.util.sched.akka.messages.Compute;
 import io.camunda.zeebe.util.sched.akka.messages.Execute;
+import io.camunda.zeebe.util.sched.akka.messages.Fail;
 import io.camunda.zeebe.util.sched.akka.messages.Message;
-import io.camunda.zeebe.util.sched.akka.messages.RegisterAdapter;
 import io.camunda.zeebe.util.sched.akka.messages.Start.Started;
+import io.camunda.zeebe.util.sched.akka.util.ActorExecutionContext;
+import io.camunda.zeebe.util.sched.akka.util.ActorFailedException;
 import io.camunda.zeebe.util.sched.channel.ChannelSubscription;
 import io.camunda.zeebe.util.sched.channel.ConsumableChannel;
 import java.time.Duration;
@@ -38,9 +41,6 @@ import scala.concurrent.ExecutionContextExecutor;
 public final class ActorControl {
   private final ActorRef<Message> actor;
   private final Scheduler scheduler;
-  // NOTE: scheduling tasks on this execution context doesn't synchronize them with the actor
-  // itself, but simply schedules them on the right thread pool. You still need to schedule them on
-  // the actor context via run or call.
   private final ExecutionContextExecutor executionContext;
   private final Logger logger;
 
@@ -51,6 +51,16 @@ public final class ActorControl {
    */
   public ActorControl(final ActorContext<Message> context) {
     this(context.getSelf(), context.getSystem().scheduler(), context.getExecutionContext());
+  }
+
+  /**
+   * Convenience constructor building for one actor reference and its system.
+   *
+   * @param actor the actor which acts as the synchronization context
+   * @param system the actor's system
+   */
+  public ActorControl(final ActorRef<Message> actor, final ActorSystem<?> system) {
+    this(actor, system.scheduler(), system.executionContext());
   }
 
   /**
@@ -66,7 +76,7 @@ public final class ActorControl {
       final ExecutionContextExecutor executionContext) {
     this.actor = actor;
     this.scheduler = scheduler;
-    this.executionContext = executionContext;
+    this.executionContext = new ActorExecutionContext(this, executionContext);
 
     logger = LoggerFactory.getLogger(actor.path().toString());
   }
@@ -157,7 +167,7 @@ public final class ActorControl {
    * @param <T> the type of result to accept
    */
   @SuppressWarnings("java:S1905")
-  public <T> void runOnCompletionBlockingPhase(
+  public <T> void runOnCompletionBlockingCurrentPhase(
       final CompletionStage<T> future, final BiConsumer<T, Throwable> operation) {
     actor.tell(new BlockPhase());
     runOnCompletion(
@@ -267,11 +277,27 @@ public final class ActorControl {
   }
 
   /**
+   * Convenience alias for {@link #run(Runnable)}, as there is no more prepend semantics. Mostly
+   * useful to ease migration.
+   *
+   * @param operation the operation to run
+   * @see #run(Runnable)
+   */
+  public void submit(final Runnable operation) {
+    run(operation);
+  }
+
+  /** Marks the attached actor as failed. */
+  public void fail() {
+    actor.tell(new Fail(new ActorFailedException(actor)));
+  }
+
+  /**
    * Notifies the actor that the STARTING phase is finished, thereby triggering the STARTED phase.
    * This is useful for asynchronous startup phases. This MUST be called during the starting phase,
    * otherwise the actor will remain stuck there.
    */
-  public void finishStarting() {
+  public void completeStart() {
     actor.tell(new Started());
   }
 
@@ -290,26 +316,8 @@ public final class ActorControl {
    * This is useful for asynchronous shutdown phases. This MUST be called during the closing phase,
    * otherwise the actor will remain stuck there.
    */
-  public void finishClosing() {
+  public void completeClose() {
     actor.tell(new Closed());
-  }
-
-  /**
-   * Registers the given actor adapter to the wrapped behavior. This can only be done once at the
-   * beginning. If it fails, the whole thing is now unusable as we will be missing lifecycle events.
-   *
-   * @param adapter the adapter to register to the wrapped behavior
-   */
-  public void registerAdapter(final ActorAdapter adapter) {
-    final CompletionStage<Void> registered =
-        AskPattern.askWithStatus(
-            actor,
-            replyTo -> new RegisterAdapter(replyTo, adapter),
-            Duration.ofSeconds(5),
-            scheduler);
-
-    registered.whenCompleteAsync(
-        (ok, error) -> onAdapterRegistered(adapter, error), executionContext);
   }
 
   /**
@@ -319,14 +327,5 @@ public final class ActorControl {
    */
   public Logger getLog() {
     return logger;
-  }
-
-  // NOTE: this is not called from within the actor context!
-  private void onAdapterRegistered(final ActorAdapter adapter, final Throwable error) {
-    if (error != null) {
-      getLog().warn("Failed to register adapter {} on actor {}", adapter, actor, error);
-    } else {
-      getLog().trace("Registered adapter {} on actor {}", adapter, actor);
-    }
   }
 }

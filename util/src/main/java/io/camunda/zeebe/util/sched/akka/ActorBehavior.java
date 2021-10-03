@@ -17,18 +17,20 @@ import io.camunda.zeebe.util.sched.akka.messages.Close.Closed;
 import io.camunda.zeebe.util.sched.akka.messages.Close.Closing;
 import io.camunda.zeebe.util.sched.akka.messages.Compute;
 import io.camunda.zeebe.util.sched.akka.messages.Execute;
+import io.camunda.zeebe.util.sched.akka.messages.Fail;
 import io.camunda.zeebe.util.sched.akka.messages.Message;
-import io.camunda.zeebe.util.sched.akka.messages.RegisterAdapter;
+import io.camunda.zeebe.util.sched.akka.messages.Start;
 import io.camunda.zeebe.util.sched.akka.messages.Start.Started;
 import java.util.EnumSet;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * A class which implements the lifecycle and basic control mechanisms to help us migrate from our
  * old actor scheduler to Akka.
  *
- * <p>The actor uses a basic FSM pattern. Initially, it accepts only {@link RegisterAdapter}
- * messages.
+ * <p>The actor uses a basic FSM pattern. Initially, it accepts only {@link
+ * io.camunda.zeebe.util.sched.akka.messages.Start} messages.
  *
  * <p>Once it receives one, it will cache the lifecycle, and transition to state starting, notifying
  * the {@link ActorAdapter} instance. In this state, it only accepts {@link Started} messages.
@@ -66,26 +68,38 @@ import java.util.Set;
  * {@link akka.actor.typed.javadsl.ReceiveBuilder#onMessageEquals(Object, Creator)} for more), and
  * the {@link PostStop} signal to guarantee cleanup. One thing to verify is if it should be possible
  * to trigger graceful shutdown - I wasn't sure about that. Maybe we should allow it?
+ *
+ * <p>There's also another caveat with runUntilDone - previously, it would run in a closed loop
+ * blocking both the actor and the thread. While it doesn't do this now (which is good), it will now
+ * drop messages in between. So if you do, e.g., runUntilDone(op), closeAsync, it will then produce
+ * Execute(op), Close(), Execute(op), Execute(op), ..., and the Close() will be discarded since it
+ * was in a `runUntilDone` phase, and we aren't buffering messages. The other option is to block the
+ * actor and do a busy loop over the task, but that's...well, that's bad. But maybe we should do
+ * that since it more closely emulates the previous behavior?
+ *
+ * <p>The actor handles the PostStop signal and thus ALWAYS goes into CLOSED state at the end,
+ * regardless of whether it failed or not previously.
  */
 public class ActorBehavior extends AbstractBehavior<Message> {
   private static final Set<ActorLifecyclePhase> EXECUTABLE_PHASES =
       EnumSet.of(
           ActorLifecyclePhase.STARTING, ActorLifecyclePhase.STARTED, ActorLifecyclePhase.CLOSING);
 
+  private final ActorAdapter adapter;
   private ActorLifecyclePhase phase;
-  private ActorAdapter adapter;
 
-  public ActorBehavior(final ActorContext<Message> context) {
+  public ActorBehavior(final ActorContext<Message> context, final ActorAdapter adapter) {
     super(context);
+    this.adapter = Objects.requireNonNull(adapter);
   }
 
   @Override
   public Receive<Message> createReceive() {
-    return newReceiveBuilder().onMessage(RegisterAdapter.class, this::onRegisterAdapter).build();
+    return initialState();
   }
 
   private <V> Behavior<Message> onCompute(final Compute<V> message) {
-    if (EXECUTABLE_PHASES.contains(phase)) {
+    if (!EXECUTABLE_PHASES.contains(phase)) {
       getContext()
           .getLog()
           .trace(
@@ -112,7 +126,7 @@ public class ActorBehavior extends AbstractBehavior<Message> {
    * actor will log the error and move on to the next message.
    */
   private Behavior<Message> onExecute(final Execute message) {
-    if (EXECUTABLE_PHASES.contains(phase)) {
+    if (!EXECUTABLE_PHASES.contains(phase)) {
       getContext()
           .getLog()
           .trace(
@@ -123,12 +137,21 @@ public class ActorBehavior extends AbstractBehavior<Message> {
       return Behaviors.unhandled();
     }
 
-    message.run();
+    try {
+      message.run();
+    } catch (final Exception e) {
+      if (phase == ActorLifecyclePhase.STARTED) {
+        adapter.handleTaskFailure(e);
+      } else {
+        throw e;
+      }
+    }
+
     return Behaviors.same();
   }
 
   private Behavior<Message> onBlockingExecute(final BlockingExecute message) {
-    if (EXECUTABLE_PHASES.contains(phase)) {
+    if (!EXECUTABLE_PHASES.contains(phase)) {
       getContext()
           .getLog()
           .trace(
@@ -139,67 +162,70 @@ public class ActorBehavior extends AbstractBehavior<Message> {
       return Behaviors.unhandled();
     }
 
-    final var taskFlowControl = message.run();
-    if (taskFlowControl != BlockingExecute.TaskControl.DONE) {
-      getContext().getSelf().tell(message);
-
-      // could be optimized to already know that we're in a blocking execute state, and return
-      // Behaviors.same() instead
-      return newReceiveBuilder()
-          .onMessageEquals(message, () -> onBlockingExecute(message))
-          .onSignal(PostStop.class, postStop -> onClosed())
-          .build();
+    try {
+      final var taskFlowControl = message.run();
+      if (taskFlowControl == BlockingExecute.TaskControl.DONE) {
+        switch (phase) {
+          case STARTING:
+            return startingState();
+          case STARTED:
+            return startedState();
+          case CLOSING:
+            return closingState();
+          default:
+            throw new IllegalStateException(
+                "Should not be accepting blocking execute in a non executable phase " + phase);
+        }
+      }
+    } catch (final Exception e) {
+      if (phase == ActorLifecyclePhase.STARTED) {
+        adapter.handleTaskFailure(e);
+      } else {
+        throw e;
+      }
     }
 
-    switch (phase) {
-      case STARTING:
-        return startingState();
-      case STARTED:
-        return startedState();
-      case CLOSING:
-        return closingState();
-      default:
-        throw new IllegalStateException(
-            "Should not be accepting blocking execute in a non executable phase " + phase);
-    }
+    getContext()
+        .getLog()
+        .trace("Re-executing task {} in a blocking fashion until it's done", message);
+    getContext().getSelf().tell(message);
+
+    // could be optimized to already know that we're in a blocking execute state, and return
+    // Behaviors.same() instead
+    return blockingExecuteState(message);
   }
 
-  private Behavior<Message> onRegisterAdapter(final RegisterAdapter message) {
-    // Hard fail in order to propagate that the actor should be closed and recreated
-    if (adapter != null) {
-      final var errorMessage =
-          String.format(
-              "Expected to register adapter %s on %s, but %s is already the registered adapter",
-              message.getAdapter(), getContext().getSelf(), adapter);
-      throw new IllegalStateException(errorMessage);
-    }
-
-    adapter = message.getAdapter();
-    message.getReplyTo().tell(StatusReply.success(null));
-
+  @SuppressWarnings("unused")
+  private Behavior<Message> onStart(final Start message) {
+    getContext().getLog().trace("Transitioning to lifecycle state STARTING");
     phase = ActorLifecyclePhase.STARTING;
-    adapter.onActorStarting();
 
+    // TODO: evaluate if instead we should share the context. this is must riskier as it exposes
+    //       the whole actor, instead of just the reference/system (which are already fine to
+    //       share), but it means timers are handled properly for example, and we can pipe futures
+    //       to ourselves instead of having two layers of indirection
+    adapter.register(getContext().getSelf(), getContext().getSystem());
+
+    adapter.onActorStarting();
     return startingState();
   }
 
   @SuppressWarnings("unused")
   private Behavior<Message> onStarted(final Started message) {
+    getContext().getLog().trace("Transitioning to lifecycle state STARTED");
     phase = ActorLifecyclePhase.STARTED;
 
-    if (adapter != null) {
-      adapter.onActorStarted();
-    }
+    adapter.onActorStarted();
+    adapter.completeStartup();
 
     return startedState();
   }
 
   @SuppressWarnings("unused")
   private Behavior<Message> onClose(final Close message) {
+    getContext().getLog().trace("Transitioning to lifecycle state CLOSE_REQUESTED");
     phase = ActorLifecyclePhase.CLOSE_REQUESTED;
-    if (adapter != null) {
-      adapter.onActorCloseRequested();
-    }
+    adapter.onActorCloseRequested();
 
     // transition to closing by sending ourselves a message; this is useful primarily so we can
     // discard Compute and Execute messages between CLOSE_REQUESTED and CLOSING, keeping the same
@@ -211,22 +237,26 @@ public class ActorBehavior extends AbstractBehavior<Message> {
 
   @SuppressWarnings("unused")
   private Behavior<Message> onClosing(final Closing message) {
+    getContext().getLog().trace("Transitioning to lifecycle state CLOSING");
     phase = ActorLifecyclePhase.CLOSING;
-    if (adapter != null) {
-      adapter.onActorClosing();
-    }
+    adapter.onActorClosing();
 
     return closingState();
   }
 
   private Behavior<Message> onClosed() {
-    phase = ActorLifecyclePhase.CLOSED;
-
-    if (adapter != null) {
-      adapter.onActorClosed();
-      adapter.completeShutdown();
-      adapter = null;
+    if (phase == ActorLifecyclePhase.CLOSED) {
+      getContext()
+          .getLog()
+          .trace(
+              "Skip CLOSED transitioned which was already perform; this can occur due to a PostStop"
+                  + " signal after graceful shutdown");
+      return Behaviors.stopped();
     }
+
+    getContext().getLog().trace("Transitioning to lifecycle state CLOSED");
+    phase = ActorLifecyclePhase.CLOSED;
+    adapter.onActorClosed();
 
     return Behaviors.stopped();
   }
@@ -235,12 +265,7 @@ public class ActorBehavior extends AbstractBehavior<Message> {
   private Behavior<Message> onBlockPhase(final BlockPhase message) {
     getContext().getLog().trace("Blocking lifecycle phase of actor in phase {}", phase);
 
-    return newReceiveBuilder()
-        .onMessage(UnblockPhase.class, this::onUnblockPhase)
-        .onMessage(Execute.class, this::onExecute)
-        .onMessage(Compute.class, this::onCompute)
-        .onSignal(PostStop.class, postStop -> onClosed())
-        .build();
+    return blockedPhaseState();
   }
 
   @SuppressWarnings("unused")
@@ -261,14 +286,50 @@ public class ActorBehavior extends AbstractBehavior<Message> {
     }
   }
 
+  @SuppressWarnings("unused")
+  private Behavior<Message> onFail(final Fail message) {
+    phase = ActorLifecyclePhase.FAILED;
+    getContext().getLog().trace("Transitioning to lifecycle state FAILED");
+
+    adapter.onActorFailed(message.getError());
+    adapter.fail(message.getError());
+
+    // a little weird, but emulates the existing actor lifecycle - failed simply stops, but doesn't
+    // close the actor. we could look into whether this makes sense though...
+    return Behaviors.ignore();
+  }
+
+  private Receive<Message> initialState() {
+    return newReceiveBuilder().onMessage(Start.class, this::onStart).build();
+  }
+
+  private Receive<Message> blockedPhaseState() {
+    return newReceiveBuilder()
+        .onMessage(UnblockPhase.class, this::onUnblockPhase)
+        .onMessage(Fail.class, this::onFail)
+        .onMessage(Execute.class, this::onExecute)
+        .onMessage(Compute.class, this::onCompute)
+        .onSignal(PostStop.class, postStop -> onClosed())
+        .build();
+  }
+
+  private Receive<Message> blockingExecuteState(final BlockingExecute message) {
+    return newReceiveBuilder()
+        .onMessageEquals(message, () -> onBlockingExecute(message))
+        .onMessage(Fail.class, this::onFail)
+        .onSignal(PostStop.class, postStop -> onClosed())
+        .build();
+  }
+
   private Receive<Message> startingState() {
     return newReceiveBuilder()
         .onMessage(BlockPhase.class, this::onBlockPhase)
         .onMessage(Started.class, this::onStarted)
         .onMessage(Close.class, this::onClose)
+        .onMessage(BlockingExecute.class, this::onBlockingExecute)
+        .onMessage(Fail.class, this::onFail)
         .onMessage(Execute.class, this::onExecute)
         .onMessage(Compute.class, this::onCompute)
-        .onMessage(BlockingExecute.class, this::onBlockingExecute)
         .onSignal(PostStop.class, postStop -> onClosed())
         .build();
   }
@@ -277,6 +338,8 @@ public class ActorBehavior extends AbstractBehavior<Message> {
     return newReceiveBuilder()
         .onMessage(BlockPhase.class, this::onBlockPhase)
         .onMessage(Close.class, this::onClose)
+        .onMessage(BlockingExecute.class, this::onBlockingExecute)
+        .onMessage(Fail.class, this::onFail)
         .onMessage(Execute.class, this::onExecute)
         .onMessage(Compute.class, this::onCompute)
         .onSignal(PostStop.class, postStop -> onClosed())
@@ -286,6 +349,7 @@ public class ActorBehavior extends AbstractBehavior<Message> {
   private Receive<Message> closeRequestedState() {
     return newReceiveBuilder()
         .onMessage(Closing.class, this::onClosing)
+        .onMessage(Fail.class, this::onFail)
         .onSignal(PostStop.class, postStop -> onClosed())
         .build();
   }
@@ -294,6 +358,8 @@ public class ActorBehavior extends AbstractBehavior<Message> {
     return newReceiveBuilder()
         .onMessage(BlockPhase.class, this::onBlockPhase)
         .onMessage(Closed.class, close -> onClosed())
+        .onMessage(Fail.class, this::onFail)
+        .onMessage(BlockingExecute.class, this::onBlockingExecute)
         .onMessage(Execute.class, this::onExecute)
         .onMessage(Compute.class, this::onCompute)
         .onSignal(PostStop.class, postStop -> onClosed())
