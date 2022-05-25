@@ -52,6 +52,7 @@
     <module>journal</module>
     <module>qa</module>
     <module>benchmarks/project</module>
+    <module>backup</module>
   </modules>
 
   <scm>
