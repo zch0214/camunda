@@ -21,9 +21,9 @@ import java.util.Objects;
 
 public class LocalFileSystemBackup {
 
-  private static final String ongoingBackupFile = "-%d-%d-ongoing";
-  private static final String completedBackupFile = "-%d-%d-completed";
-  private static final String failedBackupFile = "-%d-%d-failed";
+  private static final String ongoingBackupFile = "-%d-ongoing";
+  private static final String completedBackupFile = "-%d-completed";
+  private static final String failedBackupFile = "-%d-failed";
   private final ActorControl actor;
   private final Backup backup;
   private final Path backupRootDirectory;
@@ -36,7 +36,7 @@ public class LocalFileSystemBackup {
     backupDirectory =
         Paths.get(
             backupRootDirectory.toString(),
-            String.format(ongoingBackupFile, backup.checkpointId(), backup.checkpointPosition()));
+            String.format(ongoingBackupFile, backup.checkpointId()));
     Files.createDirectory(backupDirectory);
     this.backup = backup;
     this.actor = actor;
@@ -92,15 +92,14 @@ public class LocalFileSystemBackup {
     final Path backupCompletedDirectory =
         Paths.get(
             backupRootDirectory.toString(),
-            String.format(completedBackupFile, backup.checkpointId(), backup.checkpointPosition()));
+            String.format(completedBackupFile, backup.checkpointId()));
     Files.move(backupDirectory, backupCompletedDirectory);
   }
 
   public void markAsFailed() throws IOException {
     final Path backupCompletedDirectory =
         Paths.get(
-            backupRootDirectory.toString(),
-            String.format(failedBackupFile, backup.checkpointId(), backup.checkpointPosition()));
+            backupRootDirectory.toString(), String.format(failedBackupFile, backup.checkpointId()));
 
     Files.move(backupDirectory, backupCompletedDirectory);
   }

@@ -7,6 +7,9 @@
  */
 package io.camunda.zeebe.backup;
 
-public record Backup(long checkpointId) {
-
+public enum BackupStatus {
+  NOT_FOUND,
+  ONGOING,
+  COMPLETED,
+  FAILED
 }

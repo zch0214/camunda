@@ -8,6 +8,8 @@
 package io.camunda.zeebe.backup;
 
 import io.camunda.zeebe.util.sched.Actor;
+import io.camunda.zeebe.util.sched.future.ActorFuture;
+import io.camunda.zeebe.util.sched.future.CompletableActorFuture;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,5 +39,10 @@ public class LocalFileSystemBackupStore extends Actor {
 
   public LocalFileSystemBackup createBackup(final Backup backup) throws IOException {
     return new LocalFileSystemBackup(partitionBackupRootDirecotry, backup, actor);
+  }
+
+  public ActorFuture<BackupStatus> getStatus(final Backup backup) {
+    // TODO : Check the directory to find the backup
+    return CompletableActorFuture.completed(BackupStatus.NOT_FOUND);
   }
 }
