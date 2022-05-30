@@ -320,6 +320,12 @@ public final class FileBasedSnapshotStore extends Actor
   }
 
   @Override
+  public ActorFuture<PersistedSnapshot> lockLatestSnapshot() {
+    // TODO
+    return null;
+  }
+
+  @Override
   public FileBasedReceivedSnapshot newReceivedSnapshot(final String snapshotId) {
     final var optMetadata = FileBasedSnapshotMetadata.ofFileName(snapshotId);
     final var metadata =

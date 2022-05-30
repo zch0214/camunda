@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.backup;
 
+import io.camunda.zeebe.snapshots.PersistedSnapshotStore;
 import io.camunda.zeebe.util.sched.Actor;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -16,16 +17,33 @@ public class BackupActor extends Actor {
 
   private final LocalFileSystemBackupStore backupStore;
 
-  public BackupActor(final LocalFileSystemBackupStore backupStore) {
+  private final PersistedSnapshotStore snapshotStore;
+
+  public BackupActor(
+      final LocalFileSystemBackupStore backupStore, final PersistedSnapshotStore snapshotStore) {
     this.backupStore = backupStore;
+    this.snapshotStore = snapshotStore;
   }
 
   public void takeBackup(final long checkpointId, final long checkpointPosition) {
     actor.run(
         () -> {
-          final Path snapshotDirectory = null; // TODO
-          final List<Path> segmentFiles = null; // TODO
-          startBackup(checkpointId, checkpointPosition, snapshotDirectory, segmentFiles);
+          final var snapshotFuture = snapshotStore.lockLatestSnapshot();
+          actor.runOnCompletion(
+              snapshotFuture,
+              (snapshot, error) -> {
+                if (error == null) {
+                  if (snapshot.getSnapshotId().getProcessedPosition() < checkpointPosition) {
+                    final Path snapshotDirectory = snapshot.getPath();
+                    final List<Path> segmentFiles = null; // TODO, get the current segment files
+                    startBackup(checkpointId, checkpointPosition, snapshotDirectory, segmentFiles);
+                  } else {
+                    // TODO: log error
+                    // mark backup as failed
+                    snapshotStore.unlockSnapshot(snapshot);
+                  }
+                }
+              });
         });
   }
 
@@ -35,7 +53,7 @@ public class BackupActor extends Actor {
       final Path snapshotDirectory,
       final List<Path> segmentFiles) {
 
-    final Backup backup = new Backup(checkpointId, checkpointPosition);
+    final Backup backup = new Backup(checkpointId);
     final LocalFileSystemBackup localFileSystemBackup;
     try {
       localFileSystemBackup = backupStore.createBackup(backup);

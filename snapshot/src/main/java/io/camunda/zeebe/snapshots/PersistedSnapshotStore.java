@@ -90,4 +90,8 @@ public interface PersistedSnapshotStore extends CloseableSilently {
    *     successfully
    */
   ActorFuture<Void> copySnapshot(PersistedSnapshot snapshot, Path targetDirectory);
+
+  ActorFuture<PersistedSnapshot> lockLatestSnapshot();
+
+  void unlockSnapshot(PersistedSnapshot snapshot);
 }
