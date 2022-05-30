@@ -11,11 +11,15 @@ import io.atomix.raft.partition.impl.RaftPartitionServer;
 import io.camunda.zeebe.backup.LogCompactor;
 import io.camunda.zeebe.broker.Loggers;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class AtomixLogCompactor implements LogCompactor {
   private final RaftPartitionServer partitionServer;
 
-  private volatile boolean disableCompaction = false;
+  // TODO: Find a better way to handle concurrent backups enabling and disabling concurrently. If
+  // there are back to back backups, we may never compact. Instead, we can compact segments that
+  // were included in already completed backups.
+  private final AtomicInteger disableCompaction = new AtomicInteger(0);
 
   public AtomixLogCompactor(final RaftPartitionServer partitionServer) {
     this.partitionServer = partitionServer;
@@ -30,7 +34,7 @@ public final class AtomixLogCompactor implements LogCompactor {
    */
   @Override
   public CompletableFuture<Void> compactLog(final long compactionBound) {
-    if (!disableCompaction) {
+    if (disableCompaction.get() == 0) {
       Loggers.DELETION_SERVICE.debug("Scheduling log compaction up to index {}", compactionBound);
       partitionServer.setCompactableIndex(compactionBound);
       return partitionServer.snapshot();
@@ -41,12 +45,12 @@ public final class AtomixLogCompactor implements LogCompactor {
 
   @Override
   public void disableCompaction() {
-    disableCompaction = true;
+    disableCompaction.getAndIncrement();
   }
 
   @Override
   public void enableCompaction() {
     // TODO: do the previously skipped compaction
-    disableCompaction = false;
+    disableCompaction.getAndDecrement();
   }
 }

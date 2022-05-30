@@ -7,6 +7,8 @@
  */
 package io.camunda.zeebe.backup;
 
+
+//TODO: This could contain more details of the bakcup, its metadata etc.
 public record Backup(long checkpointId) {
 
 }

@@ -32,6 +32,7 @@ public class BackupActor extends Actor {
   public void takeBackup(final long checkpointId, final long checkpointPosition) {
     actor.run(
         () -> {
+          // if there are concurrent backups.
           logCompactor.disableCompaction();
           final var snapshotFuture = snapshotStore.lockLatestSnapshot();
           actor.runOnCompletion(

@@ -31,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ConcurrentModificationException;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -68,6 +69,7 @@ public final class FileBasedSnapshotStore extends Actor
   private final Set<PersistableSnapshot> pendingSnapshots = new HashSet<>();
   private final String actorName;
   private final int partitionId;
+  private final Map<PersistedSnapshot, Integer> lockedSnapshots = new HashMap<>();
 
   public FileBasedSnapshotStore(
       final int nodeId,
@@ -321,12 +323,35 @@ public final class FileBasedSnapshotStore extends Actor
 
   @Override
   public ActorFuture<PersistedSnapshot> lockLatestSnapshot() {
-    // TODO
-    return null;
+    final CompletableActorFuture<PersistedSnapshot> future = new CompletableActorFuture();
+    actor.run(
+        () -> {
+          final var latestSnapshot = currentPersistedSnapshotRef.get();
+          if (latestSnapshot == null) {
+            future.complete(null);
+          } else {
+            lockedSnapshots.compute(latestSnapshot, (s, i) -> i != null ? i + 1 : 1);
+          }
+        });
+    return future;
   }
 
   @Override
-  public void unlockSnapshot(final PersistedSnapshot snapshot) {}
+  public void unlockSnapshot(final PersistedSnapshot snapshot) {
+    actor.run(
+        () -> {
+          final var res =
+              lockedSnapshots.computeIfPresent(snapshot, (s, i) -> i > 1 ? i - 1 : null);
+          if (res == null) { // all locks are removed
+            final var latestSnapshot = currentPersistedSnapshotRef.get();
+            // if latest snapshot is newer
+            if (latestSnapshot != null
+                && latestSnapshot.getSnapshotId().compareTo(snapshot.getSnapshotId()) > 0) {
+              snapshot.delete();
+            }
+          }
+        });
+  }
 
   @Override
   public FileBasedReceivedSnapshot newReceivedSnapshot(final String snapshotId) {
@@ -536,6 +561,7 @@ public final class FileBasedSnapshotStore extends Actor
       LOGGER.debug(
           "Deleting previous snapshot {}",
           currentPersistedSnapshot.getMetadata().getSnapshotIdAsString());
+      // TODO: Donot delete if the snapshot is locked
       currentPersistedSnapshot.delete();
     }
     purgePendingSnapshots(newPersistedSnapshot.getMetadata());
