@@ -7,8 +7,8 @@
  */
 package io.camunda.zeebe.broker.system.partitions.impl.steps;
 
+import io.camunda.zeebe.backup.LogCompactor;
 import io.camunda.zeebe.broker.logstreams.AtomixLogCompactor;
-import io.camunda.zeebe.broker.logstreams.LogCompactor;
 import io.camunda.zeebe.broker.logstreams.LogDeletionService;
 import io.camunda.zeebe.broker.system.partitions.PartitionStartupContext;
 import io.camunda.zeebe.broker.system.partitions.PartitionStartupStep;

@@ -18,16 +18,21 @@ public class BackupActor extends Actor {
   private final LocalFileSystemBackupStore backupStore;
 
   private final PersistedSnapshotStore snapshotStore;
+  private final LogCompactor logCompactor;
 
   public BackupActor(
-      final LocalFileSystemBackupStore backupStore, final PersistedSnapshotStore snapshotStore) {
+      final LocalFileSystemBackupStore backupStore,
+      final PersistedSnapshotStore snapshotStore,
+      final LogCompactor logCompactor) {
     this.backupStore = backupStore;
     this.snapshotStore = snapshotStore;
+    this.logCompactor = logCompactor;
   }
 
   public void takeBackup(final long checkpointId, final long checkpointPosition) {
     actor.run(
         () -> {
+          logCompactor.disableCompaction();
           final var snapshotFuture = snapshotStore.lockLatestSnapshot();
           actor.runOnCompletion(
               snapshotFuture,
@@ -41,6 +46,7 @@ public class BackupActor extends Actor {
                     // TODO: log error
                     // mark backup as failed
                     snapshotStore.unlockSnapshot(snapshot);
+                    logCompactor.enableCompaction();
                   }
                 }
               });
@@ -78,6 +84,7 @@ public class BackupActor extends Actor {
   private void onBackupCompleted(final LocalFileSystemBackup localFileSystemBackup) {
 
     try {
+      logCompactor.enableCompaction();
       localFileSystemBackup.markAsCompleted();
     } catch (final IOException e) {
       // TODO
@@ -87,6 +94,7 @@ public class BackupActor extends Actor {
   private void onBackupFailed(
       final LocalFileSystemBackup localFileSystemBackup, final Throwable error) {
     try {
+      logCompactor.enableCompaction();
       localFileSystemBackup.markAsFailed();
     } catch (final IOException e) {
       // TODO:

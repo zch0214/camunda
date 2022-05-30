@@ -8,11 +8,14 @@
 package io.camunda.zeebe.broker.logstreams;
 
 import io.atomix.raft.partition.impl.RaftPartitionServer;
+import io.camunda.zeebe.backup.LogCompactor;
 import io.camunda.zeebe.broker.Loggers;
 import java.util.concurrent.CompletableFuture;
 
 public final class AtomixLogCompactor implements LogCompactor {
   private final RaftPartitionServer partitionServer;
+
+  private volatile boolean disableCompaction = false;
 
   public AtomixLogCompactor(final RaftPartitionServer partitionServer) {
     this.partitionServer = partitionServer;
@@ -27,8 +30,23 @@ public final class AtomixLogCompactor implements LogCompactor {
    */
   @Override
   public CompletableFuture<Void> compactLog(final long compactionBound) {
-    Loggers.DELETION_SERVICE.debug("Scheduling log compaction up to index {}", compactionBound);
-    partitionServer.setCompactableIndex(compactionBound);
-    return partitionServer.snapshot();
+    if (!disableCompaction) {
+      Loggers.DELETION_SERVICE.debug("Scheduling log compaction up to index {}", compactionBound);
+      partitionServer.setCompactableIndex(compactionBound);
+      return partitionServer.snapshot();
+    }
+    Loggers.DELETION_SERVICE.debug("Compaction is disabled");
+    return CompletableFuture.completedFuture(null);
+  }
+
+  @Override
+  public void disableCompaction() {
+    disableCompaction = true;
+  }
+
+  @Override
+  public void enableCompaction() {
+    // TODO: do the previously skipped compaction
+    disableCompaction = false;
   }
 }

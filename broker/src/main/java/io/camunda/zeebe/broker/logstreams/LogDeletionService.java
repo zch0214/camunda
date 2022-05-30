@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.broker.logstreams;
 
+import io.camunda.zeebe.backup.LogCompactor;
 import io.camunda.zeebe.broker.Loggers;
 import io.camunda.zeebe.snapshots.PersistedSnapshot;
 import io.camunda.zeebe.snapshots.PersistedSnapshotListener;
