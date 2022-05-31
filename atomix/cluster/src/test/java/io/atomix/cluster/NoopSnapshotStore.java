@@ -74,6 +74,14 @@ class NoopSnapshotStore implements ReceivableSnapshotStore {
   }
 
   @Override
+  public ActorFuture<PersistedSnapshot> lockLatestSnapshot() {
+    return null;
+  }
+
+  @Override
+  public void unlockSnapshot(final PersistedSnapshot snapshot) {}
+
+  @Override
   public ReceivedSnapshot newReceivedSnapshot(final String snapshotId) {
     return null;
   }

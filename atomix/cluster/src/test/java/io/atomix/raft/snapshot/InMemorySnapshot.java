@@ -147,6 +147,11 @@ public class InMemorySnapshot implements PersistedSnapshot, ReceivedSnapshot {
   }
 
   @Override
+  public SnapshotId getSnapshotId() {
+    return null;
+  }
+
+  @Override
   public long getChecksum() {
     return 0;
   }

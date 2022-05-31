@@ -93,6 +93,14 @@ public class TestSnapshotStore implements ReceivableSnapshotStore {
   }
 
   @Override
+  public ActorFuture<PersistedSnapshot> lockLatestSnapshot() {
+    return null;
+  }
+
+  @Override
+  public void unlockSnapshot(final PersistedSnapshot snapshot) {}
+
+  @Override
   public ReceivedSnapshot newReceivedSnapshot(final String snapshotId) {
     final var newSnapshot = new InMemorySnapshot(this, snapshotId);
     receivedSnapshots.add(newSnapshot);

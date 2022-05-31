@@ -18,7 +18,7 @@ public final class AtomixLogCompactor implements LogCompactor {
 
   // TODO: Find a better way to handle concurrent backups enabling and disabling concurrently. If
   // there are back to back backups, we may never compact. Instead, we can compact segments that
-  // were included in already completed backups.
+  // were only in already completed backups.
   private final AtomicInteger disableCompaction = new AtomicInteger(0);
 
   public AtomixLogCompactor(final RaftPartitionServer partitionServer) {

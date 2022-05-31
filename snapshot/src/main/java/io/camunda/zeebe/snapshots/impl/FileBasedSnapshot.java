@@ -9,6 +9,7 @@ package io.camunda.zeebe.snapshots.impl;
 
 import io.camunda.zeebe.snapshots.PersistedSnapshot;
 import io.camunda.zeebe.snapshots.SnapshotChunkReader;
+import io.camunda.zeebe.snapshots.SnapshotId;
 import io.camunda.zeebe.util.FileUtil;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -103,6 +104,11 @@ public final class FileBasedSnapshot implements PersistedSnapshot {
   @Override
   public String getId() {
     return metadata.getSnapshotIdAsString();
+  }
+
+  @Override
+  public SnapshotId getSnapshotId() {
+    return metadata;
   }
 
   @Override
