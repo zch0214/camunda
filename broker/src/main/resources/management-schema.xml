@@ -39,4 +39,10 @@
     <field name="partitionId" id="0" type="uint16"/>
     <field name="deploymentKey" id="1" type="uint64"/>
   </sbe:message>
+
+  <sbe:message name="InterPartitionCommandMetaData" id="4">
+    <field name="partitionId" id="0" type="uint16"/>
+    <field name="checkpointId" id="1" type="uint64"/>
+  </sbe:message>
+
 </sbe:messageSchema>

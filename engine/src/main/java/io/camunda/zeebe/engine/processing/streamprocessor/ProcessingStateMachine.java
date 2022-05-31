@@ -275,14 +275,25 @@ public final class ProcessingStateMachine {
     TypedRecordProcessor<?> typedRecordProcessor = null;
 
     try {
-      typedRecordProcessor =
-          recordProcessorMap.get(
-              metadata.getRecordType(), metadata.getValueType(), metadata.getIntent().value());
+      if (!isMetaCommandOrEvent(metadata)) {
+        typedRecordProcessor =
+            recordProcessorMap.get(
+                metadata.getRecordType(), metadata.getValueType(), metadata.getIntent().value());
+      }
+      // TODO
+      /* else {
+         processMetaCommand
+      }*/
     } catch (final Exception e) {
       LOG.error(ERROR_MESSAGE_ON_EVENT_FAILED_SKIP_EVENT, command, metadata, e);
     }
 
     return typedRecordProcessor;
+  }
+
+  private boolean isMetaCommandOrEvent(final RecordMetadata metadata) {
+    return metadata.getRecordType() == RecordType.META_COMMAND
+        || metadata.getRecordType() == RecordType.META_EVENT;
   }
 
   private void processInTransaction(final TypedEventImpl typedRecord) throws Exception {
