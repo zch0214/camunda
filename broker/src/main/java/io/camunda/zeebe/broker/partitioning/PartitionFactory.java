@@ -219,7 +219,8 @@ final class PartitionFactory {
               communicationService, eventService, partitionListener, actor);
 
       final PartitionCommandSenderImpl partitionCommandSender =
-          new PartitionCommandSenderImpl(communicationService, partitionListener);
+          new PartitionCommandSenderImpl(
+              communicationService, processingContext.getCheckpointIdSupplier(), partitionListener);
       final SubscriptionCommandSender subscriptionCommandSender =
           new SubscriptionCommandSender(stream.getPartitionId(), partitionCommandSender);
 

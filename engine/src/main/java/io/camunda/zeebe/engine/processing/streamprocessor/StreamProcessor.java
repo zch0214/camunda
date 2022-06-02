@@ -124,10 +124,16 @@ public class StreamProcessor extends Actor implements HealthMonitorable, LogReco
             .eventCache(new RecordValues())
             .actor(actor)
             .abortCondition(this::isClosed);
+    processingContext.checkpointIdSupplier(this::getCheckpointId);
     logStream = processingContext.getLogStream();
     partitionId = logStream.getPartitionId();
     actorName = buildActorName(processorBuilder.getNodeId(), "StreamProcessor", partitionId);
     metrics = new StreamProcessorMetrics(partitionId);
+  }
+
+  private long getCheckpointId() {
+    return 0; // TODO
+    //  return processingContext.getZeebeState().getCheckpointId();
   }
 
   public static StreamProcessorBuilder builder() {

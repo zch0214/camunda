@@ -24,6 +24,7 @@ import io.camunda.zeebe.logstreams.log.LogStream;
 import io.camunda.zeebe.logstreams.log.LogStreamReader;
 import io.camunda.zeebe.util.sched.ActorControl;
 import java.util.function.BooleanSupplier;
+import java.util.function.LongSupplier;
 
 public final class ProcessingContext implements ReadonlyProcessingContext {
 
@@ -50,6 +51,7 @@ public final class ProcessingContext implements ReadonlyProcessingContext {
 
   private int maxFragmentSize;
   private StreamProcessorMode streamProcessorMode = StreamProcessorMode.PROCESSING;
+  private LongSupplier checkpointIdSupplier;
 
   public ProcessingContext() {
     streamWriterProxy.wrap(logStreamWriter);
@@ -105,6 +107,11 @@ public final class ProcessingContext implements ReadonlyProcessingContext {
     this.commandResponseWriter = commandResponseWriter;
     typedResponseWriter =
         new TypedResponseWriterImpl(commandResponseWriter, getLogStream().getPartitionId());
+    return this;
+  }
+
+  public ProcessingContext checkpointIdSupplier(final LongSupplier checkpointIdSupplier) {
+    this.checkpointIdSupplier = checkpointIdSupplier;
     return this;
   }
 
@@ -217,5 +224,9 @@ public final class ProcessingContext implements ReadonlyProcessingContext {
 
   public StreamProcessorMode getProcessorMode() {
     return streamProcessorMode;
+  }
+
+  public LongSupplier getCheckpointIdSupplier() {
+    return checkpointIdSupplier;
   }
 }

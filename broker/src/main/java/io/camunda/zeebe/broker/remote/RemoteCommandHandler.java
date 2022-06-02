@@ -7,11 +7,10 @@
  */
 package io.camunda.zeebe.broker.remote;
 
-import io.camunda.zeebe.broker.remote.RemoteCommandReceiver.TransformedRequest;
 import org.agrona.DirectBuffer;
 
 @FunctionalInterface
 public interface RemoteCommandHandler {
 
-  TransformedRequest apply(DirectBuffer buffer, int offset);
+  void apply(DirectBuffer buffer, int offset, int length);
 }

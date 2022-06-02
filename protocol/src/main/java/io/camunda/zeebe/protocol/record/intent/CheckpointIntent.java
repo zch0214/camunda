@@ -13,12 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.camunda.zeebe.protocol.record.metaintent;
+package io.camunda.zeebe.protocol.record.intent;
 
-public enum CheckpointIntent implements MetaIntent {
+public enum CheckpointIntent implements Intent {
   CREATE(0),
-  CREATED(1),
-  IGNORED(1);
+  CREATED(1);
 
   private final short value;
 
@@ -30,14 +29,14 @@ public enum CheckpointIntent implements MetaIntent {
     return value;
   }
 
-  public static MetaIntent from(final short value) {
+  public static Intent from(final short value) {
     switch (value) {
       case 0:
         return CREATE;
       case 1:
         return CREATED;
       default:
-        return IGNORED;
+        return UNKNOWN;
     }
   }
 

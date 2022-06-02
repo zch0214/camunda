@@ -42,7 +42,8 @@ public interface Intent {
           DecisionRequirementsIntent.class,
           DecisionEvaluationIntent.class,
           MessageStartEventSubscriptionIntent.class,
-          ProcessInstanceResultIntent.class);
+          ProcessInstanceResultIntent.class,
+          CheckpointIntent.class);
   short NULL_VAL = 255;
   Intent UNKNOWN =
       new Intent() {

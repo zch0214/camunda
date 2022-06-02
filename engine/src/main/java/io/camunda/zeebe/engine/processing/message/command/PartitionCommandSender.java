@@ -11,5 +11,5 @@ import io.camunda.zeebe.util.buffer.BufferWriter;
 
 public interface PartitionCommandSender {
 
-  boolean sendCommand(int receiverPartitionId, BufferWriter command);
+  boolean sendCommand(int receiverPartitionId, BufferWriter command, final String commandType);
 }

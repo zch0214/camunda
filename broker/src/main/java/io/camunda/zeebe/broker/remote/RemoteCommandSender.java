@@ -7,40 +7,26 @@
  */
 package io.camunda.zeebe.broker.remote;
 
-import io.atomix.cluster.MemberId;
-import io.atomix.cluster.messaging.ClusterCommunicationService;
-import io.camunda.zeebe.broker.partitioning.topology.TopologyPartitionListenerImpl;
 import io.camunda.zeebe.clustering.management.InterPartitionCommandMetaDataEncoder;
 import io.camunda.zeebe.clustering.management.MessageHeaderEncoder;
+import io.camunda.zeebe.engine.processing.message.command.PartitionCommandSender;
 import io.camunda.zeebe.util.buffer.BufferWriter;
 import org.agrona.MutableDirectBuffer;
-import org.agrona.collections.Int2IntHashMap;
 import org.agrona.concurrent.UnsafeBuffer;
 
 public class RemoteCommandSender {
 
-  private final TopologyPartitionListenerImpl partitionListener;
-  private final ClusterCommunicationService communicationService;
-
+  private final PartitionCommandSender sender;
   private final int metadataEncodingLength;
   private long checkpointId; // TODO, get it from streamprocessor
 
-  public RemoteCommandSender(
-      final TopologyPartitionListenerImpl partitionListener,
-      final ClusterCommunicationService communicationService) {
-    this.partitionListener = partitionListener;
-    this.communicationService = communicationService;
+  public RemoteCommandSender(final PartitionCommandSender sender) {
+    this.sender = sender;
     metadataEncodingLength = 0; // TODO Find the SBE encoded length
   }
 
-  public void sendCommand(final int toPartition, final BufferWriter command) {
-
-    final Int2IntHashMap partitionLeaders = partitionListener.getPartitionLeaders();
-    if (!partitionLeaders.containsKey(toPartition)) {
-      return;
-    }
-    final int partitionLeader = partitionLeaders.get(toPartition);
-
+  public void sendCommand(
+      final int toPartition, final BufferWriter command, final String commandType) {
     final InterPartitionCommandMetaDataEncoder metadataEncoder =
         new InterPartitionCommandMetaDataEncoder();
 
@@ -50,6 +36,8 @@ public class RemoteCommandSender {
     metadataEncoder.checkpointId(checkpointId).partitionId(toPartition);
     command.write(buffer, metadataEncodingLength);
 
-    communicationService.unicast("subscription", bytes, MemberId.from("" + partitionLeader));
+    // sender.sendCommand(toPartition, command, type); TODO: Update sendCommand() interface to
+    // include the command type
+    sender.sendCommand(toPartition, command, commandType);
   }
 }

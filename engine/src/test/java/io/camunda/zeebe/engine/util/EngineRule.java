@@ -513,7 +513,8 @@ public final class EngineRule extends ExternalResource {
   private class PartitionCommandSenderImpl implements PartitionCommandSender {
 
     @Override
-    public boolean sendCommand(final int receiverPartitionId, final BufferWriter command) {
+    public boolean sendCommand(
+        final int receiverPartitionId, final BufferWriter command, final String commandType) {
 
       final byte[] bytes = new byte[command.getLength()];
       final UnsafeBuffer commandBuffer = new UnsafeBuffer(bytes);

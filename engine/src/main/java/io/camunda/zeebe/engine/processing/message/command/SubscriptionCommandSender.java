@@ -33,24 +33,19 @@ import org.agrona.DirectBuffer;
  */
 public class SubscriptionCommandSender {
 
+  private static final String COMMAND_TYPE = "subscription";
   private final OpenMessageSubscriptionCommand openMessageSubscriptionCommand =
       new OpenMessageSubscriptionCommand();
-
   private final OpenProcessMessageSubscriptionCommand openProcessMessageSubscriptionCommand =
       new OpenProcessMessageSubscriptionCommand();
-
   private final CorrelateProcessMessageSubscriptionCommand
       correlateProcessMessageSubscriptionCommand = new CorrelateProcessMessageSubscriptionCommand();
-
   private final CorrelateMessageSubscriptionCommand correlateMessageSubscriptionCommand =
       new CorrelateMessageSubscriptionCommand();
-
   private final CloseMessageSubscriptionCommand closeMessageSubscriptionCommand =
       new CloseMessageSubscriptionCommand();
-
   private final CloseProcessMessageSubscriptionCommand closeProcessMessageSubscriptionCommand =
       new CloseProcessMessageSubscriptionCommand();
-
   private final RejectCorrelateMessageSubscriptionCommand
       rejectCorrelateMessageSubscriptionCommand = new RejectCorrelateMessageSubscriptionCommand();
   private final PartitionCommandSender partitionCommandSender;
@@ -79,7 +74,7 @@ public class SubscriptionCommandSender {
     openMessageSubscriptionCommand.setCloseOnCorrelate(closeOnCorrelate);
 
     return partitionCommandSender.sendCommand(
-        subscriptionPartitionId, openMessageSubscriptionCommand);
+        subscriptionPartitionId, openMessageSubscriptionCommand, COMMAND_TYPE);
   }
 
   public boolean openProcessMessageSubscription(
@@ -97,7 +92,7 @@ public class SubscriptionCommandSender {
     openProcessMessageSubscriptionCommand.setCloseOnCorrelate(closeOnCorrelate);
 
     return partitionCommandSender.sendCommand(
-        processInstancePartitionId, openProcessMessageSubscriptionCommand);
+        processInstancePartitionId, openProcessMessageSubscriptionCommand, COMMAND_TYPE);
   }
 
   public boolean correlateProcessMessageSubscription(
@@ -121,7 +116,7 @@ public class SubscriptionCommandSender {
     correlateProcessMessageSubscriptionCommand.getCorrelationKey().wrap(correlationKey);
 
     return partitionCommandSender.sendCommand(
-        processInstancePartitionId, correlateProcessMessageSubscriptionCommand);
+        processInstancePartitionId, correlateProcessMessageSubscriptionCommand, COMMAND_TYPE);
   }
 
   public boolean correlateMessageSubscription(
@@ -138,7 +133,7 @@ public class SubscriptionCommandSender {
     correlateMessageSubscriptionCommand.getMessageName().wrap(messageName);
 
     return partitionCommandSender.sendCommand(
-        subscriptionPartitionId, correlateMessageSubscriptionCommand);
+        subscriptionPartitionId, correlateMessageSubscriptionCommand, COMMAND_TYPE);
   }
 
   public boolean closeMessageSubscription(
@@ -153,7 +148,7 @@ public class SubscriptionCommandSender {
     closeMessageSubscriptionCommand.setMessageName(messageName);
 
     return partitionCommandSender.sendCommand(
-        subscriptionPartitionId, closeMessageSubscriptionCommand);
+        subscriptionPartitionId, closeMessageSubscriptionCommand, COMMAND_TYPE);
   }
 
   public boolean closeProcessMessageSubscription(
@@ -169,7 +164,7 @@ public class SubscriptionCommandSender {
     closeProcessMessageSubscriptionCommand.setMessageName(messageName);
 
     return partitionCommandSender.sendCommand(
-        processInstancePartitionId, closeProcessMessageSubscriptionCommand);
+        processInstancePartitionId, closeProcessMessageSubscriptionCommand, COMMAND_TYPE);
   }
 
   public boolean rejectCorrelateMessageSubscription(
@@ -189,6 +184,6 @@ public class SubscriptionCommandSender {
     rejectCorrelateMessageSubscriptionCommand.getCorrelationKey().wrap(correlationKey);
 
     return partitionCommandSender.sendCommand(
-        processInstancePartitionId, rejectCorrelateMessageSubscriptionCommand);
+        processInstancePartitionId, rejectCorrelateMessageSubscriptionCommand, COMMAND_TYPE);
   }
 }
