@@ -81,7 +81,7 @@ public class RemoteCommandReceiver {
         buffer,
         metaDataDecoder.encodedLength(),
         buffer.capacity() - metaDataDecoder.encodedLength(),
-        logStreamWriter); // TODO: handle buffer correctly
+        logStreamRecordWriter); // TODO: handle buffer correctly
   }
 
   private RemoteCommandHandler getHandler(final String commandType) {

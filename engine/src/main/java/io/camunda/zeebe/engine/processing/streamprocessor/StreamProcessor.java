@@ -132,12 +132,11 @@ public class StreamProcessor extends Actor implements HealthMonitorable, LogReco
   }
 
   private long getCheckpointId() {
-    return 0; // TODO
-    //  return processingContext.getZeebeState().getCheckpointId();
+    return processingContext.getZeebeState().getCheckpointState().getCheckpointId();
   }
 
   public ActorFuture<Long> getCheckpointIdAsync() {
-    return actor.call(() -> 0L); // TODO return checkpointId
+    return actor.call(this::getCheckpointId);
   }
 
   public static StreamProcessorBuilder builder() {

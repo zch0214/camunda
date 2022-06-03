@@ -12,6 +12,7 @@ import static io.camunda.zeebe.protocol.record.intent.DeploymentIntent.CREATE;
 import io.camunda.zeebe.el.ExpressionLanguageFactory;
 import io.camunda.zeebe.engine.metrics.JobMetrics;
 import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnEventPublicationBehavior;
+import io.camunda.zeebe.engine.processing.checkpoint.CheckpointCreateProcessor;
 import io.camunda.zeebe.engine.processing.common.CatchEventBehavior;
 import io.camunda.zeebe.engine.processing.common.EventTriggerBehavior;
 import io.camunda.zeebe.engine.processing.common.ExpressionProcessor;
@@ -38,6 +39,7 @@ import io.camunda.zeebe.engine.state.mutable.MutableZeebeState;
 import io.camunda.zeebe.logstreams.log.LogStream;
 import io.camunda.zeebe.protocol.impl.record.value.processinstance.ProcessInstanceRecord;
 import io.camunda.zeebe.protocol.record.ValueType;
+import io.camunda.zeebe.protocol.record.intent.CheckpointIntent;
 import io.camunda.zeebe.protocol.record.intent.DeploymentDistributionIntent;
 import io.camunda.zeebe.protocol.record.intent.DeploymentIntent;
 import io.camunda.zeebe.util.FeatureFlags;
@@ -143,6 +145,11 @@ public final class EngineProcessors {
         typedRecordProcessors,
         writers,
         zeebeState.getKeyGenerator());
+
+    typedRecordProcessors.onCommand(
+        ValueType.CHECKPOINT,
+        CheckpointIntent.CREATE,
+        new CheckpointCreateProcessor(zeebeState.getCheckpointState()));
 
     return typedRecordProcessors;
   }

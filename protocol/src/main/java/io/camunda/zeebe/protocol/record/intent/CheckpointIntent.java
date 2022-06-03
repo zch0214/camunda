@@ -17,7 +17,8 @@ package io.camunda.zeebe.protocol.record.intent;
 
 public enum CheckpointIntent implements Intent {
   CREATE(0),
-  CREATED(1);
+  CREATED(1),
+  IGNORED(2);
 
   private final short value;
 

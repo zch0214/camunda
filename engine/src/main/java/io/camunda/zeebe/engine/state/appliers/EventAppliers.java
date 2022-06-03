@@ -12,6 +12,7 @@ import io.camunda.zeebe.engine.state.TypedEventApplier;
 import io.camunda.zeebe.engine.state.mutable.MutableProcessMessageSubscriptionState;
 import io.camunda.zeebe.engine.state.mutable.MutableZeebeState;
 import io.camunda.zeebe.protocol.record.RecordValue;
+import io.camunda.zeebe.protocol.record.intent.CheckpointIntent;
 import io.camunda.zeebe.protocol.record.intent.DecisionIntent;
 import io.camunda.zeebe.protocol.record.intent.DecisionRequirementsIntent;
 import io.camunda.zeebe.protocol.record.intent.DeploymentDistributionIntent;
@@ -69,6 +70,8 @@ public final class EventAppliers implements EventApplier {
     register(
         DecisionRequirementsIntent.CREATED,
         new DecisionRequirementsCreatedApplier(state.getDecisionState()));
+
+    register(CheckpointIntent.CREATED, new CheckpointCreatedApplier(state.getCheckpointState()));
   }
 
   private void registerTimeEventAppliers(final MutableZeebeState state) {

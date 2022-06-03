@@ -51,6 +51,12 @@ public interface MutableZeebeState extends ZeebeState {
   @Override
   MutableEventScopeInstanceState getEventScopeInstanceState();
 
+  @Override
+  MutableDecisionState getDecisionState();
+
+  @Override
+  MutableCheckpointState getCheckpointState();
+
   MutableMigrationState getMigrationState();
 
   MutablePendingMessageSubscriptionState getPendingMessageSubscriptionState();
@@ -60,7 +66,4 @@ public interface MutableZeebeState extends ZeebeState {
   KeyGenerator getKeyGenerator();
 
   MutableLastProcessedPositionState getLastProcessedPositionState();
-
-  @Override
-  MutableDecisionState getDecisionState();
 }

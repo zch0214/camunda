@@ -13,9 +13,10 @@ import io.camunda.zeebe.protocol.impl.record.UnifiedRecordValue;
 public class CheckpointRecord extends UnifiedRecordValue {
 
   private final LongProperty checkpointIdProperty = new LongProperty("checkpointId", -1);
+  private final LongProperty checkpointPosition = new LongProperty("checkpointPosition", -1);
 
   public CheckpointRecord() {
-    declareProperty(checkpointIdProperty);
+    declareProperty(checkpointIdProperty).declareProperty(checkpointPosition);
   }
 
   public long getCheckpointId() {
@@ -24,6 +25,15 @@ public class CheckpointRecord extends UnifiedRecordValue {
 
   public CheckpointRecord setCheckpointId(final long checkpointId) {
     checkpointIdProperty.setValue(checkpointId);
+    return this;
+  }
+
+  public long getCheckpointPosition() {
+    return checkpointPosition.getValue();
+  }
+
+  public CheckpointRecord setCheckpointPosition(final long position) {
+    checkpointPosition.setValue(position);
     return this;
   }
 }
