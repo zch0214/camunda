@@ -7,10 +7,12 @@
  */
 package io.camunda.zeebe.broker.remote;
 
+import io.camunda.zeebe.logstreams.log.LogStreamRecordWriter;
 import org.agrona.DirectBuffer;
 
 @FunctionalInterface
 public interface RemoteCommandHandler {
 
-  void apply(DirectBuffer buffer, int offset, int length);
+  void apply(
+      DirectBuffer buffer, int offset, int length, final LogStreamRecordWriter logStreamWriter);
 }

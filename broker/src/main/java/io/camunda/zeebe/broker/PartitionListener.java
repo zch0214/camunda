@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.broker;
 
+import io.camunda.zeebe.engine.processing.streamprocessor.StreamProcessor;
 import io.camunda.zeebe.engine.state.QueryService;
 import io.camunda.zeebe.logstreams.log.LogStream;
 import io.camunda.zeebe.util.sched.future.ActorFuture;
@@ -45,6 +46,16 @@ public interface PartitionListener {
       // lookup of log stream and queryService will be changed in the future
       @Deprecated LogStream logStream,
       QueryService queryService);
+
+  default ActorFuture<Void> onBecomingLeader(
+      final int partitionId,
+      final long term,
+      // lookup of log stream and queryService will be changed in the future
+      @Deprecated final LogStream logStream,
+      final QueryService queryService,
+      final StreamProcessor streamProcessor) {
+    return onBecomingLeader(partitionId, term, logStream, queryService);
+  }
 
   /**
    * Is called by the {@link io.camunda.zeebe.broker.system.partitions.ZeebePartition} on becoming

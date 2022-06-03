@@ -15,7 +15,9 @@ import io.camunda.zeebe.protocol.impl.record.value.checkpoint.CheckpointRecord;
 import io.camunda.zeebe.protocol.record.RecordType;
 import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.CheckpointIntent;
+import io.camunda.zeebe.util.sched.future.ActorFuture;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 
@@ -24,13 +26,28 @@ import org.agrona.concurrent.UnsafeBuffer;
 public class RemoteCommandReceiver {
 
   private long currentCheckpointId; // Should get it from StreamProcessor. May be add a listener
-  private LogStreamRecordWriter logStreamRecordWriter;
+  private final LogStreamRecordWriter logStreamRecordWriter;
+  private final Supplier<ActorFuture<Long>> checkpointIdSupplier;
+
+  public RemoteCommandReceiver(
+      final LogStreamRecordWriter logStreamRecordWriter,
+      final Supplier<ActorFuture<Long>> checkpointIdSupplier) {
+    this.logStreamRecordWriter = logStreamRecordWriter;
+    this.checkpointIdSupplier = checkpointIdSupplier;
+  }
 
   // This must be used by PushDeploymentRequestHandler and SubscriptionMessageHandler
   public void registerCommandHandler(
       final String commandType, final Consumer<byte[]> requestHandler) {}
 
   private void handleRequest(final String commandType, final byte[] request) {
+
+    checkpointIdSupplier
+        .get()
+        .onComplete(
+            (id, error) -> {
+              currentCheckpointId = id;
+            });
 
     final DirectBuffer buffer = new UnsafeBuffer(request);
 
@@ -63,7 +80,8 @@ public class RemoteCommandReceiver {
     messageHandler.apply(
         buffer,
         metaDataDecoder.encodedLength(),
-        buffer.capacity() - metaDataDecoder.encodedLength()); // TODO: handle buffer correctly
+        buffer.capacity() - metaDataDecoder.encodedLength(),
+        logStreamWriter); // TODO: handle buffer correctly
   }
 
   private RemoteCommandHandler getHandler(final String commandType) {

@@ -136,7 +136,14 @@ public class PartitionStartupAndTransitionContextImpl
   @Override
   public List<ActorFuture<Void>> notifyListenersOfBecomingLeader(final long newTerm) {
     return partitionListeners.stream()
-        .map(l -> l.onBecomingLeader(getPartitionId(), newTerm, getLogStream(), getQueryService()))
+        .map(
+            l ->
+                l.onBecomingLeader(
+                    getPartitionId(),
+                    newTerm,
+                    getLogStream(),
+                    getQueryService(),
+                    getStreamProcessor()))
         .collect(Collectors.toList());
   }
 
