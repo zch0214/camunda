@@ -7,7 +7,6 @@
  */
 package io.camunda.zeebe.broker.bootstrap;
 
-import io.camunda.zeebe.broker.engine.impl.SubscriptionApiCommandMessageHandlerService;
 import io.camunda.zeebe.util.sched.ConcurrencyControl;
 import io.camunda.zeebe.util.sched.future.ActorFuture;
 
@@ -28,7 +27,7 @@ class SubscriptionApiStep extends AbstractBrokerStartupStep {
     final var actorSchedulingService = brokerStartupContext.getActorSchedulingService();
     final var clusterServices = brokerStartupContext.getClusterServices();
 
-    final SubscriptionApiCommandMessageHandlerService subscriptionApiService =
+    /* final SubscriptionApiCommandMessageHandlerService subscriptionApiService =
         new SubscriptionApiCommandMessageHandlerService(
             brokerInfo, clusterServices.getCommunicationService());
 
@@ -42,7 +41,7 @@ class SubscriptionApiStep extends AbstractBrokerStartupStep {
               brokerStartupContext.setSubscriptionApiService(subscriptionApiService);
               startupFuture.complete(brokerStartupContext);
             },
-            startupFuture));
+            startupFuture));*/
   }
 
   @Override

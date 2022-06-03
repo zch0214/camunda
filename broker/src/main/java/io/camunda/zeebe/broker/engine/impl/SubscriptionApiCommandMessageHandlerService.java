@@ -35,7 +35,9 @@ public final class SubscriptionApiCommandMessageHandlerService extends Actor
   private SubscriptionCommandMessageHandler messageHandler;
 
   public SubscriptionApiCommandMessageHandlerService(
-      final BrokerInfo localBroker, final ClusterCommunicationService communicationService) {
+      final BrokerInfo localBroker,
+      final ClusterCommunicationService communicationService,
+      final int ignore) {
     this.communicationService = communicationService;
     actorName = buildActorName(localBroker.getNodeId(), "SubscriptionApi");
   }

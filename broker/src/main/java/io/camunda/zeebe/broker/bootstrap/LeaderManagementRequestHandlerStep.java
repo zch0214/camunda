@@ -7,7 +7,7 @@
  */
 package io.camunda.zeebe.broker.bootstrap;
 
-import io.camunda.zeebe.broker.system.management.LeaderManagementRequestHandler;
+import io.camunda.zeebe.broker.system.management.CheckpointAwareRemoteMessageHandler;
 import io.camunda.zeebe.util.sched.ConcurrencyControl;
 import io.camunda.zeebe.util.sched.future.ActorFuture;
 
@@ -27,14 +27,20 @@ final class LeaderManagementRequestHandlerStep extends AbstractBrokerStartupStep
     final var brokerInfo = brokerStartupContext.getBrokerInfo();
     final var clusterServices = brokerStartupContext.getClusterServices();
 
-    final var managementRequestHandler =
-        new LeaderManagementRequestHandler(
+    /*final var managementRequestHandler =
+    new LeaderManagementRequestHandler(
+        brokerInfo,
+        clusterServices.getCommunicationService(),
+        clusterServices.getEventService());*/
+
+    final CheckpointAwareRemoteMessageHandler remoteMessageHandler =
+        new CheckpointAwareRemoteMessageHandler(
             brokerInfo,
             clusterServices.getCommunicationService(),
             clusterServices.getEventService());
 
     final var actorStartFuture =
-        brokerStartupContext.getActorSchedulingService().submitActor(managementRequestHandler);
+        brokerStartupContext.getActorSchedulingService().submitActor(remoteMessageHandler);
 
     concurrencyControl.runOnCompletion(
         actorStartFuture,
@@ -46,10 +52,10 @@ final class LeaderManagementRequestHandlerStep extends AbstractBrokerStartupStep
 
           forwardExceptions(
               () -> {
-                brokerStartupContext.addPartitionListener(managementRequestHandler);
-                brokerStartupContext.addDiskSpaceUsageListener(managementRequestHandler);
+                brokerStartupContext.addPartitionListener(remoteMessageHandler);
+                brokerStartupContext.addDiskSpaceUsageListener(remoteMessageHandler);
 
-                brokerStartupContext.setLeaderManagementRequestHandler(managementRequestHandler);
+                brokerStartupContext.setLeaderManagementRequestHandler(remoteMessageHandler);
 
                 startupFuture.complete(brokerStartupContext);
               },

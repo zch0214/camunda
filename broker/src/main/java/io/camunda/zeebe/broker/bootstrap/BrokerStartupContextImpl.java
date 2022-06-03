@@ -20,7 +20,7 @@ import io.camunda.zeebe.broker.partitioning.PartitionManagerImpl;
 import io.camunda.zeebe.broker.system.EmbeddedGatewayService;
 import io.camunda.zeebe.broker.system.configuration.BrokerCfg;
 import io.camunda.zeebe.broker.system.management.BrokerAdminServiceImpl;
-import io.camunda.zeebe.broker.system.management.LeaderManagementRequestHandler;
+import io.camunda.zeebe.broker.system.management.CheckpointAwareRemoteMessageHandler;
 import io.camunda.zeebe.broker.system.monitoring.BrokerHealthCheckService;
 import io.camunda.zeebe.broker.system.monitoring.DiskSpaceUsageListener;
 import io.camunda.zeebe.broker.system.monitoring.DiskSpaceUsageMonitor;
@@ -55,7 +55,7 @@ public final class BrokerStartupContextImpl implements BrokerStartupContext {
   private AdminApiRequestHandler adminApiService;
   private SubscriptionApiCommandMessageHandlerService subscriptionApiService;
   private EmbeddedGatewayService embeddedGatewayService;
-  private LeaderManagementRequestHandler leaderManagementRequestHandler;
+  private CheckpointAwareRemoteMessageHandler leaderManagementRequestHandler;
   private PartitionManagerImpl partitionManager;
   private BrokerAdminServiceImpl brokerAdminService;
 
@@ -227,13 +227,13 @@ public final class BrokerStartupContextImpl implements BrokerStartupContext {
   }
 
   @Override
-  public LeaderManagementRequestHandler getLeaderManagementRequestHandler() {
+  public CheckpointAwareRemoteMessageHandler getLeaderManagementRequestHandler() {
     return leaderManagementRequestHandler;
   }
 
   @Override
   public void setLeaderManagementRequestHandler(
-      final LeaderManagementRequestHandler leaderManagementRequestHandler) {
+      final CheckpointAwareRemoteMessageHandler leaderManagementRequestHandler) {
     this.leaderManagementRequestHandler = leaderManagementRequestHandler;
   }
 

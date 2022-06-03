@@ -43,7 +43,8 @@ public final class LeaderManagementRequestHandler extends Actor
   public LeaderManagementRequestHandler(
       final BrokerInfo localBroker,
       final ClusterCommunicationService communicationService,
-      final ClusterEventService eventService) {
+      final ClusterEventService eventService,
+      final int ignore) {
     this.communicationService = communicationService;
     this.eventService = eventService;
     actorName = buildActorName(localBroker.getNodeId(), "ManagementRequestHandler");

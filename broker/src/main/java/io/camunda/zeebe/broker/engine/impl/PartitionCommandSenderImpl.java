@@ -18,9 +18,12 @@ import java.util.function.LongSupplier;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Int2IntHashMap;
 import org.agrona.concurrent.UnsafeBuffer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class PartitionCommandSenderImpl implements PartitionCommandSender {
 
+  private static final Logger LOG = LoggerFactory.getLogger("Checkpoint");
   private final ClusterCommunicationService communicationService;
 
   private final int metadataEncodingLength;
@@ -54,9 +57,11 @@ public final class PartitionCommandSenderImpl implements PartitionCommandSender 
     final byte[] bytes = new byte[metadataEncodingLength + command.getLength()];
     final MutableDirectBuffer buffer = new UnsafeBuffer(bytes);
     metadataEncoder.wrapAndApplyHeader(buffer, 0, new MessageHeaderEncoder());
-    metadataEncoder.checkpointId(checkpointIdSupplier.getAsLong()).partitionId(receiverPartitionId);
+    final long checkpointId = checkpointIdSupplier.getAsLong();
+    metadataEncoder.checkpointId(checkpointId).partitionId(receiverPartitionId);
     command.write(buffer, metadataEncodingLength);
 
+    LOG.info("Sending remote command with checkpointId {}", checkpointId);
     communicationService.unicast(commandType, bytes, MemberId.from("" + partitionLeader));
     return true;
   }
