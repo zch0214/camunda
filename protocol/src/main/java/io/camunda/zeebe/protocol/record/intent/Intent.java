@@ -106,6 +106,8 @@ public interface Intent {
         return DecisionRequirementsIntent.from(intent);
       case DECISION_EVALUATION:
         return DecisionEvaluationIntent.from(intent);
+      case CHECKPOINT:
+        return CheckpointIntent.from(intent);
       case NULL_VAL:
       case SBE_UNKNOWN:
         return Intent.UNKNOWN;
@@ -161,6 +163,8 @@ public interface Intent {
         return DecisionRequirementsIntent.valueOf(intent);
       case DECISION_EVALUATION:
         return DecisionEvaluationIntent.valueOf(intent);
+      case CHECKPOINT:
+        return CheckpointIntent.valueOf(intent);
       case NULL_VAL:
       case SBE_UNKNOWN:
         return Intent.UNKNOWN;

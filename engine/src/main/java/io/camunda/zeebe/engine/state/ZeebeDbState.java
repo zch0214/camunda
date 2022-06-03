@@ -26,6 +26,7 @@ import io.camunda.zeebe.engine.state.message.DbMessageSubscriptionState;
 import io.camunda.zeebe.engine.state.message.DbProcessMessageSubscriptionState;
 import io.camunda.zeebe.engine.state.migration.DbMigrationState;
 import io.camunda.zeebe.engine.state.mutable.MutableBlackListState;
+import io.camunda.zeebe.engine.state.mutable.MutableCheckpointState;
 import io.camunda.zeebe.engine.state.mutable.MutableDecisionState;
 import io.camunda.zeebe.engine.state.mutable.MutableDeploymentState;
 import io.camunda.zeebe.engine.state.mutable.MutableElementInstanceState;
@@ -74,6 +75,8 @@ public class ZeebeDbState implements MutableZeebeState {
   private final MutableMigrationState mutableMigrationState;
   private final MutableDecisionState decisionState;
 
+  private final MutableCheckpointState checkpointState;
+
   private final int partitionId;
 
   public ZeebeDbState(
@@ -109,6 +112,7 @@ public class ZeebeDbState implements MutableZeebeState {
     decisionState = new DbDecisionState(zeebeDb, transactionContext);
 
     mutableMigrationState = new DbMigrationState(zeebeDb, transactionContext);
+    checkpointState = new DbCheckpointState(zeebeDb, transactionContext);
   }
 
   @Override
@@ -183,13 +187,18 @@ public class ZeebeDbState implements MutableZeebeState {
   }
 
   @Override
-  public MutableMigrationState getMigrationState() {
-    return mutableMigrationState;
+  public MutableDecisionState getDecisionState() {
+    return decisionState;
   }
 
   @Override
-  public KeyGenerator getKeyGenerator() {
-    return keyGenerator;
+  public MutableCheckpointState getCheckpointState() {
+    return checkpointState;
+  }
+
+  @Override
+  public MutableMigrationState getMigrationState() {
+    return mutableMigrationState;
   }
 
   @Override
@@ -200,6 +209,16 @@ public class ZeebeDbState implements MutableZeebeState {
   @Override
   public MutablePendingProcessMessageSubscriptionState getPendingProcessMessageSubscriptionState() {
     return processMessageSubscriptionState;
+  }
+
+  @Override
+  public KeyGenerator getKeyGenerator() {
+    return keyGenerator;
+  }
+
+  @Override
+  public MutableLastProcessedPositionState getLastProcessedPositionState() {
+    return lastProcessedPositionState;
   }
 
   @Override
@@ -240,15 +259,5 @@ public class ZeebeDbState implements MutableZeebeState {
 
   public KeyGeneratorControls getKeyGeneratorControls() {
     return keyGenerator;
-  }
-
-  @Override
-  public MutableLastProcessedPositionState getLastProcessedPositionState() {
-    return lastProcessedPositionState;
-  }
-
-  @Override
-  public MutableDecisionState getDecisionState() {
-    return decisionState;
   }
 }

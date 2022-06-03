@@ -48,9 +48,10 @@ public class CheckpointCreateProcessor implements CommandProcessor<CheckpointRec
               .setCheckpointPosition(state.getCheckpointPosition());
       commandControl.accept(CheckpointIntent.IGNORED, updatedValue);
       LOG.info(
-          "Ignoring checkpoint command. Checkpoint {} exists at position {}",
+          "Ignoring checkpoint command for id {}. Checkpoint {} exists at position {}",
           command.getValue().getCheckpointId(),
-          command.getPosition());
+          state.getCheckpointId(),
+          state.getCheckpointPosition());
     }
 
     return true;

@@ -13,6 +13,7 @@ import io.camunda.zeebe.broker.transport.ApiRequestHandler.RequestReader;
 import io.camunda.zeebe.broker.transport.RequestReaderException;
 import io.camunda.zeebe.msgpack.UnpackedObject;
 import io.camunda.zeebe.protocol.impl.record.RecordMetadata;
+import io.camunda.zeebe.protocol.impl.record.value.checkpoint.CheckpointRecord;
 import io.camunda.zeebe.protocol.impl.record.value.deployment.DeploymentRecord;
 import io.camunda.zeebe.protocol.impl.record.value.incident.IncidentRecord;
 import io.camunda.zeebe.protocol.impl.record.value.job.JobBatchRecord;
@@ -40,6 +41,7 @@ public class CommandApiRequestReader implements RequestReader<ExecuteCommandRequ
     RECORDS_BY_TYPE.put(ValueType.INCIDENT, new IncidentRecord());
     RECORDS_BY_TYPE.put(ValueType.VARIABLE_DOCUMENT, new VariableDocumentRecord());
     RECORDS_BY_TYPE.put(ValueType.PROCESS_INSTANCE_CREATION, new ProcessInstanceCreationRecord());
+    RECORDS_BY_TYPE.put(ValueType.CHECKPOINT, new CheckpointRecord());
   }
 
   private UnpackedObject event;

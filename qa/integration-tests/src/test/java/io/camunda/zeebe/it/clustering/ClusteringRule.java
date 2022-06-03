@@ -46,6 +46,7 @@ import io.camunda.zeebe.client.api.response.Topology;
 import io.camunda.zeebe.engine.state.QueryService;
 import io.camunda.zeebe.gateway.Gateway;
 import io.camunda.zeebe.gateway.impl.broker.request.BrokerCreateProcessInstanceRequest;
+import io.camunda.zeebe.gateway.impl.broker.request.CheckpointRequest;
 import io.camunda.zeebe.gateway.impl.broker.response.BrokerResponse;
 import io.camunda.zeebe.gateway.impl.configuration.ClusterCfg;
 import io.camunda.zeebe.gateway.impl.configuration.GatewayCfg;
@@ -911,6 +912,11 @@ public final class ClusteringRule extends ExternalResource {
     final var nodeId = otherBrokerObjects.get(0).getConfig().getCluster().getNodeId();
     stopBroker(nodeId);
     return nodeId;
+  }
+
+  public void sendCheckpointCommand(final long checkpointId) {
+    final CheckpointRequest request = new CheckpointRequest(checkpointId);
+    gateway.getBrokerClient().sendRequest(request).join();
   }
 
   private class LeaderListener implements PartitionListener {
