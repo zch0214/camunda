@@ -16,7 +16,7 @@ import org.junit.rules.Timeout;
 public class BackupTest {
 
   public final Timeout testTimeout = Timeout.seconds(120);
-  public final ClusteringRule clusteringRule = new ClusteringRule(1, 1, 1);
+  public final ClusteringRule clusteringRule = new ClusteringRule(3, 1, 1);
   public final GrpcClientRule clientRule = new GrpcClientRule(clusteringRule);
 
   @Rule
@@ -24,12 +24,31 @@ public class BackupTest {
       RuleChain.outerRule(testTimeout).around(clusteringRule).around(clientRule);
 
   @Test
-  public void shouldBecomeFollowerAfterRestart() {
+  public void shouldTriggerBackup() {
     // given
 
     // when
-    clusteringRule.sendCheckpointCommand(1);
-    clusteringRule.sendCheckpointCommand(2);
-    clusteringRule.sendCheckpointCommand(2);
+    clusteringRule.sendCheckpointCommand(1, 1);
+    clusteringRule.sendCheckpointCommand(2, 1);
+    clusteringRule.sendCheckpointCommand(2, 1);
+  }
+
+  @Test
+  public void shouldTriggerBackupByRemoteCommand() {
+    // given
+
+    // when
+    clusteringRule.sendCheckpointCommand(1, 1);
+    clientRule.createSingleJob("Test"); // deploys
+  }
+
+  @Test
+  public void shouldTriggerBackupMultiPartitions() {
+    // given
+
+    // when
+    clusteringRule.sendCheckpointCommand(1, 1);
+    clusteringRule.sendCheckpointCommand(1, 2);
+    clientRule.createSingleJob("Test"); // deploys
   }
 }

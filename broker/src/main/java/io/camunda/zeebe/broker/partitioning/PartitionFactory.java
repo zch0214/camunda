@@ -22,7 +22,6 @@ import io.camunda.zeebe.broker.logstreams.state.StatePositionSupplier;
 import io.camunda.zeebe.broker.partitioning.topology.TopologyManager;
 import io.camunda.zeebe.broker.partitioning.topology.TopologyPartitionListenerImpl;
 import io.camunda.zeebe.broker.system.configuration.BrokerCfg;
-import io.camunda.zeebe.broker.system.management.deployment.PushDeploymentRequestHandler;
 import io.camunda.zeebe.broker.system.monitoring.BrokerHealthCheckService;
 import io.camunda.zeebe.broker.system.partitions.PartitionStartupAndTransitionContextImpl;
 import io.camunda.zeebe.broker.system.partitions.PartitionStartupContext;
@@ -82,7 +81,6 @@ final class PartitionFactory {
   private final ActorSchedulingService actorSchedulingService;
   private final BrokerCfg brokerCfg;
   private final BrokerInfo localBroker;
-  private final PushDeploymentRequestHandler deploymentRequestHandler;
   private final CommandApiService commandApiService;
   private final FileBasedSnapshotStoreFactory snapshotStoreFactory;
   private final ClusterServices clusterServices;
@@ -93,7 +91,6 @@ final class PartitionFactory {
       final ActorSchedulingService actorSchedulingService,
       final BrokerCfg brokerCfg,
       final BrokerInfo localBroker,
-      final PushDeploymentRequestHandler deploymentRequestHandler,
       final CommandApiService commandApiService,
       final FileBasedSnapshotStoreFactory snapshotStoreFactory,
       final ClusterServices clusterServices,
@@ -102,7 +99,6 @@ final class PartitionFactory {
     this.actorSchedulingService = actorSchedulingService;
     this.brokerCfg = brokerCfg;
     this.localBroker = localBroker;
-    this.deploymentRequestHandler = deploymentRequestHandler;
     this.commandApiService = commandApiService;
     this.snapshotStoreFactory = snapshotStoreFactory;
     this.clusterServices = clusterServices;
@@ -129,12 +125,7 @@ final class PartitionFactory {
 
     final var typedRecordProcessorsFactory =
         createFactory(
-            topologyManager,
-            localBroker,
-            communicationService,
-            eventService,
-            deploymentRequestHandler,
-            featureFlags);
+            topologyManager, localBroker, communicationService, eventService, featureFlags);
 
     for (final RaftPartition owningPartition : owningPartitions) {
       final var partitionId = owningPartition.id().id();
@@ -203,7 +194,6 @@ final class PartitionFactory {
       final BrokerInfo localBroker,
       final ClusterCommunicationService communicationService,
       final ClusterEventService eventService,
-      final PushDeploymentRequestHandler deploymentRequestHandler,
       final FeatureFlags featureFlags) {
     return (ProcessingContext processingContext) -> {
       final var actor = processingContext.getActor();
@@ -214,13 +204,12 @@ final class PartitionFactory {
           new TopologyPartitionListenerImpl(actor);
       topologyManager.addTopologyPartitionListener(partitionListener);
 
-      final DeploymentDistributorImpl deploymentDistributor =
-          new DeploymentDistributorImpl(
-              communicationService, eventService, partitionListener, actor);
-
       final PartitionCommandSenderImpl partitionCommandSender =
           new PartitionCommandSenderImpl(
               communicationService, processingContext.getCheckpointIdSupplier(), partitionListener);
+
+      final DeploymentDistributorImpl deploymentDistributor =
+          new DeploymentDistributorImpl(partitionListener, partitionCommandSender, actor);
       final SubscriptionCommandSender subscriptionCommandSender =
           new SubscriptionCommandSender(stream.getPartitionId(), partitionCommandSender);
 
@@ -233,7 +222,7 @@ final class PartitionFactory {
               localBroker.getPartitionsCount(),
               subscriptionCommandSender,
               deploymentDistributor,
-              deploymentRequestHandler,
+              deploymentDistributor,
               jobsAvailableNotification::onJobsAvailable,
               featureFlags);
 

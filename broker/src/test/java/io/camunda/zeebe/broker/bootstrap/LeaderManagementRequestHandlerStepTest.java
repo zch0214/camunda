@@ -15,7 +15,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.camunda.zeebe.broker.clustering.ClusterServicesImpl;
-import io.camunda.zeebe.broker.system.management.LeaderManagementRequestHandler;
+import io.camunda.zeebe.broker.system.management.CheckpointAwareRemoteMessageHandler;
 import io.camunda.zeebe.protocol.impl.encoding.BrokerInfo;
 import io.camunda.zeebe.util.sched.ActorSchedulingService;
 import io.camunda.zeebe.util.sched.TestConcurrencyControl;
@@ -32,7 +32,7 @@ class LeaderManagementRequestHandlerStepTest {
 
   private BrokerStartupContext mockBrokerStartupContext;
   private ActorSchedulingService mockActorSchedulingService;
-  private LeaderManagementRequestHandler mockLeaderManagementRequestHandler;
+  private CheckpointAwareRemoteMessageHandler mockLeaderManagementRequestHandler;
 
   private ActorFuture<BrokerStartupContext> future;
 
@@ -45,7 +45,7 @@ class LeaderManagementRequestHandlerStepTest {
     when(mockActorSchedulingService.submitActor(any()))
         .thenReturn(CONCURRENCY_CONTROL.completedFuture(null));
 
-    mockLeaderManagementRequestHandler = mock(LeaderManagementRequestHandler.class);
+    mockLeaderManagementRequestHandler = mock(CheckpointAwareRemoteMessageHandler.class);
     when(mockLeaderManagementRequestHandler.closeAsync())
         .thenReturn(CONCURRENCY_CONTROL.completedFuture(null));
 
@@ -81,7 +81,7 @@ class LeaderManagementRequestHandlerStepTest {
     await().until(future::isDone);
 
     // then
-    final var argumentCaptor = ArgumentCaptor.forClass(LeaderManagementRequestHandler.class);
+    final var argumentCaptor = ArgumentCaptor.forClass(CheckpointAwareRemoteMessageHandler.class);
     verify(mockActorSchedulingService).submitActor(argumentCaptor.capture());
     verify(mockBrokerStartupContext).setLeaderManagementRequestHandler(argumentCaptor.getValue());
   }
@@ -93,7 +93,7 @@ class LeaderManagementRequestHandlerStepTest {
     await().until(future::isDone);
 
     // then
-    final var argumentCaptor = ArgumentCaptor.forClass(LeaderManagementRequestHandler.class);
+    final var argumentCaptor = ArgumentCaptor.forClass(CheckpointAwareRemoteMessageHandler.class);
     verify(mockBrokerStartupContext).setLeaderManagementRequestHandler(argumentCaptor.capture());
     verify(mockBrokerStartupContext).addPartitionListener(argumentCaptor.getValue());
   }
@@ -105,7 +105,7 @@ class LeaderManagementRequestHandlerStepTest {
     await().until(future::isDone);
 
     // then
-    final var argumentCaptor = ArgumentCaptor.forClass(LeaderManagementRequestHandler.class);
+    final var argumentCaptor = ArgumentCaptor.forClass(CheckpointAwareRemoteMessageHandler.class);
     verify(mockBrokerStartupContext).setLeaderManagementRequestHandler(argumentCaptor.capture());
     verify(mockBrokerStartupContext).addDiskSpaceUsageListener(argumentCaptor.getValue());
   }

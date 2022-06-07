@@ -7,29 +7,23 @@
  */
 package io.camunda.zeebe.broker.engine.impl;
 
-import io.atomix.cluster.MemberId;
-import io.atomix.cluster.messaging.ClusterCommunicationService;
-import io.atomix.cluster.messaging.ClusterEventService;
 import io.camunda.zeebe.broker.Loggers;
 import io.camunda.zeebe.broker.partitioning.topology.TopologyPartitionListenerImpl;
 import io.camunda.zeebe.broker.system.management.deployment.PushDeploymentRequest;
 import io.camunda.zeebe.broker.system.management.deployment.PushDeploymentResponse;
+import io.camunda.zeebe.engine.processing.deployment.DeploymentResponder;
 import io.camunda.zeebe.engine.processing.deployment.distribute.DeploymentDistributor;
+import io.camunda.zeebe.engine.processing.message.command.PartitionCommandSender;
 import io.camunda.zeebe.protocol.impl.encoding.ErrorResponse;
-import io.camunda.zeebe.protocol.record.ErrorCode;
-import io.camunda.zeebe.util.buffer.BufferUtil;
 import io.camunda.zeebe.util.sched.ActorControl;
 import io.camunda.zeebe.util.sched.future.ActorFuture;
 import io.camunda.zeebe.util.sched.future.CompletableActorFuture;
-import java.nio.ByteOrder;
 import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
 import org.agrona.DirectBuffer;
 import org.agrona.collections.Int2IntHashMap;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 
-public final class DeploymentDistributorImpl implements DeploymentDistributor {
+public final class DeploymentDistributorImpl implements DeploymentDistributor, DeploymentResponder {
 
   public static final Duration PUSH_REQUEST_TIMEOUT = Duration.ofSeconds(15);
   public static final Duration RETRY_DELAY = Duration.ofMillis(100);
@@ -40,21 +34,17 @@ public final class DeploymentDistributorImpl implements DeploymentDistributor {
   private final ErrorResponse errorResponse = new ErrorResponse();
 
   private final TopologyPartitionListenerImpl partitionListener;
+
+  private final PartitionCommandSender partitionCommandSender;
   private final ActorControl actor;
 
-  private final ClusterCommunicationService communicationService;
-  private final ClusterEventService eventService;
-
   public DeploymentDistributorImpl(
-      final ClusterCommunicationService communicationService,
-      final ClusterEventService eventService,
       final TopologyPartitionListenerImpl partitionListener,
+      final PartitionCommandSender partitionCommandSender,
       final ActorControl actor) {
 
-    this.communicationService = communicationService;
-    this.eventService = eventService;
-
     this.partitionListener = partitionListener;
+    this.partitionCommandSender = partitionCommandSender;
     this.actor = actor;
   }
 
@@ -100,7 +90,6 @@ public final class DeploymentDistributorImpl implements DeploymentDistributor {
     final Int2IntHashMap currentPartitionLeaders = partitionListener.getPartitionLeaders();
     if (currentPartitionLeaders.containsKey(partitionId)) {
       final int leader = currentPartitionLeaders.get(partitionId);
-      createResponseSubscription(pushRequest.deploymentKey(), partitionId, pushedFuture);
       pushDeploymentToPartition(leader, partitionId, pushRequest);
     }
   }
@@ -108,112 +97,43 @@ public final class DeploymentDistributorImpl implements DeploymentDistributor {
   private void pushDeploymentToPartition(
       final int partitionLeaderId, final int partition, final PushDeploymentRequest pushRequest) {
     pushRequest.partitionId(partition);
-    final byte[] bytes = pushRequest.toBytes();
-    final MemberId memberId = new MemberId(Integer.toString(partitionLeaderId));
 
-    final CompletableFuture<byte[]> pushDeploymentFuture =
-        communicationService.send(DEPLOYMENT_PUSH_TOPIC, bytes, memberId, PUSH_REQUEST_TIMEOUT);
+    final var send =
+        partitionCommandSender.sendCommand(partition, pushRequest, DEPLOYMENT_PUSH_TOPIC);
 
-    pushDeploymentFuture.whenComplete(
-        (response, throwable) -> {
-          if (throwable != null) {
-            LOG.warn(
-                "Failed to push deployment to node {} for partition {}",
-                partitionLeaderId,
-                partition,
-                throwable);
-            handleRetry(partitionLeaderId, partition, pushRequest);
-          } else {
-            final DirectBuffer responseBuffer = new UnsafeBuffer(response);
-            if (errorResponse.tryWrap(responseBuffer)) {
-              handleErrorResponseOnPushDeploymentRequest(
-                  partitionLeaderId, partition, pushRequest, responseBuffer);
-            }
-          }
-        });
-  }
+    // TODO: Error handling
 
-  private void handleErrorResponseOnPushDeploymentRequest(
-      final int partitionLeaderId,
-      final int partition,
-      final PushDeploymentRequest pushRequest,
-      final DirectBuffer responseBuffer) {
-    errorResponse.wrap(responseBuffer, 0, responseBuffer.capacity());
-
-    final var errorCode = errorResponse.getErrorCode();
-    if (errorCode == ErrorCode.PARTITION_LEADER_MISMATCH) {
-      final int responsePartition = errorResponse.getErrorData().getInt(0, ByteOrder.LITTLE_ENDIAN);
-      LOG.debug(
-          "Received partition leader mismatch error from partition {} for deployment {}. Retrying.",
-          responsePartition,
-          pushRequest.deploymentKey());
-
-    } else if (errorCode == ErrorCode.RESOURCE_EXHAUSTED) {
-      LOG.warn(
-          "Received rejected deployment push due to error of type {}: '{}'. Will be retried after a delay",
-          errorCode.name(),
-          BufferUtil.bufferAsString(errorResponse.getErrorData()));
-      return;
-    } else {
-      LOG.warn(
-          "Received rejected deployment push due to error of type {}: '{}'",
-          errorCode.name(),
-          BufferUtil.bufferAsString(errorResponse.getErrorData()));
-    }
-
-    handleRetry(partitionLeaderId, partition, pushRequest);
-  }
-
-  private void createResponseSubscription(
-      final long deploymentKey,
-      final int partitionId,
-      final CompletableActorFuture<Void> distributedFuture) {
-    final String topic = getDeploymentResponseTopic(deploymentKey, partitionId);
-
-    if (eventService.getSubscriptions(topic).isEmpty()) {
-      LOG.trace("Setting up deployment subscription for topic {}", topic);
-      eventService.subscribe(
-          topic,
-          (byte[] response) -> {
-            LOG.trace("Receiving deployment response on topic {}", topic);
-            final DirectBuffer responseBuffer = new UnsafeBuffer(response);
-
-            if (pushDeploymentResponse.tryWrap(responseBuffer)) {
-              // might be completed due to retry
-              if (!distributedFuture.isDone()) {
-                distributedFuture.complete(null);
-              }
-            } else if (errorResponse.tryWrap(responseBuffer)) {
-              errorResponse.wrap(responseBuffer, 0, responseBuffer.capacity());
-              LOG.warn(
-                  "Received rejected deployment push due to error of type {}: '{}'",
-                  errorResponse.getErrorCode().name(),
-                  BufferUtil.bufferAsString(errorResponse.getErrorData()));
-            } else {
-              LOG.warn("Received unknown deployment response on topic {}", topic);
-            }
-            return CompletableFuture.completedFuture(null);
-          });
-    }
-  }
-
-  private void handleRetry(
-      final int partitionLeaderId, final int partition, final PushDeploymentRequest pushRequest) {
-    LOG.trace("Retry deployment push to partition {} after {}", partition, RETRY_DELAY);
-
-    actor.runDelayed(
-        RETRY_DELAY,
-        () -> {
-          final Int2IntHashMap partitionLeaders = partitionListener.getPartitionLeaders();
-          if (partitionLeaders.containsKey(partition)) {
-            pushDeploymentToPartition(partitionLeaders.get(partition), partition, pushRequest);
-          } else {
-            pushDeploymentToPartition(partitionLeaderId, partition, pushRequest);
-          }
-        });
+    //    pushDeploymentFuture.whenComplete(
+    //        (response, throwable) -> {
+    //          if (throwable != null) {
+    //            LOG.warn(
+    //                "Failed to push deployment to node {} for partition {}",
+    //                partitionLeaderId,
+    //                partition,
+    //                throwable);
+    //            handleRetry(partitionLeaderId, partition, pushRequest);
+    //          } else {
+    //            final DirectBuffer responseBuffer = new UnsafeBuffer(response);
+    //            if (errorResponse.tryWrap(responseBuffer)) {
+    //              handleErrorResponseOnPushDeploymentRequest(
+    //                  partitionLeaderId, partition, pushRequest, responseBuffer);
+    //            }
+    //          }
+    //        });
   }
 
   public static String getDeploymentResponseTopic(final long deploymentKey, final int partitionId) {
     return String.format("deployment-response-%d-%d", deploymentKey, partitionId);
+  }
+
+  @Override
+  public void sendDeploymentResponse(final long deploymentKey, final int partitionId) {
+    final PushDeploymentResponse deploymentResponse = new PushDeploymentResponse();
+    deploymentResponse.deploymentKey(deploymentKey).partitionId(partitionId);
+    final String topic =
+        DeploymentDistributorImpl.getDeploymentResponseTopic(deploymentKey, partitionId);
+
+    partitionCommandSender.sendCommand(partitionId, deploymentResponse, topic);
+    LOG.trace("Send deployment response on topic {} for partition {}", topic, partitionId);
   }
 }

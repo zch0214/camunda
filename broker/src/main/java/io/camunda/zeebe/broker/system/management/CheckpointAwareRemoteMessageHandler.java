@@ -15,7 +15,9 @@ import io.camunda.zeebe.broker.remote.RemoteCommandHandler;
 import io.camunda.zeebe.broker.system.management.deployment.PushDeploymentRemoteCommandHandler;
 import io.camunda.zeebe.broker.system.monitoring.DiskSpaceUsageListener;
 import io.camunda.zeebe.clustering.management.InterPartitionCommandMetaDataDecoder;
+import io.camunda.zeebe.clustering.management.InterPartitionCommandMetaDataEncoder;
 import io.camunda.zeebe.clustering.management.MessageHeaderDecoder;
+import io.camunda.zeebe.clustering.management.MessageHeaderEncoder;
 import io.camunda.zeebe.engine.processing.streamprocessor.StreamProcessor;
 import io.camunda.zeebe.engine.state.QueryService;
 import io.camunda.zeebe.logstreams.log.LogStream;
@@ -75,6 +77,7 @@ public final class CheckpointAwareRemoteMessageHandler extends Actor
 
     remoteCommandHandlerMap.put("deployment", new PushDeploymentRemoteCommandHandler());
     remoteCommandHandlerMap.put("subscription", new SubscriptionRemoteCommandHandler());
+    // TODO: handle DeploymentResponse
   }
 
   private void handleRequest(
@@ -122,11 +125,15 @@ public final class CheckpointAwareRemoteMessageHandler extends Actor
     }
     // then write the received command
 
+    final var metadataEncodingLength =
+        new MessageHeaderEncoder().encodedLength()
+            + new InterPartitionCommandMetaDataEncoder().sbeBlockLength();
+
     final RemoteCommandHandler messageHandler = getHandler(commandType);
     try {
       messageHandler.apply(
           buffer,
-          metaDataDecoder.encodedLength(),
+          metadataEncodingLength,
           buffer.capacity() - metaDataDecoder.encodedLength(),
           logStreamRecordWriter);
       future.complete(null);

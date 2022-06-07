@@ -914,8 +914,9 @@ public final class ClusteringRule extends ExternalResource {
     return nodeId;
   }
 
-  public void sendCheckpointCommand(final long checkpointId) {
+  public void sendCheckpointCommand(final long checkpointId, final int partitionId) {
     final CheckpointRequest request = new CheckpointRequest(checkpointId);
+    request.setPartitionId(partitionId);
     gateway.getBrokerClient().sendRequest(request).join();
   }
 

@@ -30,9 +30,6 @@ final class PartitionManagerStep extends AbstractBrokerStartupStep {
             brokerStartupContext.getBrokerInfo(),
             brokerStartupContext.getClusterServices(),
             brokerStartupContext.getHealthCheckService(),
-            brokerStartupContext
-                .getLeaderManagementRequestHandler()
-                .getPushDeploymentRequestHandler(),
             brokerStartupContext::addDiskSpaceUsageListener,
             brokerStartupContext.getPartitionListeners(),
             brokerStartupContext.getCommandApiService(),

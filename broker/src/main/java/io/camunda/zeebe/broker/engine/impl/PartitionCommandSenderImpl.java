@@ -61,7 +61,12 @@ public final class PartitionCommandSenderImpl implements PartitionCommandSender 
     metadataEncoder.checkpointId(checkpointId).partitionId(receiverPartitionId);
     command.write(buffer, metadataEncodingLength);
 
-    LOG.info("Sending remote command with checkpointId {}", checkpointId);
+    LOG.info(
+        "Sending remote command {} with checkpointId {} to partition {} at node {}",
+        commandType,
+        checkpointId,
+        receiverPartitionId,
+        partitionLeader);
     communicationService.unicast(commandType, bytes, MemberId.from("" + partitionLeader));
     return true;
   }
