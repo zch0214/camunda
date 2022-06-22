@@ -44,6 +44,7 @@ public class BackupActor extends Actor {
               snapshotFuture,
               (snapshot, error) -> {
                 if (error == null) {
+                  // TODO: Handle case when snapshot does not exists
                   if (snapshot.getSnapshotId().getProcessedPosition() < checkpointPosition) {
                     final Path snapshotDirectory = snapshot.getPath();
                     final List<Path> segmentFiles =

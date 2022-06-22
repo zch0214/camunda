@@ -21,8 +21,7 @@ import java.nio.file.Paths;
 import java.util.UUID;
 
 public final class BackupStorePartitionTransitionStep implements PartitionTransitionStep {
-  private static final Path BACKUP_ROOT_DIRECTORY =
-      Paths.get("/home/deepthi/Desktop/tmp/", UUID.randomUUID().toString());
+  public static final Path BACKUP_ROOT_DIRECTORY = Paths.get("/tmp/", UUID.randomUUID().toString());
 
   @Override
   public ActorFuture<Void> prepareTransition(
