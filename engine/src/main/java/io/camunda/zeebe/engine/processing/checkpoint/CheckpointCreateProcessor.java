@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.engine.processing.checkpoint;
 
+import io.camunda.zeebe.backup.BackupActor;
 import io.camunda.zeebe.engine.processing.streamprocessor.CommandProcessor;
 import io.camunda.zeebe.engine.processing.streamprocessor.TypedRecord;
 import io.camunda.zeebe.engine.processing.streamprocessor.sideeffect.SideEffectProducer;
@@ -21,9 +22,11 @@ public class CheckpointCreateProcessor implements CommandProcessor<CheckpointRec
 
   private static final Logger LOG = LoggerFactory.getLogger("Checkpoint");
   private final LastCheckpointState state;
+  private final BackupActor backupActor;
 
-  public CheckpointCreateProcessor(final LastCheckpointState state) {
+  public CheckpointCreateProcessor(final LastCheckpointState state, final BackupActor backupActor) {
     this.state = state;
+    this.backupActor = backupActor;
   }
 
   @Override
@@ -31,15 +34,14 @@ public class CheckpointCreateProcessor implements CommandProcessor<CheckpointRec
       final TypedRecord<CheckpointRecord> command,
       final CommandControl<CheckpointRecord> commandControl,
       final Consumer<SideEffectProducer> sideEffect) {
-    if (state.getCheckpointId() < command.getValue().getCheckpointId()) {
-      final var updatedValue = command.getValue().setCheckpointPosition(command.getPosition());
+    final long checkpointId = command.getValue().getCheckpointId();
+    if (state.getCheckpointId() < checkpointId) {
+      final long checkpointPosition = command.getPosition();
+      final var updatedValue = command.getValue().setCheckpointPosition(checkpointPosition);
       commandControl.accept(CheckpointIntent.CREATED, updatedValue);
-      // Trigger backupActor to take  TODO
+      backupActor.takeBackup(checkpointId, checkpointPosition);
 
-      LOG.info(
-          "Creating checkpoint {} at position {}",
-          command.getValue().getCheckpointId(),
-          command.getPosition());
+      LOG.info("Creating checkpoint {} at position {}", checkpointId, checkpointPosition);
     } else {
       final var updatedValue =
           command
@@ -49,7 +51,7 @@ public class CheckpointCreateProcessor implements CommandProcessor<CheckpointRec
       commandControl.accept(CheckpointIntent.IGNORED, updatedValue);
       LOG.info(
           "Ignoring checkpoint command for id {}. Checkpoint {} exists at position {}",
-          command.getValue().getCheckpointId(),
+          checkpointId,
           state.getCheckpointId(),
           state.getCheckpointPosition());
     }

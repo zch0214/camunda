@@ -9,6 +9,7 @@ package io.camunda.zeebe.engine.processing;
 
 import static io.camunda.zeebe.protocol.record.intent.DeploymentIntent.CREATE;
 
+import io.camunda.zeebe.backup.BackupActor;
 import io.camunda.zeebe.el.ExpressionLanguageFactory;
 import io.camunda.zeebe.engine.metrics.JobMetrics;
 import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnEventPublicationBehavior;
@@ -55,7 +56,8 @@ public final class EngineProcessors {
       final DeploymentDistributor deploymentDistributor,
       final DeploymentResponder deploymentResponder,
       final Consumer<String> onJobsAvailableCallback,
-      final FeatureFlags featureFlags) {
+      final FeatureFlags featureFlags,
+      final BackupActor backupActor) {
 
     final var actor = processingContext.getActor();
     final MutableZeebeState zeebeState = processingContext.getZeebeState();
@@ -149,7 +151,7 @@ public final class EngineProcessors {
     typedRecordProcessors.onCommand(
         ValueType.CHECKPOINT,
         CheckpointIntent.CREATE,
-        new CheckpointCreateProcessor(zeebeState.getCheckpointState()));
+        new CheckpointCreateProcessor(zeebeState.getCheckpointState(), backupActor));
 
     return typedRecordProcessors;
   }

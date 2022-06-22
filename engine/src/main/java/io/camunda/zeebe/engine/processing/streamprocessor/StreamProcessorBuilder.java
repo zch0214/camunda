@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.engine.processing.streamprocessor;
 
+import io.camunda.zeebe.backup.BackupActor;
 import io.camunda.zeebe.db.ZeebeDb;
 import io.camunda.zeebe.engine.processing.streamprocessor.writers.CommandResponseWriter;
 import io.camunda.zeebe.engine.processing.streamprocessor.writers.TypedStreamWriter;
@@ -56,6 +57,11 @@ public final class StreamProcessorBuilder {
 
   public StreamProcessorBuilder logStream(final LogStream stream) {
     processingContext.logStream(stream);
+    return this;
+  }
+
+  public StreamProcessorBuilder backupActor(final BackupActor backupActor) {
+    processingContext.backupActor(backupActor);
     return this;
   }
 

@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.engine.processing.streamprocessor;
 
+import io.camunda.zeebe.backup.BackupActor;
 import io.camunda.zeebe.db.TransactionContext;
 import io.camunda.zeebe.engine.processing.bpmn.behavior.TypedStreamWriterProxy;
 import io.camunda.zeebe.engine.processing.streamprocessor.writers.CommandResponseWriter;
@@ -52,6 +53,8 @@ public final class ProcessingContext implements ReadonlyProcessingContext {
   private int maxFragmentSize;
   private StreamProcessorMode streamProcessorMode = StreamProcessorMode.PROCESSING;
   private LongSupplier checkpointIdSupplier;
+
+  private BackupActor backupActor;
 
   public ProcessingContext() {
     streamWriterProxy.wrap(logStreamWriter);
@@ -228,5 +231,14 @@ public final class ProcessingContext implements ReadonlyProcessingContext {
 
   public LongSupplier getCheckpointIdSupplier() {
     return checkpointIdSupplier;
+  }
+
+  public BackupActor getBackupActor() {
+    return backupActor;
+  }
+
+  public ProcessingContext backupActor(final BackupActor backupActor) {
+    this.backupActor = backupActor;
+    return this;
   }
 }

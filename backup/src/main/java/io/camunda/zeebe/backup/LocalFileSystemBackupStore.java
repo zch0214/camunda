@@ -21,8 +21,7 @@ public class LocalFileSystemBackupStore extends Actor implements BackupStore {
   private final int partitionId;
 
   public LocalFileSystemBackupStore(
-      final Path backupRootDirectory, final int brokerNodeId, final int partitionId)
-      throws IOException {
+      final Path backupRootDirectory, final int brokerNodeId, final int partitionId) {
     this.backupRootDirectory = backupRootDirectory;
     this.brokerNodeId = brokerNodeId;
     this.partitionId = partitionId;

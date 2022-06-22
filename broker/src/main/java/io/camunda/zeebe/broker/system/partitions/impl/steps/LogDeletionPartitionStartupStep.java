@@ -38,6 +38,7 @@ public class LogDeletionPartitionStartupStep implements PartitionStartupStep {
                 partitionStartupContext.getReceivableSnapshotStore()));
 
     partitionStartupContext.setLogDeletionService(deletionService);
+    partitionStartupContext.setLogCompactor(logCompactor);
     final ActorFuture<PartitionStartupContext> startupFuture = new CompletableActorFuture<>();
     partitionStartupContext
         .getActorSchedulingService()

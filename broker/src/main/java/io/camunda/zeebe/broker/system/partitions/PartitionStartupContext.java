@@ -8,6 +8,7 @@
 package io.camunda.zeebe.broker.system.partitions;
 
 import io.atomix.raft.partition.RaftPartition;
+import io.camunda.zeebe.backup.LogCompactor;
 import io.camunda.zeebe.broker.logstreams.LogDeletionService;
 import io.camunda.zeebe.db.ZeebeDb;
 import io.camunda.zeebe.engine.state.ZbColumnFamilies;
@@ -54,4 +55,6 @@ public interface PartitionStartupContext {
 
   // can be called any time after bootstrap has completed
   PartitionTransitionContext createTransitionContext();
+
+  void setLogCompactor(LogCompactor logCompactor);
 }

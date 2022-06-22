@@ -36,7 +36,7 @@ public class LocalFileSystemBackup implements Backup {
   @Override
   public ActorFuture<Void> backupSnapshot(final Path snapshotDirectory) {
     final CompletableActorFuture<Void> snapshotBackedUp = new CompletableActorFuture<>();
-    actor.run(
+    actor.submit(
         () -> {
           try {
             final var statusFile =
@@ -57,7 +57,7 @@ public class LocalFileSystemBackup implements Backup {
   @Override
   public ActorFuture<Void> backupSegments(final List<Path> segmentFiles) {
     final CompletableActorFuture<Void> segmentsBackedUp = new CompletableActorFuture<>();
-    actor.run(
+    actor.submit(
         () -> {
           try {
             copyFiles(segmentFiles, Paths.get(backupDirectory.toString(), "segments"));
@@ -120,6 +120,7 @@ public class LocalFileSystemBackup implements Backup {
   public static void copyFiles(final List<Path> sourceFiles, final Path destinationDirectory)
       throws IOException {
     // TODO: Split copying files into multiple actor task to not block the actor for a long time.
+    Files.createDirectories(destinationDirectory); // create if not exists
     for (final Path source : sourceFiles) {
       final Path destination =
           Paths.get(destinationDirectory.toString(), source.getFileName().toString());

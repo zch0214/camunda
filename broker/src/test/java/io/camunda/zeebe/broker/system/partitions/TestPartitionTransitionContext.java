@@ -9,6 +9,8 @@ package io.camunda.zeebe.broker.system.partitions;
 
 import io.atomix.raft.RaftServer.Role;
 import io.atomix.raft.partition.RaftPartition;
+import io.camunda.zeebe.backup.BackupActor;
+import io.camunda.zeebe.backup.LogCompactor;
 import io.camunda.zeebe.broker.PartitionListener;
 import io.camunda.zeebe.broker.exporter.repo.ExporterDescriptor;
 import io.camunda.zeebe.broker.exporter.repo.ExporterRepository;
@@ -23,6 +25,7 @@ import io.camunda.zeebe.engine.processing.streamprocessor.TypedRecordProcessorFa
 import io.camunda.zeebe.engine.processing.streamprocessor.writers.CommandResponseWriter;
 import io.camunda.zeebe.engine.state.QueryService;
 import io.camunda.zeebe.logstreams.log.LogStream;
+import io.camunda.zeebe.snapshots.ConstructableSnapshotStore;
 import io.camunda.zeebe.util.health.HealthMonitor;
 import io.camunda.zeebe.util.sched.ActorSchedulingService;
 import io.camunda.zeebe.util.sched.ConcurrencyControl;
@@ -157,6 +160,24 @@ public class TestPartitionTransitionContext implements PartitionTransitionContex
   @Override
   public void setQueryService(final QueryService queryService) {
     this.queryService = queryService;
+  }
+
+  @Override
+  public BackupActor getBackupActor() {
+    return null;
+  }
+
+  @Override
+  public void setBackupActor(final BackupActor backupActor) {}
+
+  @Override
+  public ConstructableSnapshotStore getConstructableSnapshotStore() {
+    return null;
+  }
+
+  @Override
+  public LogCompactor getLogCompactor() {
+    return null;
   }
 
   public void setBrokerCfg(final BrokerCfg brokerCfg) {

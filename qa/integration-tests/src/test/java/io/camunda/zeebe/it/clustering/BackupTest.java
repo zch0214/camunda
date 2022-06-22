@@ -24,13 +24,40 @@ public class BackupTest {
       RuleChain.outerRule(testTimeout).around(clusteringRule).around(clientRule);
 
   @Test
-  public void shouldTriggerBackup() {
+  public void shouldTriggerBackup() throws InterruptedException {
     // given
-
+    publishMessages();
+    clusteringRule.getBrokers().forEach(clusteringRule::takeSnapshot);
+    publishMessages();
     // when
+    Thread.sleep(10000);
     clusteringRule.sendCheckpointCommand(1, 1);
-    clusteringRule.sendCheckpointCommand(2, 1);
-    clusteringRule.sendCheckpointCommand(2, 1);
+    publishMessages();
+    clientRule.createSingleJob("Test"); // deploys and triggers checkpoint on all partitions.
+  }
+
+  private void publishMessages() {
+    clientRule
+        .getClient()
+        .newPublishMessageCommand()
+        .messageName("abc")
+        .correlationKey("1")
+        .send()
+        .join();
+    clientRule
+        .getClient()
+        .newPublishMessageCommand()
+        .messageName("abc")
+        .correlationKey("2")
+        .send()
+        .join();
+    clientRule
+        .getClient()
+        .newPublishMessageCommand()
+        .messageName("abc")
+        .correlationKey("3")
+        .send()
+        .join();
   }
 
   @Test

@@ -133,6 +133,7 @@ public final class StreamProcessorTransitionStep implements PartitionTransitionS
         .listener(processedCommand -> context.getOnProcessedListener().accept(processedCommand))
         .streamProcessorFactory(context.getStreamProcessorFactory())
         .streamProcessorMode(streamProcessorMode)
+        .backupActor(context.getBackupActor())
         .build();
   }
 }

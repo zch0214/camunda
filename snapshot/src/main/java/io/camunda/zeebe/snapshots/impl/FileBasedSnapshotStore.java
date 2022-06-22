@@ -331,6 +331,7 @@ public final class FileBasedSnapshotStore extends Actor
             future.complete(null);
           } else {
             lockedSnapshots.compute(latestSnapshot, (s, i) -> i != null ? i + 1 : 1);
+            future.complete(latestSnapshot);
           }
         });
     return future;

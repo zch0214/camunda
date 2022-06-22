@@ -9,6 +9,8 @@ package io.camunda.zeebe.broker.system.partitions;
 
 import io.atomix.raft.RaftServer.Role;
 import io.atomix.raft.partition.RaftPartition;
+import io.camunda.zeebe.backup.BackupActor;
+import io.camunda.zeebe.backup.LogCompactor;
 import io.camunda.zeebe.broker.PartitionListener;
 import io.camunda.zeebe.broker.exporter.repo.ExporterDescriptor;
 import io.camunda.zeebe.broker.exporter.repo.ExporterRepository;
@@ -81,6 +83,8 @@ public class PartitionStartupAndTransitionContextImpl
   private long currentTerm;
   private Role currentRole;
   private ConcurrencyControl concurrencyControl;
+  private BackupActor backupActor;
+  private LogCompactor logCompactor;
 
   public PartitionStartupAndTransitionContextImpl(
       final int nodeId,
@@ -241,6 +245,26 @@ public class PartitionStartupAndTransitionContextImpl
   @Override
   public void setQueryService(final QueryService queryService) {
     this.queryService = queryService;
+  }
+
+  @Override
+  public BackupActor getBackupActor() {
+    return backupActor;
+  }
+
+  @Override
+  public void setBackupActor(final BackupActor backupActor) {
+    this.backupActor = backupActor;
+  }
+
+  @Override
+  public LogCompactor getLogCompactor() {
+    return logCompactor;
+  }
+
+  @Override
+  public void setLogCompactor(final LogCompactor logCompactor) {
+    this.logCompactor = logCompactor;
   }
 
   @Override

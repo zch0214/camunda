@@ -217,7 +217,8 @@ public final class EngineRule extends ExternalResource {
                           deploymentDistributor,
                           (key, partition) -> {},
                           jobsAvailableCallback,
-                          featureFlags)
+                          featureFlags,
+                          null)
                       .withListener(new ProcessingExporterTransistor())
                       .withListener(reprocessingCompletedListener));
 

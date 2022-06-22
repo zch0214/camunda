@@ -8,6 +8,8 @@
 package io.camunda.zeebe.broker.system.partitions;
 
 import io.atomix.raft.RaftServer.Role;
+import io.camunda.zeebe.backup.BackupActor;
+import io.camunda.zeebe.backup.LogCompactor;
 import io.camunda.zeebe.broker.PartitionListener;
 import io.camunda.zeebe.broker.exporter.repo.ExporterDescriptor;
 import io.camunda.zeebe.broker.exporter.stream.ExporterDirector;
@@ -21,6 +23,7 @@ import io.camunda.zeebe.engine.processing.streamprocessor.TypedRecordProcessorFa
 import io.camunda.zeebe.engine.processing.streamprocessor.writers.CommandResponseWriter;
 import io.camunda.zeebe.engine.state.QueryService;
 import io.camunda.zeebe.logstreams.log.LogStream;
+import io.camunda.zeebe.snapshots.ConstructableSnapshotStore;
 import io.camunda.zeebe.util.sched.ActorSchedulingService;
 import io.camunda.zeebe.util.sched.ConcurrencyControl;
 import java.util.Collection;
@@ -86,4 +89,12 @@ public interface PartitionTransitionContext extends PartitionContext {
   QueryService getQueryService();
 
   void setQueryService(QueryService queryService);
+
+  BackupActor getBackupActor();
+
+  void setBackupActor(BackupActor backupActor);
+
+  ConstructableSnapshotStore getConstructableSnapshotStore();
+
+  LogCompactor getLogCompactor();
 }

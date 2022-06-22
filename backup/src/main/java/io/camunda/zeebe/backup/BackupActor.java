@@ -12,9 +12,12 @@ import io.camunda.zeebe.util.sched.Actor;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BackupActor extends Actor {
 
+  private static final Logger LOG = LoggerFactory.getLogger("BACKUP");
   private final BackupStore backupStore;
 
   private final PersistedSnapshotStore snapshotStore;
@@ -32,6 +35,8 @@ public class BackupActor extends Actor {
   public void takeBackup(final long checkpointId, final long checkpointPosition) {
     actor.run(
         () -> {
+          LOG.info("Received backup command {} {}", checkpointId, checkpointPosition);
+
           // if there are concurrent backups.
           logCompactor.disableCompaction();
           final var snapshotFuture = snapshotStore.lockLatestSnapshot();
@@ -41,7 +46,8 @@ public class BackupActor extends Actor {
                 if (error == null) {
                   if (snapshot.getSnapshotId().getProcessedPosition() < checkpointPosition) {
                     final Path snapshotDirectory = snapshot.getPath();
-                    final List<Path> segmentFiles = null; // TODO, get the current segment files
+                    final List<Path> segmentFiles =
+                        List.of(); // TODO, get the current segment files
                     startBackup(checkpointId, checkpointPosition, snapshotDirectory, segmentFiles);
                   } else {
                     // TODO: log error
@@ -66,10 +72,11 @@ public class BackupActor extends Actor {
       backup = backupStore.newBackup(backupMetadata);
 
       final var snapshotBackedUp = backup.backupSnapshot(snapshotDirectory);
-      final var segmentsBackedUp = backup.backupSegments(segmentFiles);
+      // final var segmentsBackedUp = backup.backupSegments(segmentFiles);
       actor.runOnCompletion(
-          List.of(snapshotBackedUp, segmentsBackedUp),
-          error -> {
+          // List.of(snapshotBackedUp, segmentsBackedUp),
+          snapshotBackedUp,
+          (r, error) -> {
             if (error != null) {
               onBackupFailed(backup, error);
             } else {
