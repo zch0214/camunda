@@ -9,18 +9,10 @@ package io.camunda.zeebe.backup;
 
 import io.camunda.zeebe.util.sched.future.ActorFuture;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.util.List;
 
-public interface Backup {
+public interface BackupStore {
 
-  ActorFuture<Void> backupSnapshot(Path snapshotDirectory);
+  LocalFileSystemBackup newBackup(BackupMetaData backup) throws IOException;
 
-  ActorFuture<Void> backupSegments(List<Path> segmentFiles);
-
-  void markAsCompleted() throws IOException;
-
-  void markAsFailed() throws IOException;
-
-  ActorFuture<BackupStatus> getStatus();
+  ActorFuture<BackupStatus> getStatus(BackupMetaData backup);
 }

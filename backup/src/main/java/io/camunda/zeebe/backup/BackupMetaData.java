@@ -7,20 +7,8 @@
  */
 package io.camunda.zeebe.backup;
 
-import io.camunda.zeebe.util.sched.future.ActorFuture;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.List;
 
-public interface Backup {
+//TODO: This could contain more details of the bakcup, its metadata etc.
+public record BackupMetaData(long checkpointId, long checkpointPosition) {
 
-  ActorFuture<Void> backupSnapshot(Path snapshotDirectory);
-
-  ActorFuture<Void> backupSegments(List<Path> segmentFiles);
-
-  void markAsCompleted() throws IOException;
-
-  void markAsFailed() throws IOException;
-
-  ActorFuture<BackupStatus> getStatus();
 }

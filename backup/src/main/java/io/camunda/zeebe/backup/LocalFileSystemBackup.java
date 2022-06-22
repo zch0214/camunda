@@ -19,33 +19,85 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-public class LocalFileSystemBackup {
+// TODO: Write checkpointPosition to the backup directory
+public class LocalFileSystemBackup implements Backup {
 
-  private static final String ongoingBackupFile = "-%d-ongoing";
-  private static final String completedBackupFile = "-%d-completed";
-  private static final String failedBackupFile = "-%d-failed";
   private final ActorControl actor;
-  private final Backup backup;
-  private final Path backupRootDirectory;
+  private final BackupMetaData backup;
   private final Path backupDirectory;
 
   public LocalFileSystemBackup(
-      final Path backupRootDirectory, final Backup backup, final ActorControl actor)
-      throws IOException {
-    this.backupRootDirectory = backupRootDirectory;
-    backupDirectory =
-        Paths.get(
-            backupRootDirectory.toString(),
-            String.format(ongoingBackupFile, backup.checkpointId()));
-    Files.createDirectory(backupDirectory);
+      final Path backupDirectory, final BackupMetaData backup, final ActorControl actor) {
+    this.backupDirectory = backupDirectory;
     this.backup = backup;
     this.actor = actor;
   }
 
+  @Override
   public ActorFuture<Void> backupSnapshot(final Path snapshotDirectory) {
     final CompletableActorFuture<Void> snapshotBackedUp = new CompletableActorFuture<>();
-    actor.run(() -> copySnapshot(snapshotDirectory, snapshotBackedUp));
+    actor.run(
+        () -> {
+          try {
+            final var statusFile =
+                Paths.get(backupDirectory.toString(), BackupStatus.ONGOING.name());
+            if (Files.isDirectory(backupDirectory)
+                && backupDirectory.toFile().listFiles().length == 0) {
+              // If initializing the backup
+              Files.createFile(statusFile);
+            }
+            copySnapshot(snapshotDirectory, snapshotBackedUp);
+          } catch (final IOException e) {
+            snapshotBackedUp.completeExceptionally(e);
+          }
+        });
     return snapshotBackedUp;
+  }
+
+  @Override
+  public ActorFuture<Void> backupSegments(final List<Path> segmentFiles) {
+    final CompletableActorFuture<Void> segmentsBackedUp = new CompletableActorFuture<>();
+    actor.run(
+        () -> {
+          try {
+            copyFiles(segmentFiles, Paths.get(backupDirectory.toString(), "segments"));
+            segmentsBackedUp.complete(null);
+          } catch (final Exception e) {
+            segmentsBackedUp.completeExceptionally(e);
+          }
+        });
+    return segmentsBackedUp;
+  }
+
+  @Override
+  public void markAsCompleted() throws IOException {
+    final var statusFile = Paths.get(backupDirectory.toString(), BackupStatus.ONGOING.name());
+    Files.move(statusFile, Paths.get(backupDirectory.toString(), BackupStatus.COMPLETED.name()));
+  }
+
+  @Override
+  public void markAsFailed() throws IOException {
+    final var statusFile = Paths.get(backupDirectory.toString(), BackupStatus.ONGOING.name());
+    Files.move(statusFile, Paths.get(backupDirectory.toString(), BackupStatus.FAILED.name()));
+  }
+
+  @Override
+  public ActorFuture<BackupStatus> getStatus() {
+    final var possibleStatus = Arrays.stream(BackupStatus.values()).map(Enum::name).toList();
+    if (!backupDirectory.toFile().exists()) {
+      return CompletableActorFuture.completed(BackupStatus.NOT_FOUND);
+    }
+    final String[] backupContents = backupDirectory.toFile().list();
+    if (backupContents == null) {
+      return CompletableActorFuture.completed(BackupStatus.NOT_FOUND);
+    }
+    final var status =
+        Arrays.stream(backupContents)
+            .filter(possibleStatus::contains)
+            .map(BackupStatus::valueOf)
+            .findFirst();
+    final var backupStatus = status.orElse(BackupStatus.NOT_FOUND);
+    return CompletableActorFuture.completed(backupStatus);
   }
 
   private void copySnapshot(
@@ -57,7 +109,8 @@ public class LocalFileSystemBackup {
     try {
       copyFiles(
           snapshotFiles,
-          Paths.get(backupDirectory.toString(), snapshotDirectory.getFileName().toString()));
+          Paths.get(
+              backupDirectory.toString(), "snapshot", snapshotDirectory.getFileName().toString()));
       snapshotBackedUp.complete(null);
     } catch (final Exception e) {
       snapshotBackedUp.completeExceptionally(e);
@@ -72,35 +125,5 @@ public class LocalFileSystemBackup {
           Paths.get(destinationDirectory.toString(), source.getFileName().toString());
       Files.copy(source, destination);
     }
-  }
-
-  public ActorFuture<Void> backupSegments(final List<Path> segmentFiles) {
-    final CompletableActorFuture<Void> segmentsBackedUp = new CompletableActorFuture<>();
-    actor.run(
-        () -> {
-          try {
-            copyFiles(segmentFiles, backupDirectory);
-            segmentsBackedUp.complete(null);
-          } catch (final Exception e) {
-            segmentsBackedUp.completeExceptionally(e);
-          }
-        });
-    return segmentsBackedUp;
-  }
-
-  public void markAsCompleted() throws IOException {
-    final Path backupCompletedDirectory =
-        Paths.get(
-            backupRootDirectory.toString(),
-            String.format(completedBackupFile, backup.checkpointId()));
-    Files.move(backupDirectory, backupCompletedDirectory);
-  }
-
-  public void markAsFailed() throws IOException {
-    final Path backupCompletedDirectory =
-        Paths.get(
-            backupRootDirectory.toString(), String.format(failedBackupFile, backup.checkpointId()));
-
-    Files.move(backupDirectory, backupCompletedDirectory);
   }
 }

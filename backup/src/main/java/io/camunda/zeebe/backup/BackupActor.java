@@ -15,7 +15,7 @@ import java.util.List;
 
 public class BackupActor extends Actor {
 
-  private final LocalFileSystemBackupStore backupStore;
+  private final BackupStore backupStore;
 
   private final PersistedSnapshotStore snapshotStore;
   private final LogCompactor logCompactor;
@@ -60,20 +60,20 @@ public class BackupActor extends Actor {
       final Path snapshotDirectory,
       final List<Path> segmentFiles) {
 
-    final Backup backup = new Backup(checkpointId);
-    final LocalFileSystemBackup localFileSystemBackup;
+    final BackupMetaData backupMetadata = new BackupMetaData(checkpointId, checkpointPosition);
+    final Backup backup;
     try {
-      localFileSystemBackup = backupStore.createBackup(backup);
+      backup = backupStore.newBackup(backupMetadata);
 
-      final var snapshotBackedUp = localFileSystemBackup.backupSnapshot(snapshotDirectory);
-      final var segmentsBackedUp = localFileSystemBackup.backupSegments(segmentFiles);
+      final var snapshotBackedUp = backup.backupSnapshot(snapshotDirectory);
+      final var segmentsBackedUp = backup.backupSegments(segmentFiles);
       actor.runOnCompletion(
           List.of(snapshotBackedUp, segmentsBackedUp),
           error -> {
             if (error != null) {
-              onBackupFailed(localFileSystemBackup, error);
+              onBackupFailed(backup, error);
             } else {
-              onBackupCompleted(localFileSystemBackup);
+              onBackupCompleted(backup);
             }
           });
 
@@ -82,7 +82,7 @@ public class BackupActor extends Actor {
     }
   }
 
-  private void onBackupCompleted(final LocalFileSystemBackup localFileSystemBackup) {
+  private void onBackupCompleted(final Backup localFileSystemBackup) {
 
     try {
       logCompactor.enableCompaction();
@@ -92,8 +92,7 @@ public class BackupActor extends Actor {
     }
   }
 
-  private void onBackupFailed(
-      final LocalFileSystemBackup localFileSystemBackup, final Throwable error) {
+  private void onBackupFailed(final Backup localFileSystemBackup, final Throwable error) {
     try {
       logCompactor.enableCompaction();
       localFileSystemBackup.markAsFailed();
