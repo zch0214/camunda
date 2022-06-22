@@ -9,8 +9,10 @@ package io.camunda.zeebe.backup;
 
 import io.camunda.zeebe.snapshots.PersistedSnapshotStore;
 import io.camunda.zeebe.util.sched.Actor;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,13 +25,17 @@ public class BackupActor extends Actor {
   private final PersistedSnapshotStore snapshotStore;
   private final LogCompactor logCompactor;
 
+  private final Path raftStorageDirectory;
+
   public BackupActor(
       final LocalFileSystemBackupStore backupStore,
       final PersistedSnapshotStore snapshotStore,
-      final LogCompactor logCompactor) {
+      final LogCompactor logCompactor,
+      final Path raftStorageDirectory) {
     this.backupStore = backupStore;
     this.snapshotStore = snapshotStore;
     this.logCompactor = logCompactor;
+    this.raftStorageDirectory = raftStorageDirectory;
   }
 
   public void takeBackup(final long checkpointId, final long checkpointPosition) {
@@ -48,7 +54,10 @@ public class BackupActor extends Actor {
                   if (snapshot.getSnapshotId().getProcessedPosition() < checkpointPosition) {
                     final Path snapshotDirectory = snapshot.getPath();
                     final List<Path> segmentFiles =
-                        List.of(); // TODO, get the current segment files
+                        Arrays.stream(raftStorageDirectory.toFile().listFiles())
+                            .map(File::toPath)
+                            .filter(p -> p.getFileName().toString().endsWith(".log"))
+                            .toList();
                     startBackup(checkpointId, checkpointPosition, snapshotDirectory, segmentFiles);
                   } else {
                     // TODO: log error
@@ -73,11 +82,10 @@ public class BackupActor extends Actor {
       backup = backupStore.newBackup(backupMetadata);
 
       final var snapshotBackedUp = backup.backupSnapshot(snapshotDirectory);
-      // final var segmentsBackedUp = backup.backupSegments(segmentFiles);
+      final var segmentsBackedUp = backup.backupSegments(segmentFiles);
       actor.runOnCompletion(
-          // List.of(snapshotBackedUp, segmentsBackedUp),
-          snapshotBackedUp,
-          (r, error) -> {
+          List.of(snapshotBackedUp, segmentsBackedUp),
+          error -> {
             if (error != null) {
               onBackupFailed(backup, error);
             } else {

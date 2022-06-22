@@ -56,7 +56,8 @@ public final class BackupStorePartitionTransitionStep implements PartitionTransi
           new BackupActor(
               localFileSystemBackupStore,
               context.getConstructableSnapshotStore(),
-              context.getLogCompactor());
+              context.getLogCompactor(),
+              context.getRaftPartition().dataDirectory().toPath());
       context.setBackupActor(backupActor);
       return context.getActorSchedulingService().submitActor(backupActor);
     }

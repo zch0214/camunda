@@ -34,7 +34,7 @@ public class BackupTest {
     clusteringRule.getBrokers().forEach(clusteringRule::takeSnapshot);
     publishMessages();
     // when
-    Thread.sleep(10000); // to wait until snapshot exists
+    Thread.sleep(2000); // to wait until snapshot exists
     clusteringRule.sendCheckpointCommand(10, 1);
     clusteringRule.sendCheckpointCommand(10, 2);
     clusteringRule.sendCheckpointCommand(10, 3);
@@ -44,12 +44,13 @@ public class BackupTest {
     clusteringRule.sendCheckpointCommand(20, 2);
     clusteringRule.sendCheckpointCommand(20, 3);
 
-    Thread.sleep(10000); // to wait until snapshot exists
+    Thread.sleep(2000); // to wait until snapshot exists
 
     final var log = LoggerFactory.getLogger("TEST:BACKUP");
     final StringBuilder outputBuilder = new StringBuilder();
     Files.walk(BackupStorePartitionTransitionStep.BACKUP_ROOT_DIRECTORY)
-        .forEachOrdered(p -> outputBuilder.append("\n").append(p));
+        .map(BackupStorePartitionTransitionStep.BACKUP_ROOT_DIRECTORY::relativize)
+        .forEachOrdered(p -> outputBuilder.append("\nbackupStore/").append(p));
     log.info("{}", outputBuilder);
   }
 
