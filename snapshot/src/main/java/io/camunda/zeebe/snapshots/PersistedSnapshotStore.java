@@ -20,7 +20,7 @@ import java.util.Optional;
  * <p>Only one {@link PersistedSnapshot} at a time is stored in the {@link PersistedSnapshotStore}
  * and can be received via {@link PersistedSnapshotStore#getLatestSnapshot()}.
  */
-public interface PersistedSnapshotStore extends CloseableSilently {
+public interface PersistedSnapshotStore extends CloseableSilently, CopyableSnapshotStore {
 
   /**
    * Returns true if the given identifier is equal to the snapshot id of the current persisted

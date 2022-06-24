@@ -7,6 +7,8 @@
  */
 package io.camunda.zeebe.backup;
 
+import io.camunda.zeebe.snapshots.CopyableSnapshotStore;
+import io.camunda.zeebe.snapshots.PersistedSnapshot;
 import io.camunda.zeebe.util.sched.ActorControl;
 import io.camunda.zeebe.util.sched.future.ActorFuture;
 import io.camunda.zeebe.util.sched.future.CompletableActorFuture;
@@ -17,41 +19,54 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 // TODO: Write checkpointPosition to the backup directory
 public class LocalFileSystemBackup implements Backup {
 
+  private static final String SNAPSHOT_DIRECTORY_NAME = "snapshot";
+  private static final String SEGMENTS_DIRECTORY_NAME = "segments";
   private final ActorControl actor;
   private final BackupMetaData backup;
   private final Path backupDirectory;
 
+  private final CopyableSnapshotStore snapshotStore;
+
   public LocalFileSystemBackup(
-      final Path backupDirectory, final BackupMetaData backup, final ActorControl actor) {
+      final Path backupDirectory,
+      final BackupMetaData backup,
+      final ActorControl actor,
+      final CopyableSnapshotStore snapshotStore) {
     this.backupDirectory = backupDirectory;
     this.backup = backup;
     this.actor = actor;
+    this.snapshotStore = snapshotStore;
+  }
+
+  public static Backup loadBackup(
+      final Path backupDirectory,
+      final long checkpointId,
+      final ActorControl actor,
+      final CopyableSnapshotStore snapshotStore) {
+    return new LocalFileSystemBackup(
+        backupDirectory, new BackupMetaData(checkpointId, -1), actor, snapshotStore);
   }
 
   @Override
-  public ActorFuture<Void> backupSnapshot(final Path snapshotDirectory) {
-    final CompletableActorFuture<Void> snapshotBackedUp = new CompletableActorFuture<>();
+  public ActorFuture<Void> backupSnapshot(final PersistedSnapshot snapshot) {
+    final CompletableActorFuture<Void> future = new CompletableActorFuture<>();
     actor.submit(
         () -> {
           try {
-            final var statusFile =
-                Paths.get(backupDirectory.toString(), BackupStatus.ONGOING.name());
-            if (Files.isDirectory(backupDirectory)
-                && backupDirectory.toFile().listFiles().length == 0) {
-              // If initializing the backup
-              Files.createFile(statusFile);
-            }
-            copySnapshot(snapshotDirectory, snapshotBackedUp);
-          } catch (final IOException e) {
-            snapshotBackedUp.completeExceptionally(e);
+            final Path destinationDirectory =
+                Paths.get(backupDirectory.toString(), SNAPSHOT_DIRECTORY_NAME);
+            Files.createDirectories(destinationDirectory);
+            snapshotStore.copySnapshotTo(snapshot, destinationDirectory);
+            future.complete(null);
+          } catch (final Exception e) {
+            future.completeExceptionally(e);
           }
         });
-    return snapshotBackedUp;
+    return future;
   }
 
   @Override
@@ -60,7 +75,7 @@ public class LocalFileSystemBackup implements Backup {
     actor.submit(
         () -> {
           try {
-            copyFiles(segmentFiles, Paths.get(backupDirectory.toString(), "segments"));
+            copyFiles(segmentFiles, Paths.get(backupDirectory.toString(), SEGMENTS_DIRECTORY_NAME));
             segmentsBackedUp.complete(null);
           } catch (final Exception e) {
             segmentsBackedUp.completeExceptionally(e);
@@ -100,21 +115,19 @@ public class LocalFileSystemBackup implements Backup {
     return CompletableActorFuture.completed(backupStatus);
   }
 
-  private void copySnapshot(
-      final Path snapshotDirectory, final CompletableActorFuture<Void> snapshotBackedUp) {
-    final List<Path> snapshotFiles =
-        Arrays.stream(Objects.requireNonNull(snapshotDirectory.toFile().listFiles()))
+  @Override
+  public void restore(final Path dataDirectory) throws Exception {
+
+    final List<Path> segmentFiles =
+        Arrays.stream(
+                Paths.get(backupDirectory.toString(), SEGMENTS_DIRECTORY_NAME).toFile().listFiles())
             .map(File::toPath)
             .toList();
-    try {
-      copyFiles(
-          snapshotFiles,
-          Paths.get(
-              backupDirectory.toString(), "snapshot", snapshotDirectory.getFileName().toString()));
-      snapshotBackedUp.complete(null);
-    } catch (final Exception e) {
-      snapshotBackedUp.completeExceptionally(e);
-    }
+    copyFiles(segmentFiles, dataDirectory);
+
+    // copy snapshot to dataDirectory
+    final Path sourceDirectory = Paths.get(backupDirectory.toString(), SNAPSHOT_DIRECTORY_NAME);
+    snapshotStore.restoreSnapshotFrom(sourceDirectory);
   }
 
   public static void copyFiles(final List<Path> sourceFiles, final Path destinationDirectory)

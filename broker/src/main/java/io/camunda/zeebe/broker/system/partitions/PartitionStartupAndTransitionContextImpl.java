@@ -28,6 +28,7 @@ import io.camunda.zeebe.engine.processing.streamprocessor.writers.CommandRespons
 import io.camunda.zeebe.engine.state.QueryService;
 import io.camunda.zeebe.logstreams.log.LogStream;
 import io.camunda.zeebe.snapshots.ConstructableSnapshotStore;
+import io.camunda.zeebe.snapshots.PersistedSnapshotStore;
 import io.camunda.zeebe.snapshots.ReceivableSnapshotStore;
 import io.camunda.zeebe.util.health.HealthMonitor;
 import io.camunda.zeebe.util.sched.ActorControl;
@@ -62,6 +63,8 @@ public class PartitionStartupAndTransitionContextImpl
   private final Supplier<Consumer<TypedRecord<?>>> onProcessedListenerSupplier;
   private final ConstructableSnapshotStore constructableSnapshotStore;
   private final ReceivableSnapshotStore receivableSnapshotStore;
+  private final PersistedSnapshotStore snapshotStore;
+
   private final Integer partitionId;
   private final int maxFragmentSize;
   private final ExporterRepository exporterRepository;
@@ -99,6 +102,7 @@ public class PartitionStartupAndTransitionContextImpl
       final ReceivableSnapshotStore receivableSnapshotStore,
       final StateController stateController,
       final TypedRecordProcessorsFactory typedRecordProcessorsFactory,
+      final PersistedSnapshotStore snapshotStore,
       final ExporterRepository exporterRepository,
       final PartitionProcessingState partitionProcessingState) {
     this.nodeId = nodeId;
@@ -115,6 +119,7 @@ public class PartitionStartupAndTransitionContextImpl
     partitionId = raftPartition.id().id();
     this.actorSchedulingService = actorSchedulingService;
     maxFragmentSize = (int) brokerCfg.getNetwork().getMaxMessageSizeInBytes();
+    this.snapshotStore = snapshotStore;
     this.exporterRepository = exporterRepository;
     this.partitionProcessingState = partitionProcessingState;
   }
@@ -275,6 +280,11 @@ public class PartitionStartupAndTransitionContextImpl
   @Override
   public void setDiskSpaceAvailable(final boolean diskSpaceAvailable) {
     partitionProcessingState.setDiskSpaceAvailable(diskSpaceAvailable);
+  }
+
+  @Override
+  public PersistedSnapshotStore getPersistedSnapshotStore() {
+    return snapshotStore;
   }
 
   @Override

@@ -40,17 +40,17 @@ public class BackupTest {
     clusteringRule.sendCheckpointCommand(10, 3);
     publishMessages();
 
-    clusteringRule.sendCheckpointCommand(20, 1);
+    /*clusteringRule.sendCheckpointCommand(20, 1);
     clusteringRule.sendCheckpointCommand(20, 2);
-    clusteringRule.sendCheckpointCommand(20, 3);
+    clusteringRule.sendCheckpointCommand(20, 3);*/
 
     Thread.sleep(2000); // to wait until snapshot exists
 
     final var log = LoggerFactory.getLogger("TEST:BACKUP");
     final StringBuilder outputBuilder = new StringBuilder();
     Files.walk(BackupStorePartitionTransitionStep.BACKUP_ROOT_DIRECTORY)
-        .map(BackupStorePartitionTransitionStep.BACKUP_ROOT_DIRECTORY::relativize)
-        .forEachOrdered(p -> outputBuilder.append("\nbackupStore/").append(p));
+        // .map(BackupStorePartitionTransitionStep.BACKUP_ROOT_DIRECTORY::relativize)
+        .forEachOrdered(p -> outputBuilder.append("\n").append(p));
     log.info("{}", outputBuilder);
   }
 

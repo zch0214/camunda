@@ -11,6 +11,7 @@ import io.atomix.raft.RaftServer.Role;
 import io.atomix.raft.partition.RaftPartition;
 import io.camunda.zeebe.broker.exporter.stream.ExporterDirector;
 import io.camunda.zeebe.engine.processing.streamprocessor.StreamProcessor;
+import io.camunda.zeebe.snapshots.PersistedSnapshotStore;
 import io.camunda.zeebe.util.health.HealthMonitor;
 import io.camunda.zeebe.util.sched.future.ActorFuture;
 import java.util.List;
@@ -49,4 +50,6 @@ public interface PartitionContext {
   @Deprecated // currently the implementation forwards this to other components inside the
   // partition; these components will be directly registered as listeners in the future
   void setDiskSpaceAvailable(boolean b);
+
+  PersistedSnapshotStore getPersistedSnapshotStore();
 }

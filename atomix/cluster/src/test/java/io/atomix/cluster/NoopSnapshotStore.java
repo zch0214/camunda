@@ -88,4 +88,11 @@ class NoopSnapshotStore implements ReceivableSnapshotStore {
 
   @Override
   public void close() {}
+
+  @Override
+  public void copySnapshotTo(final PersistedSnapshot snapshot, final Path destinationDirectory)
+      throws Exception {}
+
+  @Override
+  public void restoreSnapshotFrom(final Path sourceDirectory) throws Exception {}
 }

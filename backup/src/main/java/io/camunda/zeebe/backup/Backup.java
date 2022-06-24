@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.backup;
 
+import io.camunda.zeebe.snapshots.PersistedSnapshot;
 import io.camunda.zeebe.util.sched.future.ActorFuture;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -14,7 +15,7 @@ import java.util.List;
 
 public interface Backup {
 
-  ActorFuture<Void> backupSnapshot(Path snapshotDirectory);
+  ActorFuture<Void> backupSnapshot(PersistedSnapshot snapshot);
 
   ActorFuture<Void> backupSegments(List<Path> segmentFiles);
 
@@ -23,4 +24,6 @@ public interface Backup {
   void markAsFailed() throws IOException;
 
   ActorFuture<BackupStatus> getStatus();
+
+  void restore(Path dataDirectory) throws Exception;
 }

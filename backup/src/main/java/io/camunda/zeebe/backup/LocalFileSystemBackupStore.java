@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.backup;
 
+import io.camunda.zeebe.snapshots.CopyableSnapshotStore;
 import io.camunda.zeebe.util.sched.Actor;
 import io.camunda.zeebe.util.sched.future.ActorFuture;
 import java.io.IOException;
@@ -19,36 +20,46 @@ public class LocalFileSystemBackupStore extends Actor implements BackupStore {
   private final Path backupRootDirectory;
   private final int brokerNodeId;
   private final int partitionId;
+  private final CopyableSnapshotStore snapshotStore;
 
   public LocalFileSystemBackupStore(
-      final Path backupRootDirectory, final int brokerNodeId, final int partitionId) {
+      final Path backupRootDirectory,
+      final int brokerNodeId,
+      final int partitionId,
+      final CopyableSnapshotStore snapshotStore) {
     this.backupRootDirectory = backupRootDirectory;
     this.brokerNodeId = brokerNodeId;
     this.partitionId = partitionId;
+    this.snapshotStore = snapshotStore;
   }
 
   @Override
   public LocalFileSystemBackup newBackup(final BackupMetaData backup) throws IOException {
     // backuproot/checkpointId/partitionId/brokerId/
-    final var partitionBackupDirectory =
-        Paths.get(
-            backupRootDirectory.toString(),
-            String.valueOf(backup.checkpointId()),
-            String.valueOf(partitionId),
-            String.valueOf(brokerNodeId));
+    final var partitionBackupDirectory = getPath(backup.checkpointId());
     Files.createDirectories(partitionBackupDirectory);
-    return new LocalFileSystemBackup(partitionBackupDirectory, backup, actor);
+    return new LocalFileSystemBackup(partitionBackupDirectory, backup, actor, snapshotStore);
   }
 
   @Override
   public ActorFuture<BackupStatus> getStatus(final BackupMetaData backupMetadata) {
-    final var partitionBackupDirectory =
-        Paths.get(
-            backupRootDirectory.toString(),
-            String.valueOf(backupMetadata.checkpointId()),
-            String.valueOf(partitionId),
-            String.valueOf(brokerNodeId));
-    final var backup = new LocalFileSystemBackup(partitionBackupDirectory, backupMetadata, actor);
+    final var partitionBackupDirectory = getPath(backupMetadata.checkpointId());
+    final var backup =
+        new LocalFileSystemBackup(partitionBackupDirectory, backupMetadata, actor, snapshotStore);
     return backup.getStatus();
+  }
+
+  public Path getPath(final long checkpointId) {
+    return Paths.get(
+        backupRootDirectory.toString(),
+        String.valueOf(checkpointId),
+        String.valueOf(partitionId),
+        String.valueOf(brokerNodeId));
+  }
+
+  public Backup loadBackup(final long checkpointId) {
+    final var partitionBackupDirectory = getPath(checkpointId);
+    return LocalFileSystemBackup.loadBackup(
+        partitionBackupDirectory, checkpointId, actor, snapshotStore);
   }
 }

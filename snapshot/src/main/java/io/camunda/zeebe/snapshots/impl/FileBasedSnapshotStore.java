@@ -8,6 +8,7 @@
 package io.camunda.zeebe.snapshots.impl;
 
 import io.camunda.zeebe.snapshots.ConstructableSnapshotStore;
+import io.camunda.zeebe.snapshots.CopyableSnapshotStore;
 import io.camunda.zeebe.snapshots.PersistableSnapshot;
 import io.camunda.zeebe.snapshots.PersistedSnapshot;
 import io.camunda.zeebe.snapshots.PersistedSnapshotListener;
@@ -44,7 +45,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class FileBasedSnapshotStore extends Actor
-    implements ConstructableSnapshotStore, ReceivableSnapshotStore {
+    implements ConstructableSnapshotStore, ReceivableSnapshotStore, CopyableSnapshotStore {
 
   // first is the metadata and the second the the received snapshot count
   private static final String RECEIVING_DIR_FORMAT = "%s-%d";
@@ -632,5 +633,63 @@ public final class FileBasedSnapshotStore extends Actor
 
   SnapshotMetrics getSnapshotMetrics() {
     return snapshotMetrics;
+  }
+
+  @Override
+  public void copySnapshotTo(final PersistedSnapshot snapshot, final Path destinationDirectory)
+      throws Exception {
+    // copy snapshot files and checksum
+
+    final var checksumFile = ((FileBasedSnapshot) snapshot).getChecksumFile();
+    final Path snapshotDir = destinationDirectory.resolve(snapshot.getId());
+    // snapshotDir.toFile().createNewFile();
+    FileUtil.copySnapshot(((FileBasedSnapshot) snapshot).getDirectory(), snapshotDir);
+    Files.copy(checksumFile, destinationDirectory.resolve(checksumFile.getFileName()));
+  }
+
+  @Override
+  public void restoreSnapshotFrom(final Path sourceDirectory) throws Exception {
+    final var destinationDirectory = snapshotsDirectory;
+    try (final var stream =
+        Files.newDirectoryStream(
+            sourceDirectory, p -> !p.getFileName().toString().endsWith(CHECKSUM_SUFFIX))) {
+      for (final var path : stream) {
+        final var snapshot = collectSnapshotFromCopy(path, sourceDirectory);
+        if (snapshot != null) {
+          copySnapshotTo(snapshot, destinationDirectory);
+        }
+      }
+    } catch (final IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  private FileBasedSnapshot collectSnapshotFromCopy(final Path path, final Path sourceDirectory) {
+    final var optionalMeta = FileBasedSnapshotMetadata.ofPath(path);
+    if (optionalMeta.isEmpty()) {
+      return null;
+    }
+
+    final var metadata = optionalMeta.get();
+    final var checksumPath =
+        sourceDirectory.resolve(metadata.getSnapshotIdAsString() + CHECKSUM_SUFFIX);
+
+    try {
+      final var expectedChecksum = SnapshotChecksum.read(checksumPath);
+      final var actualChecksum = SnapshotChecksum.calculate(path);
+      if (expectedChecksum.getCombinedValue() != actualChecksum.getCombinedValue()) {
+        LOGGER.warn(
+            "Expected snapshot {} to have checksum {}, but the actual checksum is {}; the snapshot is most likely corrupted. The startup will fail if there is no other valid snapshot and the log has been compacted.",
+            path,
+            expectedChecksum.getCombinedValue(),
+            actualChecksum.getCombinedValue());
+        return null;
+      }
+
+      return new FileBasedSnapshot(path, checksumPath, actualChecksum.getCombinedValue(), metadata);
+    } catch (final Exception e) {
+      LOGGER.warn("Could not load snapshot in {}", path, e);
+      return null;
+    }
   }
 }

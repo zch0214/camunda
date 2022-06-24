@@ -20,6 +20,8 @@ public enum Profile {
   BROKER("broker"),
   GATEWAY("gateway"),
 
+  RESTORE("restore"),
+
   // environment profiles
   TEST("test"),
   DEVELOPMENT("dev"),

@@ -155,6 +155,7 @@ final class PartitionFactory {
               snapshotStoreFactory.getReceivableSnapshotStore(partitionId),
               stateController,
               typedRecordProcessorsFactory,
+              snapshotStoreFactory.getPersistedSnapshotStore(partitionId),
               exporterRepository,
               new PartitionProcessingState(owningPartition));
 

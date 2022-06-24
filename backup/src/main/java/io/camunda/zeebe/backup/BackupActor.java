@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.backup;
 
+import io.camunda.zeebe.snapshots.PersistedSnapshot;
 import io.camunda.zeebe.snapshots.PersistedSnapshotStore;
 import io.camunda.zeebe.util.sched.Actor;
 import java.io.File;
@@ -52,13 +53,13 @@ public class BackupActor extends Actor {
                 if (error == null) {
                   // TODO: Handle case when snapshot does not exists
                   if (snapshot.getSnapshotId().getProcessedPosition() < checkpointPosition) {
-                    final Path snapshotDirectory = snapshot.getPath();
                     final List<Path> segmentFiles =
                         Arrays.stream(raftStorageDirectory.toFile().listFiles())
                             .map(File::toPath)
                             .filter(p -> p.getFileName().toString().endsWith(".log"))
                             .toList();
-                    startBackup(checkpointId, checkpointPosition, snapshotDirectory, segmentFiles);
+
+                    startBackup(checkpointId, checkpointPosition, snapshot, segmentFiles);
                   } else {
                     // TODO: log error
                     // mark backup as failed
@@ -73,7 +74,7 @@ public class BackupActor extends Actor {
   private void startBackup(
       final long checkpointId,
       final long checkpointPosition,
-      final Path snapshotDirectory,
+      final PersistedSnapshot snapshot,
       final List<Path> segmentFiles) {
 
     final BackupMetaData backupMetadata = new BackupMetaData(checkpointId, checkpointPosition);
@@ -81,7 +82,7 @@ public class BackupActor extends Actor {
     try {
       backup = backupStore.newBackup(backupMetadata);
 
-      final var snapshotBackedUp = backup.backupSnapshot(snapshotDirectory);
+      final var snapshotBackedUp = backup.backupSnapshot(snapshot);
       final var segmentsBackedUp = backup.backupSegments(segmentFiles);
       actor.runOnCompletion(
           List.of(snapshotBackedUp, segmentsBackedUp),

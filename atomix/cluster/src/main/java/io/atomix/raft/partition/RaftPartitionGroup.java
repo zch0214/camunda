@@ -64,7 +64,7 @@ public class RaftPartitionGroup implements ManagedPartitionGroup {
   private final Map<PartitionId, RaftPartition> partitions = Maps.newConcurrentMap();
   private final List<PartitionId> sortedPartitionIds = Lists.newCopyOnWriteArrayList();
   private final String snapshotSubject;
-  private Collection<PartitionMetadata> metadata;
+  private final Collection<PartitionMetadata> metadata;
   private ClusterCommunicationService communicationService;
 
   public RaftPartitionGroup(final RaftPartitionGroupConfig config) {
@@ -81,9 +81,26 @@ public class RaftPartitionGroup implements ManagedPartitionGroup {
               sortedPartitionIds.add(p.id());
             });
     Collections.sort(sortedPartitionIds);
+
+    // We expect to bootstrap partitions where leadership is equally distributed.
+    // First member of a PartitionMetadata is the bootstrap leader
+    final var members =
+        config.getMembers().stream().map(MemberId::from).collect(Collectors.toSet());
+    metadata =
+        config
+            .getPartitionConfig()
+            .getPartitionDistributor()
+            .distributePartitions(members, sortedPartitionIds, replicationFactor);
+
+    metadata.stream()
+        .forEach(
+            metadata -> {
+              final RaftPartition partition = partitions.get(metadata.id());
+              partition.setMetadata(metadata);
+            });
   }
 
-  private static Collection<RaftPartition> buildPartitions(final RaftPartitionGroupConfig config) {
+  public static Collection<RaftPartition> buildPartitions(final RaftPartitionGroupConfig config) {
     final File partitionsDir =
         new File(config.getStorageConfig().getDirectory(config.getName()), "partitions");
     final List<RaftPartition> partitions = new ArrayList<>(config.getPartitionCount());
@@ -172,16 +189,6 @@ public class RaftPartitionGroup implements ManagedPartitionGroup {
   @Override
   public CompletableFuture<ManagedPartitionGroup> join(
       final PartitionManagementService managementService) {
-
-    // We expect to bootstrap partitions where leadership is equally distributed.
-    // First member of a PartitionMetadata is the bootstrap leader
-    final var members =
-        config.getMembers().stream().map(MemberId::from).collect(Collectors.toSet());
-    metadata =
-        config
-            .getPartitionConfig()
-            .getPartitionDistributor()
-            .distributePartitions(members, sortedPartitionIds, replicationFactor);
 
     communicationService = managementService.getMessagingService();
     communicationService.<Void, Void>subscribe(snapshotSubject, m -> handleSnapshot());

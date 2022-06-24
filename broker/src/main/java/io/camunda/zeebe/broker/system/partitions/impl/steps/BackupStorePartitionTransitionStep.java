@@ -50,7 +50,10 @@ public final class BackupStorePartitionTransitionStep implements PartitionTransi
       }
       final LocalFileSystemBackupStore localFileSystemBackupStore =
           new LocalFileSystemBackupStore(
-              BACKUP_ROOT_DIRECTORY, context.getNodeId(), context.getPartitionId());
+              BACKUP_ROOT_DIRECTORY,
+              context.getNodeId(),
+              context.getPartitionId(),
+              context.getPersistedSnapshotStore());
       context.getActorSchedulingService().submitActor(localFileSystemBackupStore);
       final BackupActor backupActor =
           new BackupActor(

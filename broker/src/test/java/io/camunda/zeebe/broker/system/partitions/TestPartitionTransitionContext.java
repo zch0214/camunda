@@ -26,6 +26,7 @@ import io.camunda.zeebe.engine.processing.streamprocessor.writers.CommandRespons
 import io.camunda.zeebe.engine.state.QueryService;
 import io.camunda.zeebe.logstreams.log.LogStream;
 import io.camunda.zeebe.snapshots.ConstructableSnapshotStore;
+import io.camunda.zeebe.snapshots.PersistedSnapshotStore;
 import io.camunda.zeebe.util.health.HealthMonitor;
 import io.camunda.zeebe.util.sched.ActorSchedulingService;
 import io.camunda.zeebe.util.sched.ConcurrencyControl;
@@ -111,6 +112,11 @@ public class TestPartitionTransitionContext implements PartitionTransitionContex
 
   @Override
   public void setDiskSpaceAvailable(final boolean b) {}
+
+  @Override
+  public PersistedSnapshotStore getPersistedSnapshotStore() {
+    return null;
+  }
 
   @Override
   public void setExporterDirector(final ExporterDirector exporterDirector) {

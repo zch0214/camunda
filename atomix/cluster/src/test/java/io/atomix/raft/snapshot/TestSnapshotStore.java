@@ -114,4 +114,11 @@ public class TestSnapshotStore implements ReceivableSnapshotStore {
     currentPersistedSnapshot.set(persistedSnapshot);
     listeners.forEach(l -> l.onNewSnapshot(persistedSnapshot));
   }
+
+  @Override
+  public void copySnapshotTo(final PersistedSnapshot snapshot, final Path destinationDirectory)
+      throws Exception {}
+
+  @Override
+  public void restoreSnapshotFrom(final Path sourceDirectory) throws Exception {}
 }
