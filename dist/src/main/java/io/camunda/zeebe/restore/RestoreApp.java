@@ -15,6 +15,7 @@ import io.camunda.zeebe.broker.Loggers;
 import io.camunda.zeebe.broker.partitioning.RaftPartitionGroupFactory;
 import io.camunda.zeebe.broker.system.configuration.BrokerCfg;
 import io.camunda.zeebe.broker.system.configuration.DataCfg;
+import io.camunda.zeebe.journal.file.SegmentedJournal;
 import io.camunda.zeebe.shared.Profile;
 import io.camunda.zeebe.snapshots.ReceivableSnapshotStore;
 import io.camunda.zeebe.snapshots.ReceivableSnapshotStoreFactory;
@@ -44,6 +45,24 @@ public class RestoreApp implements CommandLineRunner {
   @Autowired
   public RestoreApp(final BrokerCfg configuration) {
     this.configuration = configuration;
+  }
+
+  private void fixJournal(final RaftPartition partition, final long checkpointPosition) {
+
+    final var journal =
+        SegmentedJournal.builder()
+            .withDirectory(partition.dataDirectory())
+            .withName(partition.name())
+            .build();
+    final var reader = journal.openReader();
+    reader.seekToAsqn(checkpointPosition);
+    if (!reader.hasNext()) {
+      // backup not valid
+    }
+    final var index = reader.next().index();
+    journal.deleteAfter(index);
+    reader.close();
+    journal.close();
   }
 
   public static void main(final String[] args) {
@@ -102,12 +121,11 @@ public class RestoreApp implements CommandLineRunner {
       }
     }
 
-    // TODO:
-    // For each partition
-    // find the checkpoint position
-    // open SegmentedJournal,
-    // find index of this postition
-    // jounral.deleteAfter(index)
+    for (final Partition partition : partitionsGroup.getPartitions()) {
+      final RaftPartition p = (RaftPartition) partition;
+      final var checkpointPosition = Long.MAX_VALUE; // TODO: Read checkpointPosition from backup
+      fixJournal(p, checkpointPosition);
+    }
   }
 
   class SnapshotStoreFactory implements ReceivableSnapshotStoreFactory {
