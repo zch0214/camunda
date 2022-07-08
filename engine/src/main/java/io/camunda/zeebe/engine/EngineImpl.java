@@ -17,12 +17,17 @@ import io.camunda.zeebe.engine.api.ProcessingResult;
 import io.camunda.zeebe.engine.api.TypedRecord;
 import io.camunda.zeebe.engine.state.EventApplier;
 import io.camunda.zeebe.engine.state.ZeebeDbState;
+import io.camunda.zeebe.engine.state.appliers.EventAppliers;
 import io.camunda.zeebe.engine.state.mutable.MutableZeebeState;
 import java.util.function.Function;
 
 public class EngineImpl implements Engine {
 
   private final EventApplier eventApplier;
+
+  public EngineImpl(final int partitionId, final ZeebeDb zeebeDb) {
+    this(partitionId, zeebeDb, EventAppliers::new);
+  }
 
   public EngineImpl(
       final int partitionId,

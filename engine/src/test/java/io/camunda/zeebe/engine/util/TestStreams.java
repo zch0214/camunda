@@ -285,7 +285,6 @@ public final class TestStreams {
             .commandResponseWriter(mockCommandResponseWriter)
             .listener(mockStreamProcessorListener)
             .streamProcessorFactory(wrappedFactory)
-            .eventApplierFactory(eventApplierFactory)
             .streamProcessorMode(streamProcessorMode);
 
     if (streamWriterFactory != null) {
