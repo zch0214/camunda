@@ -8,7 +8,7 @@
 package io.camunda.zeebe.backup.api;
 
 import java.nio.file.Path;
-import java.util.Set;
+import java.util.Map;
 
 /** Represents a backup * */
 public interface Backup {
@@ -35,7 +35,7 @@ public interface Backup {
   /**
    * @return the set of snapshot files
    */
-  Set<Path> snapshot();
+  Map<String, Path> snapshot();
 
   /**
    * @return the checkpoint position of the checkpoint included in the backup
@@ -45,5 +45,5 @@ public interface Backup {
   /**
    * @return the set of segment files
    */
-  Set<Path> segments();
+  Map<String, Path> segments();
 }
