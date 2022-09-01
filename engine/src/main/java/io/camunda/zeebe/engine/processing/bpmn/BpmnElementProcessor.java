@@ -8,6 +8,7 @@
 package io.camunda.zeebe.engine.processing.bpmn;
 
 import io.camunda.zeebe.engine.processing.deployment.model.element.ExecutableFlowElement;
+import io.camunda.zeebe.engine.processing.streamprocessor.TypedRecordProcessor.ProcessingError;
 
 /**
  * The business logic of a BPMN element.
@@ -15,6 +16,9 @@ import io.camunda.zeebe.engine.processing.deployment.model.element.ExecutableFlo
  * <p>The execution of an element is divided into multiple steps that represents the lifecycle of
  * the element. Each step defines a set of actions that can be performed in this step. The
  * transition to the next step must be triggered explicitly in the current step.
+ *
+ * <p>If an error happened during processing (or if the StreamProcessor encounters an error
+ * post-processing), then this element processor can attempt to handle the error.
  *
  * @param <T> the type that represents the BPMN element
  */
@@ -95,4 +99,17 @@ public interface BpmnElementProcessor<T extends ExecutableFlowElement> {
    * @param context process instance-related data of the element that is executed
    */
   default void onTerminate(final T element, final BpmnElementContext context) {}
+
+  /**
+   * Try to handle an error that occurred during element processing.
+   *
+   * @param element the instance of the BPMN element that was being executed
+   * @param context the process instance-related data of the element that was being executed
+   * @param error The error that occurred, and the element processor should attempt to handle
+   * @return The type of the processing error. Default: {@link ProcessingError#UNEXPECTED_ERROR}.
+   */
+  default ProcessingError tryHandleError(
+      final T element, final BpmnElementContext context, final Throwable error) {
+    return ProcessingError.UNEXPECTED_ERROR;
+  }
 }

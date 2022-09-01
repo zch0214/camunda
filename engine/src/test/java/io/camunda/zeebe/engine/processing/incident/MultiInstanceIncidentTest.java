@@ -20,6 +20,7 @@ import io.camunda.zeebe.model.bpmn.BpmnModelInstance;
 import io.camunda.zeebe.protocol.impl.record.value.processinstance.ProcessInstanceRecord;
 import io.camunda.zeebe.protocol.record.Assertions;
 import io.camunda.zeebe.protocol.record.Record;
+import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.IncidentIntent;
 import io.camunda.zeebe.protocol.record.intent.JobIntent;
 import io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent;
@@ -41,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -747,6 +749,108 @@ public final class MultiInstanceIncidentTest {
                 .withValue("[1]")
                 .exists())
         .isTrue();
+  }
+
+  @Test
+  public void shouldCreateIncidentWhenActivationExceedsMaxBatchRecordSize() {
+    // given
+    ENGINE
+        .deployment()
+        .withXmlResource(
+            Bpmn.createExecutableProcess("too_many_inner_activations")
+                .startEvent()
+                .manualTask()
+                .multiInstance(
+                    m ->
+                        m.parallel()
+                            .zeebeInputCollectionExpression(INPUT_COLLECTION)
+                            .zeebeInputElement(INPUT_ELEMENT))
+                .endEvent()
+                .done())
+        .deploy();
+
+    // when
+    final var processInstanceKey =
+        ENGINE
+            .processInstance()
+            .ofBpmnProcessId("too_many_inner_activations")
+            .withVariables(Map.of("items", IntStream.range(0, 20_000).boxed().toList()))
+            .create();
+
+    // then
+    Assertions.assertThat(
+            RecordingExporter.incidentRecords(IncidentIntent.CREATED)
+                .withProcessInstanceKey(processInstanceKey)
+                .getFirst()
+                .getValue())
+        .hasErrorType(ErrorType.MESSAGE_SIZE_EXCEEDED)
+        .hasErrorMessage("Yo bro, what the hell?");
+  }
+
+  @Test
+  public void shouldResolveIncidentAfterActivationExceedsMaxBatchRecordSize() {
+    // given
+    ENGINE
+        .deployment()
+        .withXmlResource(
+            Bpmn.createExecutableProcess("too_many_inner_activations")
+                .startEvent()
+                .manualTask()
+                .multiInstance(
+                    m ->
+                        m.parallel()
+                            .zeebeInputCollectionExpression(INPUT_COLLECTION)
+                            .zeebeInputElement(INPUT_ELEMENT))
+                .done())
+        .deploy();
+
+    final var processInstanceKey =
+        ENGINE
+            .processInstance()
+            .ofBpmnProcessId("too_many_inner_activations")
+            .withVariables(Map.of("items", IntStream.range(0, 100_000).boxed().toList()))
+            .create();
+
+    final var incident =
+        RecordingExporter.incidentRecords(IncidentIntent.CREATED)
+            .withProcessInstanceKey(processInstanceKey)
+            .getFirst();
+
+    // when
+    ENGINE
+        .variables()
+        .ofScope(processInstanceKey)
+        .withDocument(Map.of("items", List.of(1, 2, 3)))
+        .update();
+    ENGINE.incident().ofInstance(processInstanceKey).withKey(incident.getKey()).resolve();
+
+    // then
+    assertThat(
+            RecordingExporter.incidentRecords(IncidentIntent.RESOLVED)
+                .withProcessInstanceKey(processInstanceKey)
+                .findAny())
+        .describedAs("Expect that incident is resolved")
+        .isPresent();
+
+    assertThat(
+            RecordingExporter.processInstanceRecords(ProcessInstanceIntent.ELEMENT_COMPLETED)
+                .withProcessInstanceKey(processInstanceKey)
+                .limitToProcessInstanceCompleted())
+        .extracting(r -> r.getValue().getBpmnElementType())
+        .describedAs("Expect that the tasks and process instance are completed")
+        .containsSequence(
+            BpmnElementType.MANUAL_TASK,
+            BpmnElementType.MANUAL_TASK,
+            BpmnElementType.MANUAL_TASK,
+            BpmnElementType.MULTI_INSTANCE_BODY,
+            BpmnElementType.PROCESS);
+
+    assertThat(RecordingExporter.records().onlyEvents().limitToProcessInstance(processInstanceKey))
+        .extracting(Record::getValueType, Record::getIntent)
+        .describedAs("Expect that no new incident to be created")
+        .doesNotContainSubsequence(
+            tuple(ValueType.INCIDENT, IncidentIntent.CREATED),
+            tuple(ValueType.INCIDENT, IncidentIntent.CREATED));
   }
 
   private BpmnModelInstance createProcessThatModifiesOutputCollection(

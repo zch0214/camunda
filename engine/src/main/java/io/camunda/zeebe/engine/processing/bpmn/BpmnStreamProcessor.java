@@ -99,6 +99,43 @@ public final class BpmnStreamProcessor implements TypedRecordProcessor<ProcessIn
                     record, RejectionType.INVALID_STATE, violation.getMessage()));
   }
 
+  @Override
+  public ProcessingError tryHandleError(
+      final TypedRecord<ProcessInstanceRecord> command, final Throwable error) {
+    final BpmnElementProcessor<ExecutableFlowElement> processor;
+    try {
+      processor = processors.getProcessor(command.getValue().getBpmnElementType());
+    } catch (final UnsupportedOperationException e) {
+      // would be nice if we wouldn't have to catch this exception
+      return ProcessingError.UNEXPECTED_ERROR;
+    }
+    final var element = getElement(command.getValue(), processor);
+    final var intent = (ProcessInstanceIntent) command.getIntent();
+    context.init(command.getKey(), command.getValue(), intent);
+    final var transition =
+        switch (intent) {
+          case ACTIVATE_ELEMENT -> {
+            final var activatingContext = stateTransitionBehavior.transitionToActivating(context);
+            // todo: consider if we should call onElementActivating
+            //            stateTransitionBehavior
+            //                .onElementActivating(element, activatingContext)
+            //                .ifLeft(
+            //                    f -> {
+            //                      // todo: consider if we can/should handle this failure
+            //                    });
+            yield activatingContext;
+          }
+          case COMPLETE_ELEMENT -> stateTransitionBehavior.transitionToCompleting(context);
+          case TERMINATE_ELEMENT -> stateTransitionBehavior.transitionToTerminating(context);
+          default -> context;
+        };
+    if (context.equals(transition)) {
+      // Expected element to transition to an initial state, but hasn't changed
+      return ProcessingError.UNEXPECTED_ERROR;
+    }
+    return processor.tryHandleError(element, transition, error);
+  }
+
   private void processEvent(
       final ProcessInstanceIntent intent,
       final BpmnElementProcessor<ExecutableFlowElement> processor,

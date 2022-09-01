@@ -524,7 +524,7 @@ public class CompactRecordLogger {
         .append(formatId(value.getBpmnProcessId()))
         .append(">")
         .append(summarizeStartInstructions(value.getStartInstructions()))
-        .append(summarizeVariables(value.getVariables()))
+        //        .append(summarizeVariables(value.getVariables()))
         .toString();
   }
 
@@ -618,7 +618,7 @@ public class CompactRecordLogger {
 
     final var builder = new StringBuilder();
     builder
-        .append(String.format("%s->%s", value.getName(), value.getValue()))
+        //        .append(String.format("%s->%s", value.getName(), value.getValue()))
         .append(String.format(" in <process [%s]", shortenKey(value.getProcessInstanceKey())));
     if (value.getProcessInstanceKey() != value.getScopeKey()) {
       // only add if they're different, no need to state things twice

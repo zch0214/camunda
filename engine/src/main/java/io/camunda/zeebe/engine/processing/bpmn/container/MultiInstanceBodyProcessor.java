@@ -8,6 +8,7 @@
 package io.camunda.zeebe.engine.processing.bpmn.container;
 
 import io.camunda.zeebe.el.Expression;
+import io.camunda.zeebe.engine.api.records.RecordBatch.ExceededBatchRecordSizeException;
 import io.camunda.zeebe.engine.processing.bpmn.BpmnElementContainerProcessor;
 import io.camunda.zeebe.engine.processing.bpmn.BpmnElementContext;
 import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnBehaviors;
@@ -19,6 +20,7 @@ import io.camunda.zeebe.engine.processing.bpmn.behavior.MultiInstanceOutputColle
 import io.camunda.zeebe.engine.processing.common.ExpressionProcessor;
 import io.camunda.zeebe.engine.processing.common.Failure;
 import io.camunda.zeebe.engine.processing.deployment.model.element.ExecutableMultiInstanceBody;
+import io.camunda.zeebe.engine.processing.streamprocessor.TypedRecordProcessor.ProcessingError;
 import io.camunda.zeebe.msgpack.spec.MsgPackHelper;
 import io.camunda.zeebe.msgpack.spec.MsgPackWriter;
 import io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent;
@@ -122,6 +124,50 @@ public final class MultiInstanceBodyProcessor
     if (noActiveChildInstances) {
       terminate(element, context);
     }
+  }
+
+  @Override
+  public ProcessingError tryHandleError(
+      final ExecutableMultiInstanceBody element,
+      final BpmnElementContext context,
+      final Throwable error) {
+    if (error instanceof ExceededBatchRecordSizeException exception) {
+      if (element.getLoopCharacteristics().isSequential()) {
+        // this is only expected for parallel multi-instance with too large input collection
+        return ProcessingError.UNEXPECTED_ERROR;
+      }
+
+      // todo: consider whether there are other cases that this can happen?
+      // e.g. parallel multi-instance with small input collection, but large variables or large
+      // input mapping?
+
+      // todo: do we want to introduce a new ErrorType or reuse this one?
+      final var action =
+          switch (context.getIntent()) {
+            case ELEMENT_ACTIVATING -> "activate";
+            case ELEMENT_COMPLETING -> "complete";
+            case ELEMENT_TERMINATING -> "terminate";
+            default -> "";
+          };
+
+      final var message =
+          new StringBuilder(
+              String.format(
+                  "Expected to %s this multi-instance element,"
+                      + " but this created records exceeds the maximum batch size."
+                      + " Consider reducing the size of the input collection",
+                  action));
+      if (element.getInputMappings().isPresent()) {
+        message.append(", or reducing the size of any input mapping variables");
+      }
+      message.append(".");
+
+      // todo: consider if we don't just want to do this for all elements?
+      incidentBehavior.createIncident(
+          new Failure(message.toString(), ErrorType.MESSAGE_SIZE_EXCEEDED), context);
+      return ProcessingError.EXPECTED_ERROR;
+    }
+    return ProcessingError.UNEXPECTED_ERROR;
   }
 
   @Override

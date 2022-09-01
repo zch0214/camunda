@@ -29,7 +29,8 @@ final class IncidentCreatedApplier implements TypedEventApplier<IncidentIntent, 
   public void applyState(final long incidentKey, final IncidentRecord value) {
     incidentState.createIncident(incidentKey, value);
 
-    if (ErrorType.MESSAGE_SIZE_EXCEEDED == value.getErrorType()) {
+    // todo: we should get rid of this. Instead we should introduce a new Job:Disabled event
+    if (ErrorType.MESSAGE_SIZE_EXCEEDED == value.getErrorType() && value.getJobKey() > 0) {
       final var jobKey = value.getJobKey();
       final var jobRecord = jobState.getJob(jobKey);
       jobState.disable(jobKey, jobRecord);
