@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches:
+      - dd-reproduce-securemessagingit
       - main
       - stable/*
       - release-*
@@ -64,6 +65,7 @@ jobs:
           -D maven.javadoc.skip=true
           -D skipUTs -D skipChecks
           -D failsafe.rerunFailingTestsCount=3 -D flaky.test.reportDir=failsafe-reports
+          -D failsafe.includes=**/SecureClusteredMessagingIT.java
           -P parallel-tests,extract-flaky-tests
           -pl '!qa/update-tests'
           verify
