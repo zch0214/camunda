@@ -1,6 +1,6 @@
 global:
   image:
-    tag: 8.0.8
+    tag: 8.0.9
     pullPolicy: Always
 
 zeebe:
@@ -20,13 +20,13 @@ zeebe:
   # IoThreadCount defines how many threads can be used for the exporting on each broker pod
   ioThreadCount: 4
 
-  # PodSecurityContext defines the security options the broker and gateway container should be run with
-  podSecurityContext:
+  # ContainerSecurityContext defines the security options the Zeebe broker container should be run with
+  containerSecurityContext:
     capabilities:
       add: ["NET_ADMIN"]
 
   # JavaOpts can be used to set java options for the zeebe brokers
-  JavaOpts: >-
+  javaOpts: >-
     -XX:MaxRAMPercentage=25.0
     -XX:+ExitOnOutOfMemoryError
     -XX:+HeapDumpOnOutOfMemoryError
@@ -60,7 +60,7 @@ zeebe:
     - name: ZEEBE_BROKER_EXPERIMENTAL_CONSISTENCYCHECKS_ENABLEFOREIGNKEYCHECKS
       value: "true"
 
-  # Enable metrics collection
+  # Enable metrics collections
   podLabels:
     metrics: gmp
 
@@ -109,7 +109,7 @@ zeebe-gateway:
     - name: ZEEBE_GATEWAY_THREADS_MANAGEMENTTHREADS
       value: "1"
 
-  # Enable metrics collection
+  # Enable metrics collections
   podLabels:
     metrics: gmp
 
@@ -145,6 +145,12 @@ operate:
 tasklist:
   enabled: false
 
+identity:
+  enabled: false
+
+optimize:
+  enabled: false
+
 # ELASTIC
 elasticsearch:
   enabled: true
@@ -170,6 +176,6 @@ elasticsearch:
       cpu: 3
       memory: 8Gi
 
-# PrometheusServiceMonitor configuration for the prometheus service monitor
+# Disable the service monitor as we use Google Managed Prometheus
 prometheusServiceMonitor:
   enabled: false
