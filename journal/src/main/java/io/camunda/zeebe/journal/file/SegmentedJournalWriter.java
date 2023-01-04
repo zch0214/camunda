@@ -24,6 +24,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 class SegmentedJournalWriter {
   private final SegmentedJournal journal;
@@ -34,6 +35,7 @@ class SegmentedJournalWriter {
   private final ScheduledExecutorService flushExecutor;
 
   private final BlockingQueue<SegmentWriter> flushQueue = new ArrayBlockingQueue<>(1);
+  private final AtomicInteger positionToFlush = new AtomicInteger(0);
 
   public SegmentedJournalWriter(final SegmentedJournal journal) {
     this.journal = journal;
@@ -47,7 +49,7 @@ class SegmentedJournalWriter {
   private void scheduleFlush() {
     try {
       final var writer = flushQueue.take();
-      journalMetrics.observeSegmentFlush(writer::flush);
+      journalMetrics.observeSegmentFlush(() -> writer.flush(positionToFlush.get()));
       flushExecutor.schedule(this::scheduleFlush, 10, TimeUnit.MILLISECONDS);
     } catch (final InterruptedException e) {
       // TODO
@@ -119,6 +121,7 @@ class SegmentedJournalWriter {
   }
 
   public void flush() {
+    positionToFlush.set(currentWriter.getLastBufferAddress());
     flushQueue.offer(currentWriter);
   }
 
