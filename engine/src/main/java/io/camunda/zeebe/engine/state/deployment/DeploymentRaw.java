@@ -24,6 +24,10 @@ public class DeploymentRaw extends UnpackedObject implements DbValue {
     declareProperty(deploymentRecordProperty);
   }
 
+  public DeploymentRecord getDeploymentRecord() {
+    return deploymentRecordProperty.getValue();
+  }
+
   public void setDeploymentRecord(final DeploymentRecord deploymentRecord) {
     final MutableDirectBuffer valueBuffer = new UnsafeBuffer(0, 0);
     final int encodedLength = deploymentRecord.getLength();
@@ -31,9 +35,5 @@ public class DeploymentRaw extends UnpackedObject implements DbValue {
 
     deploymentRecord.write(valueBuffer, 0);
     deploymentRecordProperty.getValue().wrap(valueBuffer, 0, encodedLength);
-  }
-
-  public DeploymentRecord getDeploymentRecord() {
-    return deploymentRecordProperty.getValue();
   }
 }

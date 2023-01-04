@@ -24,12 +24,12 @@ public class MessageStartEventSubscription extends UnpackedObject implements DbV
     declareProperty(recordProp).declareProperty(keyProp);
   }
 
-  public void setRecord(final MessageStartEventSubscriptionRecord record) {
-    recordProp.getValue().wrap(record);
-  }
-
   public MessageStartEventSubscriptionRecord getRecord() {
     return recordProp.getValue();
+  }
+
+  public void setRecord(final MessageStartEventSubscriptionRecord record) {
+    recordProp.getValue().wrap(record);
   }
 
   public long getKey() {

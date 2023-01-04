@@ -15,6 +15,8 @@
  */
 package io.camunda.zeebe.protocol.record.intent;
 
+// TODO: can we move this class into a special deprecated package?
+@Deprecated
 public enum DeploymentDistributionIntent implements Intent {
   DISTRIBUTING((short) 0),
   COMPLETE((short) 1),

@@ -17,6 +17,7 @@ package io.camunda.zeebe.protocol.record.intent;
 
 import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.management.CheckpointIntent;
+import io.camunda.zeebe.protocol.record.intent.management.RecordDistributionIntent;
 import java.util.Arrays;
 import java.util.Collection;
 
@@ -48,7 +49,8 @@ public interface Intent {
           CheckpointIntent.class,
           ProcessInstanceModificationIntent.class,
           SignalIntent.class,
-          SignalSubscriptionIntent.class);
+          SignalSubscriptionIntent.class,
+          RecordDistributionIntent.class);
   short NULL_VAL = 255;
   Intent UNKNOWN =
       new Intent() {
@@ -122,6 +124,8 @@ public interface Intent {
         return SignalIntent.from(intent);
       case SIGNAL_SUBSCRIPTION:
         return SignalSubscriptionIntent.from(intent);
+      case RECORD_DISTRIBUTION:
+        return RecordDistributionIntent.from(intent);
       case NULL_VAL:
       case SBE_UNKNOWN:
         return Intent.UNKNOWN;

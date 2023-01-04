@@ -23,6 +23,7 @@ import io.camunda.zeebe.protocol.impl.record.value.deployment.DecisionRequiremen
 import io.camunda.zeebe.protocol.impl.record.value.deployment.DeploymentDistributionRecord;
 import io.camunda.zeebe.protocol.impl.record.value.deployment.DeploymentRecord;
 import io.camunda.zeebe.protocol.impl.record.value.deployment.ProcessRecord;
+import io.camunda.zeebe.protocol.impl.record.value.distribution.RecordDistributionRecord;
 import io.camunda.zeebe.protocol.impl.record.value.error.ErrorRecord;
 import io.camunda.zeebe.protocol.impl.record.value.escalation.EscalationRecord;
 import io.camunda.zeebe.protocol.impl.record.value.incident.IncidentRecord;
@@ -1168,6 +1169,84 @@ final class JsonSerializableToJsonTest {
               "catchEventId":"",
               "bpmnProcessId":"",
               "catchEventInstanceKey":-1
+          }
+          """
+      },
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      ///////////////////////////////// RecordDistributionRecord //////////////////////////////////
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      {
+        "RecordDistributionRecord",
+        (Supplier<UnifiedRecordValue>)
+            () -> {
+              final var deploymentRecord = new DeploymentRecord();
+              deploymentRecord
+                  .resources()
+                  .add()
+                  .setResourceName("my_first_bpmn.bpmn")
+                  .setResource(wrapString("This is the contents of the BPMN"));
+              deploymentRecord
+                  .processesMetadata()
+                  .add()
+                  .setKey(123)
+                  .setVersion(1)
+                  .setBpmnProcessId("my_first_process")
+                  .setResourceName("my_first_bpmn.bpmn")
+                  .setChecksum(wrapString("sha1"));
+
+              return new RecordDistributionRecord()
+                  .setPartition(1)
+                  .setValueType(ValueType.DEPLOYMENT)
+                  .setRecordValue(deploymentRecord);
+            },
+        """
+          {
+            "partitionId": 1,
+            "valueType": "DEPLOYMENT",
+            "recordValue": {
+              "resources": [{
+                "resource": "VGhpcyBpcyB0aGUgY29udGVudHMgb2YgdGhlIEJQTU4=",
+                "resourceName": "my_first_bpmn.bpmn"
+              }],
+              "processesMetadata": [{
+                "processDefinitionKey": 123,
+                "version": 1,
+                "bpmnProcessId": "my_first_process",
+                "resourceName": "my_first_bpmn.bpmn",
+                "checksum": "c2hhMQ==",
+                "duplicate": false
+              }],
+              "decisionsMetadata": [],
+              "decisionRequirementsMetadata": []
+            }
+          }
+          """
+      },
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      ///////////////////////////////// Empty RecordDistributionRecord ////////////////////////////
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      {
+        "Empty RecordDistributionRecord",
+        (Supplier<UnifiedRecordValue>)
+            () -> {
+              final var deploymentRecord = new DeploymentRecord();
+              return new RecordDistributionRecord()
+                  .setPartition(1)
+                  .setValueType(ValueType.DEPLOYMENT)
+                  .setRecordValue(deploymentRecord);
+            },
+        """
+          {
+              "partitionId": 1,
+              "valueType": "DEPLOYMENT",
+              "recordValue": {
+                "resources": [],
+                "processesMetadata": [],
+                "decisionsMetadata": [],
+                "decisionRequirementsMetadata": []
+              }
           }
           """
       },

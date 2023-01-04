@@ -13,25 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.camunda.zeebe.protocol.record.intent;
+package io.camunda.zeebe.protocol.record.intent.management;
 
-public enum DeploymentIntent implements Intent {
-  // create an entirely new deployment
-  CREATE((short) 0),
-  // successfully created a new deployment
-  CREATED((short) 1),
+import io.camunda.zeebe.protocol.record.intent.DeploymentDistributionIntent;
+import io.camunda.zeebe.protocol.record.intent.Intent;
 
-  // like create, but written on a different partition through inter-partition communication
-  DISTRIBUTE((short) 2),
-  // like created, but in response to distribute
-  DISTRIBUTED((short) 3),
-
-  // to indicate that the deployment is distributed to all other partitions
-  FULLY_DISTRIBUTED((short) 4);
+/**
+ * Generalizes and replaces {@link DeploymentDistributionIntent}.
+ *
+ * <p>Records with this intent are written on the partition that is trying to distribute a record to
+ * other partitions.
+ */
+public enum RecordDistributionIntent implements Intent {
+  DISTRIBUTING((short) 0),
+  COMPLETE((short) 1),
+  COMPLETED((short) 2);
 
   private final short value;
 
-  DeploymentIntent(final short value) {
+  RecordDistributionIntent(final short value) {
     this.value = value;
   }
 
@@ -42,15 +42,11 @@ public enum DeploymentIntent implements Intent {
   public static Intent from(final short value) {
     switch (value) {
       case 0:
-        return CREATE;
+        return DISTRIBUTING;
       case 1:
-        return CREATED;
+        return COMPLETE;
       case 2:
-        return DISTRIBUTE;
-      case 3:
-        return DISTRIBUTED;
-      case 4:
-        return FULLY_DISTRIBUTED;
+        return COMPLETED;
       default:
         return UNKNOWN;
     }
