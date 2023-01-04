@@ -21,8 +21,9 @@ import io.camunda.zeebe.journal.JournalRecord;
 import io.camunda.zeebe.util.buffer.BufferWriter;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 class SegmentedJournalWriter {
   private final SegmentedJournal journal;
@@ -30,7 +31,7 @@ class SegmentedJournalWriter {
   private Segment currentSegment;
   private SegmentWriter currentWriter;
 
-  private final ExecutorService flushExecutor;
+  private final ScheduledExecutorService flushExecutor;
 
   private final BlockingQueue<SegmentWriter> flushQueue = new ArrayBlockingQueue<>(1);
 
@@ -47,7 +48,7 @@ class SegmentedJournalWriter {
     try {
       final var writer = flushQueue.take();
       journalMetrics.observeSegmentFlush(writer::flush);
-      flushExecutor.submit(this::scheduleFlush);
+      flushExecutor.schedule(this::scheduleFlush, 5, TimeUnit.MILLISECONDS);
     } catch (final InterruptedException e) {
       // TODO
     }
