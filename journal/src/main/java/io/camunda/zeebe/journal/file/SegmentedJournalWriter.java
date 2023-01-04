@@ -48,7 +48,7 @@ class SegmentedJournalWriter {
     try {
       final var writer = flushQueue.take();
       journalMetrics.observeSegmentFlush(writer::flush);
-      flushExecutor.schedule(this::scheduleFlush, 5, TimeUnit.MILLISECONDS);
+      flushExecutor.schedule(this::scheduleFlush, 10, TimeUnit.MILLISECONDS);
     } catch (final InterruptedException e) {
       // TODO
     }
