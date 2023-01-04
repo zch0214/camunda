@@ -19,6 +19,10 @@ package io.camunda.zeebe.journal.file;
 import io.camunda.zeebe.journal.JournalException.SegmentSizeTooSmall;
 import io.camunda.zeebe.journal.JournalRecord;
 import io.camunda.zeebe.util.buffer.BufferWriter;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 class SegmentedJournalWriter {
   private final SegmentedJournal journal;
@@ -26,11 +30,27 @@ class SegmentedJournalWriter {
   private Segment currentSegment;
   private SegmentWriter currentWriter;
 
+  private final ExecutorService flushExecutor;
+
+  private final BlockingQueue<SegmentWriter> flushQueue = new ArrayBlockingQueue<>(1);
+
   public SegmentedJournalWriter(final SegmentedJournal journal) {
     this.journal = journal;
     journalMetrics = journal.getJournalMetrics();
     currentSegment = journal.getLastSegment();
     currentWriter = currentSegment.writer();
+    flushExecutor = new ScheduledThreadPoolExecutor(1);
+    flushExecutor.submit(this::scheduleFlush);
+  }
+
+  private void scheduleFlush() {
+    try {
+      final var writer = flushQueue.take();
+      journalMetrics.observeSegmentFlush(writer::flush);
+      flushExecutor.submit(this::scheduleFlush);
+    } catch (final InterruptedException e) {
+      // TODO
+    }
   }
 
   public long getLastIndex() {
@@ -98,7 +118,7 @@ class SegmentedJournalWriter {
   }
 
   public void flush() {
-    journalMetrics.observeSegmentFlush(currentWriter::flush);
+    flushQueue.offer(currentWriter);
   }
 
   public void close() {
@@ -106,7 +126,7 @@ class SegmentedJournalWriter {
   }
 
   private void createNewSegment() {
-    currentWriter.flush();
+    flush();
     currentSegment = journal.getNextSegment();
     currentWriter = currentSegment.writer();
   }

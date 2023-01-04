@@ -42,6 +42,8 @@ import org.agrona.concurrent.UnsafeBuffer;
 final class SegmentWriter {
 
   private final MappedByteBuffer buffer;
+
+  private final MappedByteBuffer duplicateBuffer;
   private final Segment segment;
   private final JournalIndex index;
   private final long firstIndex;
@@ -67,6 +69,7 @@ final class SegmentWriter {
     this.index = index;
     firstIndex = segment.index();
     this.buffer = buffer;
+    duplicateBuffer = buffer.duplicate();
     writeBuffer.wrap(buffer);
     firstAsqn = lastWrittenAsqn + 1;
     lastAsqn = lastWrittenAsqn;
@@ -270,7 +273,7 @@ final class SegmentWriter {
   }
 
   void flush() {
-    buffer.force();
+    duplicateBuffer.force();
   }
 
   void close() {
