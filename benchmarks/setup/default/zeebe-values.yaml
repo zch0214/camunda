@@ -84,8 +84,8 @@ zeebe:
   # PvcStorageClassName can be used to set the storage class name which should be used by the persistent volume claim. It is recommended to use a storage class, which is backed with a SSD.
   pvcStorageClassName: ssd
 
-nodeSelector:
-  cloud.google.com/gke-nodepool: n2-standard-2
+  nodeSelector:
+    cloud.google.com/gke-nodepool: n2-standard-2
 
 zeebe-gateway:
   # Replicas defines how many standalone gateways are deployed
