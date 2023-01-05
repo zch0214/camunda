@@ -272,9 +272,11 @@ final class SegmentWriter {
 
   void flush(final JournalMetrics journalMetrics) {
     final int bytesFlushed = buffer.position() - lastFlushedPosition;
-    buffer.force();
-    lastFlushedPosition = buffer.position();
-    journalMetrics.observeFlushBytes(bytesFlushed);
+    if (bytesFlushed > 0) {
+      buffer.force(lastFlushedPosition, bytesFlushed);
+      lastFlushedPosition = buffer.position();
+      journalMetrics.observeFlushBytes(bytesFlushed);
+    }
   }
 
   void close() {
