@@ -59,6 +59,10 @@ zeebe:
       value: "true"
     - name: ZEEBE_BROKER_EXPERIMENTAL_CONSISTENCYCHECKS_ENABLEFOREIGNKEYCHECKS
       value: "true"
+    - name: ZEEBE_BROKER_DATA_LOGSEGMENTSIZE
+      value: "32MB"
+    - name: ZEEBE_BROKER_EXPERIMENTAL_MAXAPPENDSPERFOLLOWER
+      value: "8"
 
   # Enable metrics collections
   podLabels:
@@ -67,18 +71,21 @@ zeebe:
   # Resources configuration to set request and limit configuration for the container https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limitsS
   resources:
     limits:
-      cpu: 960m
+      cpu: 1350m
       memory: 4Gi
     requests:
-      cpu: 800m
+      cpu: 1350m
       memory: 2Gi
 
   # PvcAccessModes can be used to configure the persistent volume claim access mode https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
   pvcAccessMode: ["ReadWriteOnce"]
   # PvcSize defines the persistent volume claim size, which is used by each broker pod https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims
-  pvcSize: 128Gi
+  pvcSize: 64Gi
   # PvcStorageClassName can be used to set the storage class name which should be used by the persistent volume claim. It is recommended to use a storage class, which is backed with a SSD.
   pvcStorageClassName: ssd
+
+nodeSelector:
+  cloud.google.com/gke-nodepool: small-nodes
 
 zeebe-gateway:
   # Replicas defines how many standalone gateways are deployed
