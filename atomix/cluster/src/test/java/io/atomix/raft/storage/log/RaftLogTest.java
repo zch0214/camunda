@@ -19,11 +19,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import io.atomix.cluster.MemberId;
 import io.atomix.raft.cluster.RaftMember.Type;
 import io.atomix.raft.cluster.impl.DefaultRaftMember;
+import io.atomix.raft.protocol.PersistedRaftRecord;
 import io.atomix.raft.storage.log.entry.ApplicationEntry;
 import io.atomix.raft.storage.log.entry.ConfigurationEntry;
 import io.atomix.raft.storage.log.entry.InitialEntry;
@@ -220,7 +222,7 @@ class RaftLogTest {
   void shouldFlushWhenFlushExplicitlyTrue() {
     // given
     final Journal journal = mock(Journal.class);
-    final var log = new RaftLog(journal, true);
+    final var log = new RaftLog(journal, true, 0);
 
     // when
     log.flush(0);
@@ -240,6 +242,22 @@ class RaftLogTest {
 
     // then
     verify(journal, timeout(1).times(0)).flush();
+  }
+
+  @Test
+  void shouldFlushOnThreshold() {
+    // given
+    final Journal journal = mock(Journal.class);
+    final var log = new RaftLog(journal, true, 64);
+
+    // when
+    log.append(new PersistedRaftRecord(1, 1, 1, 1, new byte[32]));
+    log.flush();
+    log.append(new PersistedRaftRecord(1, 2, 2, 1, new byte[32]));
+    log.flush();
+
+    // then
+    verify(journal, times(1)).flush();
   }
 
   private ApplicationEntry createApplicationEntryAfter(final ApplicationEntry applicationEntry) {
