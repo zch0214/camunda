@@ -34,6 +34,9 @@ public final class RaftLog implements Closeable {
   private final boolean flushExplicitly;
 
   private IndexedRaftLogEntry lastAppendedEntry;
+
+  private volatile long lastAppendedIndex = 0;
+
   private volatile long commitIndex;
 
   RaftLog(final Journal journal, final boolean flushExplicitly) {
@@ -141,6 +144,7 @@ public final class RaftLog implements Closeable {
             entry.entry().toSerializable(entry.term(), serializer));
 
     lastAppendedEntry = new IndexedRaftLogEntryImpl(entry.term(), entry.entry(), journalRecord);
+    lastAppendedIndex = lastAppendedEntry.index();
     return lastAppendedEntry;
   }
 
@@ -149,6 +153,7 @@ public final class RaftLog implements Closeable {
 
     final RaftLogEntry raftEntry = serializer.readRaftLogEntry(entry.data());
     lastAppendedEntry = new IndexedRaftLogEntryImpl(entry.term(), raftEntry.entry(), entry);
+    lastAppendedIndex = lastAppendedEntry.index();
     return lastAppendedEntry;
   }
 
@@ -168,10 +173,11 @@ public final class RaftLog implements Closeable {
     lastAppendedEntry = null;
   }
 
-  public void flush() {
+  public long flush() {
     if (flushExplicitly) {
       journal.flush();
     }
+    return lastAppendedIndex;
   }
 
   @Override

@@ -66,6 +66,7 @@ import io.atomix.utils.logging.ContextualLoggerFactory;
 import io.atomix.utils.logging.LoggerContext;
 import io.camunda.zeebe.snapshots.PersistedSnapshot;
 import io.camunda.zeebe.snapshots.ReceivableSnapshotStore;
+import io.camunda.zeebe.util.Environment;
 import io.camunda.zeebe.util.exception.UnrecoverableException;
 import io.camunda.zeebe.util.health.FailureListener;
 import io.camunda.zeebe.util.health.HealthMonitorable;
@@ -78,6 +79,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
@@ -226,6 +228,21 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
     started = true;
 
     addCommitListener(new AwaitingReadyCommitListener());
+
+    final long flushDelayMS =
+        new Environment().getLong("ZEEBE_BROKER_EXPERIMENTAL_RAFT_FLUSHDELAY").orElse(10L);
+    scheduleFlush(flushDelayMS);
+  }
+
+  private void scheduleFlush(final long flushDelayMS) {
+    flushContext.schedule(
+        flushDelayMS,
+        TimeUnit.MILLISECONDS,
+        () -> {
+          final var lastFlushedIndex = raftLog.flush();
+          setLastWrittenIndex(lastFlushedIndex);
+          scheduleFlush(flushDelayMS);
+        });
   }
 
   private void setSnapshot(final PersistedSnapshot persistedSnapshot) {
@@ -454,11 +471,11 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
   }
 
   public void flushOnCOntext(final long commitIndex) {
-    flushContext.execute(
-        () -> {
-          raftLog.flush();
-          setLastWrittenIndex(commitIndex);
-        });
+    /*flushContext.execute(
+    () -> {
+      raftLog.flush();
+      setLastWrittenIndex(commitIndex);
+    });*/
   }
 
   /**
