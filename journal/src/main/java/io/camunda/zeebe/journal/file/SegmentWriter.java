@@ -272,7 +272,7 @@ final class SegmentWriter {
     }
   }
 
-  void flush(final JournalMetrics journalMetrics) {
+  synchronized void flush(final JournalMetrics journalMetrics) {
 
     final int bytesFlushed = buffer.position() - lastFlushedPosition;
     duplicateBuffer.force();
@@ -280,7 +280,7 @@ final class SegmentWriter {
     journalMetrics.observeFlushBytes(bytesFlushed);
   }
 
-  void close() {
+  synchronized void close() {
     if (isOpen) {
       isOpen = false;
       // flush();
