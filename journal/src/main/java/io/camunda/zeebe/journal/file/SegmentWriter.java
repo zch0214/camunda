@@ -55,6 +55,7 @@ final class SegmentWriter {
   private final MutableDirectBuffer writeBuffer = new UnsafeBuffer();
   private final int descriptorLength;
   private int lastFlushedPosition = 0;
+  private final MappedByteBuffer duplicateBuffer;
 
   SegmentWriter(
       final MappedByteBuffer buffer,
@@ -68,6 +69,7 @@ final class SegmentWriter {
     this.index = index;
     firstIndex = segment.index();
     this.buffer = buffer;
+    duplicateBuffer = buffer.duplicate();
     writeBuffer.wrap(buffer);
     firstAsqn = lastWrittenAsqn + 1;
     lastAsqn = lastWrittenAsqn;
@@ -270,14 +272,17 @@ final class SegmentWriter {
     }
   }
 
-  void flush(final JournalMetrics journalMetrics) {
+  synchronized void flush(final JournalMetrics journalMetrics) {
+    if (!isOpen) {
+      return;
+    }
     final int bytesFlushed = buffer.position() - lastFlushedPosition;
-    buffer.force();
+    duplicateBuffer.force();
     lastFlushedPosition = buffer.position();
     journalMetrics.observeFlushBytes(bytesFlushed);
   }
 
-  void close() {
+  synchronized void close() {
     if (isOpen) {
       isOpen = false;
       // flush();
