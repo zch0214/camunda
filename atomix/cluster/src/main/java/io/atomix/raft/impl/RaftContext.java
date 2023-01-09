@@ -139,6 +139,7 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
   private long lastHeartbeat;
   private final RaftPartitionConfig partitionConfig;
   private final int partitionId;
+  private final ThreadContext flushContext;
 
   public RaftContext(
       final String name,
@@ -183,6 +184,12 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
             namedThreads(baseThreadName, log), this::onUncaughtException);
     // in order to set the partition id once in the raft thread
     threadContext.execute(() -> MDC.put("partitionId", Integer.toString(partitionId)));
+
+    final String flushThreadName =
+        String.format("raft-server--flush-%s-%s", localMemberId.id(), name);
+    flushContext =
+        threadContextFactory.createContext(
+            namedThreads(flushThreadName, log), this::onUncaughtException);
 
     // Open the metadata store.
     meta = storage.openMetaStore();
@@ -434,8 +441,7 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
       raftLog.setCommitIndex(Math.min(commitIndex, raftLog.getLastIndex()));
       if (raftLog.shouldFlushExplicitly() && isLeader()) {
         // leader counts itself in quorum, so in order to commit the leader must persist
-        raftLog.flush();
-        setLastWrittenIndex(commitIndex);
+        flushOnCOntext(commitIndex);
       }
       final long configurationIndex = cluster.getConfiguration().index();
       if (configurationIndex > previousCommitIndex && configurationIndex <= commitIndex) {
@@ -445,6 +451,14 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
       notifyCommitListeners(commitIndex);
     }
     return previousCommitIndex;
+  }
+
+  public void flushOnCOntext(final long commitIndex) {
+    flushContext.execute(
+        () -> {
+          raftLog.flush();
+          setLastWrittenIndex(commitIndex);
+        });
   }
 
   /**

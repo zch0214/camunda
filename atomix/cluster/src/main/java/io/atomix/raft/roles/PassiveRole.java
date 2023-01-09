@@ -84,8 +84,7 @@ public class PassiveRole extends InactiveRole {
     if (role() == RaftServer.Role.PASSIVE && raft.getLog().getLastIndex() > raft.getCommitIndex()) {
       raft.getLog().deleteAfter(raft.getCommitIndex());
 
-      raft.getLog().flush();
-      raft.setLastWrittenIndex(raft.getCommitIndex());
+      raft.flushOnCOntext(raft.getCommitIndex());
     }
   }
 
@@ -543,8 +542,7 @@ public class PassiveRole extends InactiveRole {
 
   private void flush(final long lastWrittenIndex, final long previousEntryIndex) {
     if (raft.getLog().shouldFlushExplicitly() && lastWrittenIndex > previousEntryIndex) {
-      raft.getLog().flush();
-      raft.setLastWrittenIndex(lastWrittenIndex);
+      raft.flushOnCOntext(lastWrittenIndex);
     }
   }
 
@@ -567,8 +565,7 @@ public class PassiveRole extends InactiveRole {
         // the log and append the leader's entry.
         if (lastEntry.term() != entry.term()) {
           raft.getLog().deleteAfter(index - 1);
-          raft.getLog().flush();
-          raft.setLastWrittenIndex(index - 1);
+          raft.flushOnCOntext(index - 1);
 
           failedToAppend = !appendEntry(index, entry, future);
         }
@@ -620,9 +617,7 @@ public class PassiveRole extends InactiveRole {
       // the log and append the leader's entry.
       if (existingEntry.term() != entry.term()) {
         raft.getLog().deleteAfter(index - 1);
-        raft.getLog().flush();
-        raft.setLastWrittenIndex(index - 1);
-
+        raft.flushOnCOntext(index - 1);
         return appendEntry(index, entry, future);
       }
       return true;
