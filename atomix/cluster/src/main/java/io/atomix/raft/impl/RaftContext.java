@@ -437,27 +437,38 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
     checkArgument(commitIndex >= 0, "commitIndex must be positive");
     final long previousCommitIndex = this.commitIndex;
     if (commitIndex > previousCommitIndex) {
-      this.commitIndex = commitIndex;
-      raftLog.setCommitIndex(Math.min(commitIndex, raftLog.getLastIndex()));
-      if (raftLog.shouldFlushExplicitly() && isLeader()) {
+      if (isLeader()) {
         // leader counts itself in quorum, so in order to commit the leader must persist
-        flushOnCOntext(commitIndex);
+        flushOnCOntext(
+            commitIndex,
+            () ->
+                threadContext.execute(
+                    () -> {
+                      this.commitIndex = commitIndex;
+                      raftLog.setCommitIndex(Math.min(commitIndex, raftLog.getLastIndex()));
+                      notifyCommitListeners(commitIndex);
+                      replicationMetrics.setCommitIndex(commitIndex);
+                    }));
+      } else {
+        this.commitIndex = commitIndex;
+        raftLog.setCommitIndex(Math.min(commitIndex, raftLog.getLastIndex()));
+        notifyCommitListeners(commitIndex);
+        replicationMetrics.setCommitIndex(commitIndex);
       }
       final long configurationIndex = cluster.getConfiguration().index();
       if (configurationIndex > previousCommitIndex && configurationIndex <= commitIndex) {
         cluster.commit();
       }
-      replicationMetrics.setCommitIndex(commitIndex);
-      notifyCommitListeners(commitIndex);
     }
     return previousCommitIndex;
   }
 
-  public void flushOnCOntext(final long commitIndex) {
+  public void flushOnCOntext(final long commitIndex, final Runnable callback) {
     flushContext.execute(
         () -> {
           raftLog.flush();
           setLastWrittenIndex(commitIndex);
+          callback.run();
         });
   }
 
