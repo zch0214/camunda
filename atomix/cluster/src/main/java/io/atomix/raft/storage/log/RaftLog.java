@@ -24,21 +24,35 @@ import io.atomix.raft.storage.serializer.RaftEntrySBESerializer;
 import io.atomix.raft.storage.serializer.RaftEntrySerializer;
 import io.camunda.zeebe.journal.Journal;
 import io.camunda.zeebe.journal.JournalRecord;
+import io.camunda.zeebe.util.Environment;
+import io.camunda.zeebe.util.buffer.BufferWriter;
 import java.io.Closeable;
+import java.util.concurrent.atomic.AtomicLong;
 import org.agrona.CloseHelper;
+import org.agrona.collections.MutableBoolean;
 
 /** Raft log. */
 public final class RaftLog implements Closeable {
+  private static final long FLUSH_BYTES_THRESHOLD =
+      new Environment().getLong("ZEEBE_BROKER_EXPERIMENTAL_RAFT_FLUSHBYTES").orElse(8 * 1024L);
+
   private final Journal journal;
   private final RaftEntrySerializer serializer = new RaftEntrySBESerializer();
   private final boolean flushExplicitly;
 
   private IndexedRaftLogEntry lastAppendedEntry;
   private volatile long commitIndex;
+  private final AtomicLong unflushedBytes = new AtomicLong();
+  private final long flushBytesThreshold;
 
   RaftLog(final Journal journal, final boolean flushExplicitly) {
+    this(journal, flushExplicitly, FLUSH_BYTES_THRESHOLD);
+  }
+
+  RaftLog(final Journal journal, final boolean flushExplicitly, final long flushBytesThreshold) {
     this.journal = journal;
     this.flushExplicitly = flushExplicitly;
+    this.flushBytesThreshold = flushBytesThreshold;
   }
 
   /**
@@ -135,11 +149,11 @@ public final class RaftLog implements Closeable {
   }
 
   public IndexedRaftLogEntry append(final RaftLogEntry entry) {
+    final BufferWriter serializableEntry = entry.entry().toSerializable(entry.term(), serializer);
     final JournalRecord journalRecord =
-        journal.append(
-            entry.getLowestAsqn().orElse(ASQN_IGNORE),
-            entry.entry().toSerializable(entry.term(), serializer));
+        journal.append(entry.getLowestAsqn().orElse(ASQN_IGNORE), serializableEntry);
 
+    unflushedBytes.addAndGet(serializableEntry.getLength());
     lastAppendedEntry = new IndexedRaftLogEntryImpl(entry.term(), entry.entry(), journalRecord);
     return lastAppendedEntry;
   }
@@ -149,12 +163,14 @@ public final class RaftLog implements Closeable {
 
     final RaftLogEntry raftEntry = serializer.readRaftLogEntry(entry.data());
     lastAppendedEntry = new IndexedRaftLogEntryImpl(entry.term(), raftEntry.entry(), entry);
+    unflushedBytes.addAndGet(entry.approximateSize());
     return lastAppendedEntry;
   }
 
   public void reset(final long index) {
     journal.reset(index);
     lastAppendedEntry = null;
+    unflushedBytes.set(flushBytesThreshold); // force next flush to go through
   }
 
   public void deleteAfter(final long index) {
@@ -165,13 +181,32 @@ public final class RaftLog implements Closeable {
               index, commitIndex));
     }
     journal.deleteAfter(index);
+    unflushedBytes.set(flushBytesThreshold); // force next flush to go through
     lastAppendedEntry = null;
   }
 
-  public void flush() {
-    if (flushExplicitly) {
-      journal.flush();
+  public boolean flush() {
+    if (!flushExplicitly) {
+      return false;
     }
+
+    final var shouldFlush = new MutableBoolean(false);
+    unflushedBytes.getAndUpdate(
+        bytesCount -> {
+          if (bytesCount >= flushBytesThreshold) {
+            shouldFlush.set(true);
+            return 0;
+          }
+
+          return bytesCount;
+        });
+
+    if (shouldFlush.get()) {
+      journal.flush();
+      return true;
+    }
+
+    return false;
   }
 
   @Override
@@ -192,6 +227,8 @@ public final class RaftLog implements Closeable {
         + lastAppendedEntry
         + ", commitIndex="
         + commitIndex
+        + ", flushBytes="
+        + flushBytesThreshold
         + '}';
   }
 }

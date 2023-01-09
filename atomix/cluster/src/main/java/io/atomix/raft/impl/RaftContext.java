@@ -456,8 +456,9 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
   public void flushOnCOntext(final long commitIndex) {
     flushContext.execute(
         () -> {
-          raftLog.flush();
-          setLastWrittenIndex(commitIndex);
+          if (raftLog.flush()) {
+            setLastWrittenIndex(commitIndex);
+          }
         });
   }
 
