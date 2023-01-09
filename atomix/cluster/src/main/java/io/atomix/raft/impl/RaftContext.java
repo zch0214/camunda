@@ -191,7 +191,8 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
         String.format("raft-server--flush-%s-%s", localMemberId.id(), name);
     flushContext =
         threadContextFactory.createContext(
-            namedThreads(flushThreadName, log), this::onUncaughtException);
+            namedThreads(flushThreadName, log),
+            e -> threadContext.execute(() -> onUncaughtException(e)));
 
     // Open the metadata store.
     meta = storage.openMetaStore();
