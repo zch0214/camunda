@@ -30,11 +30,12 @@ import java.io.Closeable;
 import java.util.concurrent.atomic.AtomicLong;
 import org.agrona.CloseHelper;
 import org.agrona.collections.MutableBoolean;
+import org.slf4j.LoggerFactory;
 
 /** Raft log. */
 public final class RaftLog implements Closeable {
   private static final long FLUSH_BYTES_THRESHOLD =
-      new Environment().getLong("ZEEBE_BROKER_EXPERIMENTAL_RAFT_FLUSHBYTES").orElse(8 * 1024L);
+      new Environment().getLong("ZEEBE_BROKER_EXPERIMENTAL_RAFT_FLUSHBYTES").orElse(512 * 1024L);
 
   private final Journal journal;
   private final RaftEntrySerializer serializer = new RaftEntrySBESerializer();
@@ -53,6 +54,8 @@ public final class RaftLog implements Closeable {
     this.journal = journal;
     this.flushExplicitly = flushExplicitly;
     this.flushBytesThreshold = flushBytesThreshold;
+    LoggerFactory.getLogger(getClass())
+        .info("Starting RaftLog with flush bytes threshold {}", flushBytesThreshold);
   }
 
   /**
