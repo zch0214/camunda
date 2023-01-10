@@ -252,12 +252,13 @@ class RaftLogTest {
 
     // when
     log.append(new PersistedRaftRecord(1, 1, 1, 1, new byte[32]));
-    log.flush();
+    log.flush(1);
     log.append(new PersistedRaftRecord(1, 2, 2, 1, new byte[32]));
-    log.flush();
+    final long lastFlushedIndex = log.flush(1);
 
     // then
     verify(journal, times(1)).flush();
+    assertThat(lastFlushedIndex).isEqualTo(2);
   }
 
   private ApplicationEntry createApplicationEntryAfter(final ApplicationEntry applicationEntry) {
