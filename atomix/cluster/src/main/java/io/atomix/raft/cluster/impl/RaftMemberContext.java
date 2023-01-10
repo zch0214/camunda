@@ -24,16 +24,20 @@ import io.atomix.raft.storage.log.IndexedRaftLogEntry;
 import io.atomix.raft.storage.log.RaftLog;
 import io.atomix.raft.storage.log.RaftLogReader;
 import io.camunda.zeebe.snapshots.SnapshotChunkReader;
+import io.prometheus.client.Gauge;
 import java.nio.ByteBuffer;
-import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.slf4j.LoggerFactory;
 
 /** Cluster member state. */
 public final class RaftMemberContext {
+  private static final Gauge INFLIGHT_REQUESTS =
+      Gauge.build()
+          .namespace("atomix")
+          .name("raft_member_inflight_request")
+          .labelNames("partition", "memberId")
+          .register();
 
-  private static final int APPEND_WINDOW_SIZE = 8;
   private final DefaultRaftMember member;
-  private final DescriptiveStatistics timeStats = new DescriptiveStatistics(APPEND_WINDOW_SIZE);
   private final int maxAppendsPerMember;
   private long term;
   private long configIndex;
@@ -53,6 +57,7 @@ public final class RaftMemberContext {
   private volatile RaftLogReader reader;
   private SnapshotChunkReader snapshotChunkReader;
   private IndexedRaftLogEntry currentEntry;
+  private final Gauge.Child inflightMetric;
 
   RaftMemberContext(
       final DefaultRaftMember member,
@@ -60,6 +65,9 @@ public final class RaftMemberContext {
       final int maxAppendsPerMember) {
     this.member = checkNotNull(member, "member cannot be null").setCluster(cluster);
     this.maxAppendsPerMember = maxAppendsPerMember;
+    inflightMetric =
+        INFLIGHT_REQUESTS.labels(
+            String.valueOf(cluster.getContext().getPartitionId()), member.memberId().id());
   }
 
   /** Resets the member state. */
@@ -71,7 +79,7 @@ public final class RaftMemberContext {
     heartbeatTime = 0;
     responseTime = 0;
     inFlightAppendCount = 0;
-    timeStats.clear();
+    inflightMetric.set(0);
     configuring = false;
     installing = false;
     appendSucceeded = false;
@@ -132,10 +140,7 @@ public final class RaftMemberContext {
    */
   public boolean canAppend() {
     return inFlightAppendCount == 0
-        || (appendSucceeded
-            && inFlightAppendCount < maxAppendsPerMember
-            && System.currentTimeMillis() - (timeStats.getMean() / maxAppendsPerMember)
-                >= appendTime);
+        || (appendSucceeded && inFlightAppendCount < maxAppendsPerMember);
   }
 
   /**
@@ -169,12 +174,14 @@ public final class RaftMemberContext {
   /** Starts an append request to the member. */
   public void startAppend() {
     inFlightAppendCount++;
+    inflightMetric.inc();
     appendTime = System.currentTimeMillis();
   }
 
   /** Completes an append request to the member. */
   public void completeAppend() {
     inFlightAppendCount--;
+    inflightMetric.dec();
   }
 
   /**
@@ -184,7 +191,7 @@ public final class RaftMemberContext {
    */
   public void completeAppend(final long time) {
     inFlightAppendCount--;
-    timeStats.addValue(time);
+    inflightMetric.dec();
   }
 
   /**
