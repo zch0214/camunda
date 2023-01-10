@@ -243,13 +243,13 @@ final class LeaderAppender {
   /** Updates the match index when a response is received. */
   private void updateMatchIndex(final RaftMemberContext member, final AppendResponse response) {
     // If the replica returned a valid match index then update the existing match index.
-    member.setMatchIndex(response.lastLogIndex());
+    member.setMatchIndex(response.matchIndex());
   }
 
   /** Resets the match index when a response fails. */
   private void resetMatchIndex(final RaftMemberContext member, final AppendResponse response) {
-    if (response.lastLogIndex() < member.getMatchIndex()) {
-      member.setMatchIndex(response.lastLogIndex());
+    if (response.matchIndex() < member.getMatchIndex()) {
+      member.setMatchIndex(response.matchIndex());
       log.trace("Reset match index for {} to {}", member, member.getMatchIndex());
     }
   }

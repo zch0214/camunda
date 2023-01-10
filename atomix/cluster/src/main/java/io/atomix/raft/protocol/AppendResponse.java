@@ -28,6 +28,8 @@ public class AppendResponse extends AbstractRaftResponse {
   private final long term;
   private final boolean succeeded;
   private final long lastLogIndex;
+
+  private final long matchIndex;
   private final long lastSnapshotIndex;
 
   public AppendResponse(
@@ -36,11 +38,13 @@ public class AppendResponse extends AbstractRaftResponse {
       final long term,
       final boolean succeeded,
       final long lastLogIndex,
+      final long matchIndex,
       final long lastSnapshotIndex) {
     super(status, error);
     this.term = term;
     this.succeeded = succeeded;
     this.lastLogIndex = lastLogIndex;
+    this.matchIndex = matchIndex;
     this.lastSnapshotIndex = lastSnapshotIndex;
   }
 
@@ -78,6 +82,10 @@ public class AppendResponse extends AbstractRaftResponse {
    */
   public long lastLogIndex() {
     return lastLogIndex;
+  }
+
+  public long matchIndex() {
+    return matchIndex;
   }
 
   /**
@@ -130,6 +138,8 @@ public class AppendResponse extends AbstractRaftResponse {
     private long lastLogIndex;
     private long lastSnapshotIndex;
 
+    private long matchIndex;
+
     /**
      * Sets the response term.
      *
@@ -167,6 +177,12 @@ public class AppendResponse extends AbstractRaftResponse {
       return this;
     }
 
+    public Builder withMatchIndex(final long matchIndex) {
+      checkArgument(matchIndex >= 0, "matchIndex must be positive");
+      this.matchIndex = matchIndex;
+      return this;
+    }
+
     public Builder withLastSnapshotIndex(final long lastSnapshotIndex) {
       checkArgument(lastSnapshotIndex >= 0, "lastSnapshotIndex must be positive");
       this.lastSnapshotIndex = lastSnapshotIndex;
@@ -180,7 +196,8 @@ public class AppendResponse extends AbstractRaftResponse {
     @Override
     public AppendResponse build() {
       validate();
-      return new AppendResponse(status, error, term, succeeded, lastLogIndex, lastSnapshotIndex);
+      return new AppendResponse(
+          status, error, term, succeeded, lastLogIndex, matchIndex, lastSnapshotIndex);
     }
 
     @Override

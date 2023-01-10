@@ -50,6 +50,7 @@ public class PassiveRole extends InactiveRole {
   private long pendingSnapshotStartTimestamp;
   private ReceivedSnapshot pendingSnapshot;
   private ByteBuffer nextPendingSnapshotChunkId;
+  private volatile long matchIndex;
 
   public PassiveRole(final RaftContext context) {
     super(context);
@@ -85,6 +86,7 @@ public class PassiveRole extends InactiveRole {
       raft.getLog().deleteAfter(raft.getCommitIndex());
 
       raft.flushOnCOntext(raft.getCommitIndex(), () -> {});
+      matchIndex = raft.getCommitIndex();
     }
   }
 
@@ -535,10 +537,15 @@ public class PassiveRole extends InactiveRole {
 
     // Make sure all entries are flushed before ack to ensure we have persisted what we acknowledge
     final long finalLastLogIndex = lastLogIndex;
+    succeedAppend(finalLastLogIndex, future);
     flush(
         lastLogIndex,
         request.prevLogIndex(),
-        () -> raft.getThreadContext().execute(() -> succeedAppend(finalLastLogIndex, future)));
+        () -> {
+          if (finalLastLogIndex > matchIndex) {
+            matchIndex = finalLastLogIndex;
+          }
+        });
   }
 
   private void flush(
@@ -569,6 +576,7 @@ public class PassiveRole extends InactiveRole {
         // the log and append the leader's entry.
         if (lastEntry.term() != entry.term()) {
           raft.getLog().deleteAfter(index - 1);
+          matchIndex = index - 1;
           raft.flushOnCOntext(index - 1, () -> {});
 
           failedToAppend = !appendEntry(index, entry, future);
@@ -621,6 +629,7 @@ public class PassiveRole extends InactiveRole {
       // the log and append the leader's entry.
       if (existingEntry.term() != entry.term()) {
         raft.getLog().deleteAfter(index - 1);
+        matchIndex = index - 1;
         raft.flushOnCOntext(index - 1, () -> {});
         return appendEntry(index, entry, future);
       }
@@ -667,7 +676,7 @@ public class PassiveRole extends InactiveRole {
    */
   protected boolean failAppend(
       final long lastLogIndex, final CompletableFuture<AppendResponse> future) {
-    return completeAppend(false, lastLogIndex, future);
+    return completeAppend(false, lastLogIndex, matchIndex, future);
   }
 
   /**
@@ -679,7 +688,7 @@ public class PassiveRole extends InactiveRole {
    */
   protected boolean succeedAppend(
       final long lastLogIndex, final CompletableFuture<AppendResponse> future) {
-    return completeAppend(true, lastLogIndex, future);
+    return completeAppend(true, lastLogIndex, matchIndex, future);
   }
 
   /**
@@ -693,6 +702,7 @@ public class PassiveRole extends InactiveRole {
   protected boolean completeAppend(
       final boolean succeeded,
       final long lastLogIndex,
+      final long matchIndex,
       final CompletableFuture<AppendResponse> future) {
     future.complete(
         logResponse(
@@ -701,6 +711,7 @@ public class PassiveRole extends InactiveRole {
                 .withTerm(raft.getTerm())
                 .withSucceeded(succeeded)
                 .withLastLogIndex(lastLogIndex)
+                .withMatchIndex(matchIndex)
                 .withLastSnapshotIndex(raft.getCurrentSnapshotIndex())
                 .build()));
     return succeeded;
