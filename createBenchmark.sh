@@ -51,8 +51,8 @@ cd benchmarks/project
 
 sed_inplace "s/:SNAPSHOT/:$benchmark/" docker-compose.yml
 # Use --no-cache to force rebuild the image for the benchmark application. Without this changes to zeebe-client were not picked up. This can take longer to build.
-docker-compose build --no-cache
-docker-compose push
+docker compose build --no-cache
+docker compose push
 git restore -- docker-compose.yml
 
 cd ../setup/
