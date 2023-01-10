@@ -50,7 +50,7 @@ public class PassiveRole extends InactiveRole {
   private long pendingSnapshotStartTimestamp;
   private ReceivedSnapshot pendingSnapshot;
   private ByteBuffer nextPendingSnapshotChunkId;
-  private volatile long matchIndex;
+  private volatile long matchIndex = 0;
 
   public PassiveRole(final RaftContext context) {
     super(context);
