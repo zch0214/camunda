@@ -223,7 +223,7 @@ class RaftLogTest {
     final var log = new RaftLog(journal, true);
 
     // when
-    log.flush();
+    log.flush(0);
 
     // then
     verify(journal).flush();
@@ -236,7 +236,7 @@ class RaftLogTest {
     final var log = new RaftLog(journal, false);
 
     // when
-    log.flush();
+    log.flush(0);
 
     // then
     verify(journal, timeout(1).times(0)).flush();

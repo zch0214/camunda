@@ -140,6 +140,7 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
   private final RaftPartitionConfig partitionConfig;
   private final int partitionId;
   private final ThreadContext flushContext;
+  private long lastFlushedIndex;
 
   public RaftContext(
       final String name,
@@ -466,8 +467,11 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
   public void flushOnCOntext(final long commitIndex, final Runnable callback) {
     flushContext.execute(
         () -> {
-          raftLog.flush();
-          setLastWrittenIndex(commitIndex);
+          final var flushedIndex = raftLog.flush(commitIndex);
+          if (flushedIndex > lastFlushedIndex) {
+            setLastWrittenIndex(flushedIndex);
+            lastFlushedIndex = flushedIndex;
+          }
           callback.run();
         });
   }

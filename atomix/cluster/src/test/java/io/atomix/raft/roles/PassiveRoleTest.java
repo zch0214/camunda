@@ -110,7 +110,7 @@ public class PassiveRoleTest {
     final AppendResponse response = role.handleAppend(request).join();
 
     // then
-    verify(log).flush();
+    verify(log).flush(0);
     assertThat(response.lastLogIndex()).isEqualTo(2);
   }
 
@@ -131,7 +131,7 @@ public class PassiveRoleTest {
     final AppendResponse response = role.handleAppend(request).join();
 
     // then
-    verify(log).flush();
+    verify(log).flush(0);
     assertThat(response.lastLogIndex()).isEqualTo(1);
   }
 
@@ -149,7 +149,7 @@ public class PassiveRoleTest {
     final AppendResponse response = role.handleAppend(request).join();
 
     // then
-    verify(log, never()).flush();
+    verify(log, never()).flush(0);
     assertThat(response.lastLogIndex()).isEqualTo(0);
   }
 
