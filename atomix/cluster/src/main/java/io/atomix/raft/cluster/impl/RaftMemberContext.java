@@ -35,6 +35,7 @@ public final class RaftMemberContext {
           .namespace("atomix")
           .name("raft_member_inflight_request")
           .labelNames("partition", "memberId")
+          .help("The number of inflight requests for each member ID")
           .register();
 
   private final DefaultRaftMember member;
