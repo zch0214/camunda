@@ -468,12 +468,12 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
     flushContext.execute(
         () -> {
           final var flushedIndex = raftLog.flush(commitIndex);
+          if (flushedIndex >= commitIndex) {
+            callback.run();
+          }
           if (flushedIndex > lastFlushedIndex) {
             setLastWrittenIndex(flushedIndex);
             lastFlushedIndex = flushedIndex;
-          }
-          if (flushedIndex >= commitIndex) {
-            callback.run();
           }
         });
   }
