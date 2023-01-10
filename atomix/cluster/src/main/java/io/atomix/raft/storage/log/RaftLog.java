@@ -35,17 +35,18 @@ import org.agrona.collections.MutableBoolean;
 public final class RaftLog implements Closeable {
   private static final long FLUSH_BYTES_THRESHOLD =
       new Environment().getLong("ZEEBE_BROKER_EXPERIMENTAL_RAFT_FLUSHBYTES").orElse(8 * 1024L);
-
+  private static final double FLUSH_TIME_THRESHOLD_MS =
+      new Environment().getLong("ZEEBE_BROKER_EXPERIMENTAL_RAFT_FLUSHDELAYLIMIT").orElse(100L);
   private final Journal journal;
   private final RaftEntrySerializer serializer = new RaftEntrySBESerializer();
   private final boolean flushExplicitly;
-
   private IndexedRaftLogEntry lastAppendedEntry;
   private volatile long commitIndex;
   private long lastFlushedIndex;
   private volatile long lastAppendedIndex;
   private final AtomicLong unflushedBytes = new AtomicLong();
   private final long flushBytesThreshold;
+  private long lastFlushedTime = System.nanoTime();
 
   RaftLog(final Journal journal, final boolean flushExplicitly) {
     this(journal, flushExplicitly, FLUSH_BYTES_THRESHOLD);
@@ -195,19 +196,25 @@ public final class RaftLog implements Closeable {
     }
 
     final var shouldFlush = new MutableBoolean(false);
-    unflushedBytes.getAndUpdate(
-        bytesCount -> {
-          if (bytesCount >= flushBytesThreshold) {
-            shouldFlush.set(true);
-            return 0;
-          }
+    final var currentNanoTime = System.nanoTime();
+    if (currentNanoTime - lastFlushedTime > FLUSH_TIME_THRESHOLD_MS * 1000 * 1000) {
+      shouldFlush.set(true);
+      unflushedBytes.set(0);
+    } else {
+      unflushedBytes.getAndUpdate(
+          bytesCount -> {
+            if (bytesCount >= flushBytesThreshold) {
+              shouldFlush.set(true);
+              return 0;
+            }
 
-          return bytesCount;
-        });
-
+            return bytesCount;
+          });
+    }
     if (shouldFlush.get()) {
       lastFlushedIndex = lastAppendedIndex;
       journal.flush();
+      lastFlushedTime = currentNanoTime;
     }
 
     return lastFlushedIndex;
