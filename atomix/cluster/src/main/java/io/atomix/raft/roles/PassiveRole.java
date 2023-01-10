@@ -545,6 +545,8 @@ public class PassiveRole extends InactiveRole {
       final long lastWrittenIndex, final long previousEntryIndex, final Runnable callback) {
     if (raft.getLog().shouldFlushExplicitly() && lastWrittenIndex > previousEntryIndex) {
       raft.flushOnCOntext(lastWrittenIndex, callback);
+    } else {
+      callback.run();
     }
   }
 
