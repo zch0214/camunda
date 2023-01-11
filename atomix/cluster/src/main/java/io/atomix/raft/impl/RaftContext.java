@@ -66,6 +66,7 @@ import io.atomix.utils.logging.ContextualLoggerFactory;
 import io.atomix.utils.logging.LoggerContext;
 import io.camunda.zeebe.snapshots.PersistedSnapshot;
 import io.camunda.zeebe.snapshots.ReceivableSnapshotStore;
+import io.camunda.zeebe.util.Environment;
 import io.camunda.zeebe.util.exception.UnrecoverableException;
 import io.camunda.zeebe.util.health.FailureListener;
 import io.camunda.zeebe.util.health.HealthMonitorable;
@@ -78,6 +79,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
@@ -92,6 +94,8 @@ import org.slf4j.MDC;
  */
 public class RaftContext implements AutoCloseable, HealthMonitorable {
 
+  private static final long FLUSH_DELAY_MS =
+      new Environment().getLong("ZEEBE_RAFT_FLUSH_INTERVALMS").orElse(100L);
   protected final String name;
   protected final ThreadContext threadContext;
   protected final ClusterMembershipService membershipService;
@@ -127,7 +131,6 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
   // Used for randomizing election timeout
   private final Random random;
   private PersistedSnapshot currentSnapshot;
-
   private boolean ongoingTransition = false;
   // Keeps track of snapshot replication to notify new listeners about missed events
   private MissedSnapshotReplicationEvents missedSnapshotReplicationEvents =
@@ -219,6 +222,14 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
     started = true;
 
     addCommitListener(new AwaitingReadyCommitListener());
+
+    threadContext.schedule(FLUSH_DELAY_MS, TimeUnit.MILLISECONDS, this::scheduleFlush);
+  }
+
+  private void scheduleFlush() {
+    raftLog.flush();
+    setLastWrittenIndex(raftLog.getLastIndex());
+    threadContext.schedule(FLUSH_DELAY_MS, TimeUnit.MILLISECONDS, this::scheduleFlush);
   }
 
   private void setSnapshot(final PersistedSnapshot persistedSnapshot) {
@@ -432,11 +443,6 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
     if (commitIndex > previousCommitIndex) {
       this.commitIndex = commitIndex;
       raftLog.setCommitIndex(Math.min(commitIndex, raftLog.getLastIndex()));
-      if (raftLog.shouldFlushExplicitly() && isLeader()) {
-        // leader counts itself in quorum, so in order to commit the leader must persist
-        raftLog.flush();
-        setLastWrittenIndex(commitIndex);
-      }
       final long configurationIndex = cluster.getConfiguration().index();
       if (configurationIndex > previousCommitIndex && configurationIndex <= commitIndex) {
         cluster.commit();
