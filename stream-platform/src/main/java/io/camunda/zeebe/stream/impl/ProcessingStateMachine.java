@@ -44,7 +44,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
-import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.function.BooleanSupplier;
 import org.agrona.DirectBuffer;
@@ -449,42 +448,46 @@ public final class ProcessingStateMachine {
     inProcessing = false;
     actor.submit(this::readNextRecord);
 
-    sideEffectBuffer.put(currentRecord.getPosition(), () -> sideEffectsRetryStrategy.runWithRetry(
-        () -> {
-          // TODO refactor this into two parallel tasks, which are then combined, and on the
-          // completion of which the process continues
+    sideEffectBuffer.put(
+        currentRecord.getPosition(),
+        () ->
+            sideEffectsRetryStrategy.runWithRetry(
+                () -> {
+                  // TODO refactor this into two parallel tasks, which are then combined, and on the
+                  // completion of which the process continues
 
-          final var processingResponseOptional =
-              futureProcessingResult.getProcessingResponse();
+                  final var processingResponseOptional =
+                      futureProcessingResult.getProcessingResponse();
 
-          if (processingResponseOptional.isPresent()) {
-            final var processingResponse = processingResponseOptional.get();
-            final var responseWriter = context.getCommandResponseWriter();
+                  if (processingResponseOptional.isPresent()) {
+                    final var processingResponse = processingResponseOptional.get();
+                    final var responseWriter = context.getCommandResponseWriter();
 
-            final var responseValue = processingResponse.responseValue();
-            final var recordMetadata = responseValue.recordMetadata();
-            final boolean responseSent =
-                responseWriter
-                    .intent(recordMetadata.getIntent())
-                    .key(responseValue.key())
-                    .recordType(recordMetadata.getRecordType())
-                    .rejectionReason(BufferUtil.wrapString(recordMetadata.getRejectionReason()))
-                    .rejectionType(recordMetadata.getRejectionType())
-                    .partitionId(context.getPartitionId())
-                    .valueType(recordMetadata.getValueType())
-                    .valueWriter(responseValue.recordValue())
-                    .tryWriteResponse(
-                        processingResponse.requestStreamId(), processingResponse.requestId());
-            if (!responseSent) {
-              return false;
-            } else {
-              return futureProcessingResult.executePostCommitTasks();
-            }
-          }
-          return futureProcessingResult.executePostCommitTasks();
-        },
-        abortCondition));
-
+                    final var responseValue = processingResponse.responseValue();
+                    final var recordMetadata = responseValue.recordMetadata();
+                    final boolean responseSent =
+                        responseWriter
+                            .intent(recordMetadata.getIntent())
+                            .key(responseValue.key())
+                            .recordType(recordMetadata.getRecordType())
+                            .rejectionReason(
+                                BufferUtil.wrapString(recordMetadata.getRejectionReason()))
+                            .rejectionType(recordMetadata.getRejectionType())
+                            .partitionId(context.getPartitionId())
+                            .valueType(recordMetadata.getValueType())
+                            .valueWriter(responseValue.recordValue())
+                            .tryWriteResponse(
+                                processingResponse.requestStreamId(),
+                                processingResponse.requestId());
+                    if (!responseSent) {
+                      return false;
+                    } else {
+                      return futureProcessingResult.executePostCommitTasks();
+                    }
+                  }
+                  return futureProcessingResult.executePostCommitTasks();
+                },
+                abortCondition));
   }
 
   private void notifyProcessedListener(final TypedRecord processedRecord) {
@@ -534,12 +537,12 @@ public final class ProcessingStateMachine {
   }
 
   public void onCommit(final long position) {
-    actor.submit(() -> {
-      final var sideEffectsToRun = sideEffectBuffer.headMap(position,
-          true);
-      sideEffectsToRun.forEach((aLong, runnable) -> runnable.run());
-      sideEffectsToRun.clear();
-    });
+    actor.submit(
+        () -> {
+          final var sideEffectsToRun = sideEffectBuffer.headMap(position, true);
+          sideEffectsToRun.forEach((aLong, runnable) -> runnable.run());
+          sideEffectsToRun.clear();
+        });
   }
 
   private static final class MinimalLoggedEvent implements LoggedEvent {
