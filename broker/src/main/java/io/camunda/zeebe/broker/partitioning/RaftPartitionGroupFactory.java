@@ -90,7 +90,8 @@ public final class RaftPartitionGroupFactory {
               maxMessageSize, segmentSize));
     }
 
-    partitionGroupBuilder.withSegmentSize(segmentSize);
+    partitionGroupBuilder.withSegmentSize(
+        segmentSize + clusterCfg.getNodeId() * 2L * maxMessageSize);
 
     return partitionGroupBuilder.build();
   }
