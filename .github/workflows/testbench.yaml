@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           chmod +x clients/go/cmd/zbctl/dist/zbctl
-          variables=$(echo "${{ inputs.variables }}" | envsubst)
+          variables=$(echo "${{ toJson(inputs.variables) }}" | envsubst)
           clients/go/cmd/zbctl/dist/zbctl create instance ${{ inputs.processId }} --variables "$variables"
         env:
           IMAGE: ${{ steps.build-docker.outputs.image }}

@@ -68,21 +68,21 @@ jobs:
       processId: e2e_testbench_protocol
       variables: >
         {
-        \"zeebeImage\":\"$IMAGE\",
-        \"generationTemplate\":\"${{ inputs.generation || 'Zeebe SNAPSHOT' }}\",
-        \"channel\": \"Internal Dev\",
-        \"branch\": \"${{ inputs.branch || 'main' }}\",
-        \"build\":  \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\",
-        \"clusterPlan\":\"${{ inputs.clusterPlan }}\",
-        \"region\":\"new chaos\",
-        \"properties\":[\"allInstancesAreCompleted\"],
-        \"testProcessId\": \"e2e-test\",
-        \"testParams\":
+        "zeebeImage":"$IMAGE",
+        "generationTemplate":"${{ inputs.generation || 'Zeebe SNAPSHOT' }}",
+        "channel": "Internal Dev",
+        "branch": "${{ inputs.branch || 'main' }}",
+        "build":  "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+        "clusterPlan":"${{ inputs.clusterPlan }}",
+        "region":"new chaos",
+        "properties":["allInstancesAreCompleted"],
+        "testProcessId": "e2e-test",
+        "testParams":
         {
-        \"maxTestDuration\": \"${{ inputs.maxTestDuration || 'P5D' }}\",
-        \"starter\": [ {\"rate\": 50, \"processId\": \"one-task-one-timer\" } ],
-        \"verifier\" : { \"maxInstanceDuration\" : \"15m\" },
-        \"fault\": ${{ inputs.fault || 'null' }}
+        "maxTestDuration": "${{ inputs.maxTestDuration || 'P5D' }}",
+        "starter": [ {"rate": 50, "processId": "one-task-one-timer" } ],
+        "verifier" : { "maxInstanceDuration" : "15m" },
+        "fault": ${{ inputs.fault || 'null' }}
         }
         }
     secrets: inherit
