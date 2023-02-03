@@ -102,6 +102,11 @@ public class MetricsExporter implements Exporter {
 
   @Override
   public void export(final Record<?> record) {
+    if (record.getRecordType() == RecordType.COMMAND) {
+      if (isPublishMessage(record) || isCreateInstanceCommand(record)) {
+        storeCommandTimestamp(record.getPosition(), record.getTimestamp());
+      }
+    }
     if (record.getRecordType() != RecordType.EVENT) {
       controller.updateLastExportedRecordPosition(record.getPosition());
       return;
@@ -117,8 +122,6 @@ public class MetricsExporter implements Exporter {
       handleJobBatchRecord(record, partitionId);
     } else if (currentValueType == ValueType.PROCESS_INSTANCE) {
       handleProcessInstanceRecord(record, partitionId, recordKey);
-    } else if (isPublishMessage(record) || isCreateInstanceCommand(record)) {
-      storeCommandTimestamp(record.getPosition(), record.getTimestamp());
     }
 
     controller.updateLastExportedRecordPosition(record.getPosition());
