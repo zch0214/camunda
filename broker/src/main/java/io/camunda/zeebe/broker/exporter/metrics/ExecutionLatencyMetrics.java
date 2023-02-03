@@ -39,7 +39,8 @@ public class ExecutionLatencyMetrics {
       Histogram.build()
           .namespace("zeebe")
           .name("first_job_latency")
-          .help("The time until first job is created and exported")
+          .help(
+              "The time from create instance/publish start message command until first job is created and exported")
           .labelNames("partition")
           .register();
 

@@ -70,6 +70,7 @@ public class MetricsExporter implements Exporter {
                   ValueType.JOB,
                   ValueType.JOB_BATCH,
                   ValueType.PROCESS_INSTANCE,
+                  ValueType.PROCESS_INSTANCE_CREATION,
                   ValueType.MESSAGE);
 
           @Override
