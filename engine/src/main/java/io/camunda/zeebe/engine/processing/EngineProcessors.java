@@ -110,7 +110,6 @@ public final class EngineProcessors {
         processingState,
         typedRecordProcessors,
         writers,
-        partitionsCount,
         deploymentDistributionCommandSender,
         processingState.getKeyGenerator(),
         commandDistributionBehavior);
@@ -183,7 +182,6 @@ public final class EngineProcessors {
       final ProcessingState processingState,
       final TypedRecordProcessors typedRecordProcessors,
       final Writers writers,
-      final int partitionsCount,
       final DeploymentDistributionCommandSender deploymentDistributionCommandSender,
       final KeyGenerator keyGenerator,
       final CommandDistributionBehavior distributionBehavior) {
@@ -192,13 +190,7 @@ public final class EngineProcessors {
     // it will cause a distribution to other partitions
     final var processor =
         new DeploymentCreateProcessor(
-            processingState,
-            bpmnBehaviors,
-            partitionsCount,
-            writers,
-            deploymentDistributionCommandSender,
-            keyGenerator,
-            distributionBehavior);
+            processingState, bpmnBehaviors, writers, keyGenerator, distributionBehavior);
     typedRecordProcessors.onCommand(ValueType.DEPLOYMENT, CREATE, processor);
 
     // periodically retries deployment distribution
