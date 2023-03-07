@@ -28,6 +28,7 @@ import io.camunda.zeebe.test.util.record.RecordingExporter;
 import io.camunda.zeebe.test.util.record.RecordingExporterTestWatcher;
 import java.util.stream.Collectors;
 import org.awaitility.Awaitility;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -162,6 +163,7 @@ public class MultiPartitionDeploymentLifecycleTest {
   }
 
   @Test
+  @Ignore("Redistributor is not implemented yet (https://github.com/camunda/zeebe/issues/11914)")
   public void shouldRejectCompleteDeploymentDistributionWhenAlreadyCompleted() {
     // given
     engine.pauseProcessing(2);
