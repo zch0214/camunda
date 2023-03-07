@@ -144,6 +144,13 @@ public final class DeploymentCreateProcessor implements TypedRecordProcessor<Dep
 
   private void processDistributedRecord(final TypedRecord<DeploymentRecord> command) {
     final var deploymentEvent = command.getValue();
+    createBpmnResources(deploymentEvent);
+    createDmnResources(command, deploymentEvent);
+    stateWriter.appendFollowUpEvent(command.getKey(), DeploymentIntent.CREATED, deploymentEvent);
+    distributionBehavior.acknowledgeCommand(command.getKey());
+  }
+
+  private void createBpmnResources(final DeploymentRecord deploymentEvent) {
     for (final ProcessMetadata metadata : deploymentEvent.processesMetadata()) {
       for (final DeploymentResource resource : deploymentEvent.getResources()) {
         if (resource.getResourceName().equals(metadata.getResourceName())) {
@@ -154,7 +161,10 @@ public final class DeploymentCreateProcessor implements TypedRecordProcessor<Dep
         }
       }
     }
+  }
 
+  private void createDmnResources(
+      final TypedRecord<DeploymentRecord> command, final DeploymentRecord deploymentEvent) {
     deploymentEvent.decisionRequirementsMetadata().stream()
         .filter(not(DecisionRequirementsMetadataRecord::isDuplicate))
         .forEach(
@@ -169,9 +179,6 @@ public final class DeploymentCreateProcessor implements TypedRecordProcessor<Dep
         .forEach(
             (record) ->
                 stateWriter.appendFollowUpEvent(command.getKey(), DecisionIntent.CREATED, record));
-
-    stateWriter.appendFollowUpEvent(command.getKey(), DeploymentIntent.CREATED, deploymentEvent);
-    distributionBehavior.acknowledgeCommand(command.getKey());
   }
 
   private void createTimerIfTimerStartEvent(final TypedRecord<DeploymentRecord> record) {
