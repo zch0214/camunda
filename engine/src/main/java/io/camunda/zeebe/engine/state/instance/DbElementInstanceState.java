@@ -238,6 +238,9 @@ public final class DbElementInstanceState implements MutableElementInstanceState
 
   @Override
   public ElementInstance getInstance(final long key) {
+    if (key <= 0) {
+      return null;
+    }
     elementInstanceKey.wrapLong(key);
     final ElementInstance elementInstance = elementInstanceColumnFamily.get(elementInstanceKey);
     return copyElementInstance(elementInstance);

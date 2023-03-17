@@ -57,19 +57,21 @@ public final class DbBlackListState implements MutableBlackListState {
   }
 
   private boolean isOnBlacklist(final long key) {
-    processInstanceKey.wrapLong(key);
-    return blackListColumnFamily.exists(processInstanceKey);
+    //    processInstanceKey.wrapLong(key);
+    //    return blackListColumnFamily.exists(processInstanceKey);
+    return false;
   }
 
   @Override
   public boolean isOnBlacklist(final TypedRecord record) {
-    final UnpackedObject value = record.getValue();
-    if (value instanceof ProcessInstanceRelated) {
-      final long processInstanceKey = ((ProcessInstanceRelated) value).getProcessInstanceKey();
-      if (processInstanceKey >= 0) {
-        return isOnBlacklist(processInstanceKey);
-      }
-    }
+    //    final UnpackedObject value = record.getValue();
+    //    if (value instanceof ProcessInstanceRelated) {
+    //      final long processInstanceKey = ((ProcessInstanceRelated)
+    // value).getProcessInstanceKey();
+    //      if (processInstanceKey >= 0) {
+    //        return isOnBlacklist(processInstanceKey);
+    //      }
+    //    }
     return false;
   }
 

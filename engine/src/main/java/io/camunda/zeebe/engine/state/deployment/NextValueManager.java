@@ -22,6 +22,8 @@ public final class NextValueManager {
   private final DbString nextValueKey;
   private final NextValue nextValue = new NextValue();
 
+  private long cachedCurrentValue = -1;
+
   public NextValueManager(
       final long initialValue,
       final ZeebeDb<ZbColumnFamilies> zeebeDb,
@@ -47,6 +49,7 @@ public final class NextValueManager {
     nextValueKey.wrapString(key);
     nextValue.set(value);
     nextValueColumnFamily.upsert(nextValueKey, nextValue);
+    cachedCurrentValue = value;
   }
 
   public long getCurrentValue(final String key) {
@@ -60,12 +63,16 @@ public final class NextValueManager {
   }
 
   private long getCurrentValue() {
+    if (cachedCurrentValue != -1) {
+      return cachedCurrentValue;
+    }
     final NextValue readValue = nextValueColumnFamily.get(nextValueKey);
 
     long currentValue = initialValue;
     if (readValue != null) {
       currentValue = readValue.get();
     }
+    cachedCurrentValue = currentValue;
     return currentValue;
   }
 }

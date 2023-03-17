@@ -17,6 +17,7 @@ import io.camunda.zeebe.db.DbValue;
 import io.camunda.zeebe.db.KeyValuePairVisitor;
 import io.camunda.zeebe.db.TransactionContext;
 import io.camunda.zeebe.db.ZeebeDbInconsistentException;
+import io.camunda.zeebe.db.impl.DbLong;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
@@ -125,6 +126,11 @@ class TransactionalColumnFamily<
 
   @Override
   public ValueType get(final KeyType key) {
+    if (key instanceof DbLong longKey) {
+      if (longKey.getValue() < 0) {
+        return null;
+      }
+    }
     ensureInOpenTransaction(
         transaction -> {
           columnFamilyContext.writeKey(key);
