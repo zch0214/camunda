@@ -58,6 +58,7 @@ final class SegmentWriter {
   private final MutableDirectBuffer writeBuffer = new UnsafeBuffer();
   private final int descriptorLength;
   private final JournalMetrics metrics;
+  private int lastWrittenIndexPosition;
 
   SegmentWriter(
       final MappedByteBuffer buffer,
@@ -75,7 +76,15 @@ final class SegmentWriter {
     firstAsqn = lastWrittenAsqn + 1;
     lastAsqn = lastWrittenAsqn;
     this.metrics = metrics;
-    reset(0, false);
+    final var startPosition =
+        segment.descriptor().lastPosition() > 0
+            ? segment.descriptor().lastPosition()
+            : descriptorLength;
+    reset(startPosition, 0, false);
+  }
+
+  public int getLastWrittenIndexPosition() {
+    return lastWrittenIndexPosition;
   }
 
   long getLastIndex() {
@@ -171,6 +180,7 @@ final class SegmentWriter {
     lastEntry = new PersistedJournalRecord(metadata, data);
     updateLastAsqn(lastEntry.asqn());
     index.index(lastEntry, startPosition);
+    lastWrittenIndexPosition = startPosition;
   }
 
   private void updateLastAsqn(final long asqn) {
@@ -203,11 +213,11 @@ final class SegmentWriter {
     FrameUtil.markAsIgnored(buffer, position);
   }
 
-  private void reset(final long index, final boolean detectCorruption) {
+  private void reset(final int startPosition, final long index, final boolean detectCorruption) {
     long nextIndex = firstIndex;
 
     // Clear the buffer indexes.
-    buffer.position(descriptorLength);
+    buffer.position(startPosition);
     buffer.mark();
     int position = buffer.position();
     try {
@@ -260,7 +270,7 @@ final class SegmentWriter {
       buffer.position(descriptorLength);
       invalidateNextEntry(descriptorLength);
     } else {
-      reset(index, true);
+      reset(descriptorLength, index, true);
       invalidateNextEntry(buffer.position());
     }
   }

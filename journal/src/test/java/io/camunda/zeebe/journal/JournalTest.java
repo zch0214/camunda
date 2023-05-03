@@ -554,6 +554,10 @@ final class JournalTest {
   void shouldWriteToReopenedJournalAtNextIndex() throws Exception {
     // given
     final var firstRecord = copyRecord(journal.append(recordDataWriter));
+    journal.append(recordDataWriter);
+    journal.append(recordDataWriter);
+    final var lastIndex = journal.append(recordDataWriter).index();
+
     journal.close();
 
     // when
@@ -561,12 +565,15 @@ final class JournalTest {
     final var secondRecord = journal.append(recordDataWriter);
 
     // then
-    assertThat(secondRecord.index()).isEqualTo(2);
+    assertThat(secondRecord.index()).isEqualTo(lastIndex + 1);
 
     final JournalReader reader = journal.openReader();
 
     assertThat(reader.hasNext()).isTrue();
     assertThat(reader.next()).isEqualTo(firstRecord);
+    reader.next();
+    reader.next();
+    reader.next();
 
     assertThat(reader.hasNext()).isTrue();
     assertThat(reader.next()).isEqualTo(secondRecord);

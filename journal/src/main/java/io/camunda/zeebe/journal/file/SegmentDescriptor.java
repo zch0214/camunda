@@ -70,6 +70,8 @@ final class SegmentDescriptor {
   private final SegmentDescriptorEncoder segmentDescriptorEncoder = new SegmentDescriptorEncoder();
   private final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
   private final ChecksumGenerator checksumGen = new ChecksumGenerator();
+  private long lastIndex;
+  private int lastPosition;
 
   SegmentDescriptor(final ByteBuffer buffer) {
     directBuffer.wrap(buffer);
@@ -289,7 +291,9 @@ final class SegmentDescriptor {
         .wrapAndApplyHeader(directBuffer, descHeaderOffset, headerEncoder)
         .id(id)
         .index(index)
-        .maxSegmentSize(maxSegmentSize);
+        .maxSegmentSize(maxSegmentSize)
+        .lastIndex(lastIndex)
+        .lastPosition(lastPosition);
 
     final long checksum =
         checksumGen.compute(
@@ -330,6 +334,16 @@ final class SegmentDescriptor {
         + ", maxSegmentSize="
         + maxSegmentSize
         + '}';
+  }
+
+  public void update(final ByteBuffer buffer, final long lastIndex, final int lastPosition) {
+    this.lastPosition = lastPosition;
+    this.lastIndex = lastIndex;
+    copyTo(buffer);
+  }
+
+  public int lastPosition() {
+    return lastPosition;
   }
 
   /** Segment descriptor builder. */
