@@ -354,10 +354,12 @@ class SegmentedJournalTest {
   @Test
   void shouldUpdateIndexMappingsAfterRestart() {
     // given
-    final int entriesPerSegment = 10;
+    final int entriesPerSegment = 2;
     journal = openJournal(entriesPerSegment);
     journal.append(1, journalFactory.entry());
     journal.append(2, journalFactory.entry());
+    journal.append(3, journalFactory.entry());
+    journal.append(4, journalFactory.entry());
     final var indexBeforeClose = journal.getJournalIndex();
 
     // when
