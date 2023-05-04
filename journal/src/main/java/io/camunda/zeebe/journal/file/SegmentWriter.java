@@ -80,7 +80,9 @@ final class SegmentWriter {
         segment.descriptor().lastPosition() > 0
             ? segment.descriptor().lastPosition()
             : descriptorLength;
-    reset(startPosition, 0, false);
+    final var startIndex =
+        segment.descriptor().lastIndex() > 0 ? segment.descriptor().lastIndex() : firstIndex;
+    reset(startIndex, startPosition, 0, false);
   }
 
   public int getLastWrittenIndexPosition() {
@@ -213,8 +215,12 @@ final class SegmentWriter {
     FrameUtil.markAsIgnored(buffer, position);
   }
 
-  private void reset(final int startPosition, final long index, final boolean detectCorruption) {
-    long nextIndex = firstIndex;
+  private void reset(
+      final long startIndex,
+      final int startPosition,
+      final long index,
+      final boolean detectCorruption) {
+    long nextIndex = startIndex;
 
     // Clear the buffer indexes.
     buffer.position(startPosition);
@@ -270,7 +276,7 @@ final class SegmentWriter {
       buffer.position(descriptorLength);
       invalidateNextEntry(descriptorLength);
     } else {
-      reset(descriptorLength, index, true);
+      reset(firstIndex, descriptorLength, index, true);
       invalidateNextEntry(buffer.position());
     }
   }

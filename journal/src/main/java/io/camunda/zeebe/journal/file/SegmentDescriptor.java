@@ -348,6 +348,10 @@ final class SegmentDescriptor {
     return lastPosition;
   }
 
+  public long lastIndex() {
+    return lastIndex;
+  }
+
   /** Segment descriptor builder. */
   static final class Builder {
 
