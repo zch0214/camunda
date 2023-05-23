@@ -38,6 +38,8 @@ public interface BpmnBehaviors {
 
   BpmnJobBehavior jobBehavior();
 
+  BpmnSignalBehavior signalBehavior();
+
   MultiInstanceOutputCollectionBehavior outputCollectionBehavior();
 
   CatchEventBehavior catchEventBehavior();
@@ -47,4 +49,6 @@ public interface BpmnBehaviors {
   VariableBehavior variableBehavior();
 
   ElementActivationBehavior elementActivationBehavior();
+
+  BpmnJobActivationBehavior jobActivationBehavior();
 }

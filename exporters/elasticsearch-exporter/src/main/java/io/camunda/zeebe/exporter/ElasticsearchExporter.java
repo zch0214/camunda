@@ -189,6 +189,10 @@ public class ElasticsearchExporter implements Exporter {
   }
 
   private void createIndexTemplates() {
+    if (configuration.retention.isEnabled()) {
+      createIndexLifecycleManagementPolicy();
+    }
+
     final IndexConfiguration index = configuration.index;
 
     if (index.createTemplate) {
@@ -226,6 +230,9 @@ public class ElasticsearchExporter implements Exporter {
       }
       if (index.processInstance) {
         createValueIndexTemplate(ValueType.PROCESS_INSTANCE);
+      }
+      if (index.processInstanceBatch) {
+        createValueIndexTemplate(ValueType.PROCESS_INSTANCE_BATCH);
       }
       if (index.processInstanceCreation) {
         createValueIndexTemplate(ValueType.PROCESS_INSTANCE_CREATION);
@@ -278,6 +285,13 @@ public class ElasticsearchExporter implements Exporter {
     }
 
     indexTemplatesCreated = true;
+  }
+
+  private void createIndexLifecycleManagementPolicy() {
+    if (!client.putIndexLifecycleManagementPolicy()) {
+      log.warn(
+          "Failed to acknowledge the creation or update of the Index Lifecycle Management Policy");
+    }
   }
 
   private void createComponentTemplate() {

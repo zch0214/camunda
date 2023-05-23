@@ -13,13 +13,6 @@ This document contains instructions for developers who want to contribute to thi
 * Go sources are generated on demand [Go Code Generation](../gateway-protocol-impl/README.md#go-code-generation).
 * Remember to also update the GRPC API documentation https://docs.camunda.io/docs/apis-clients/grpc/
 
-## How to update the `.gocompat.json` file?
-
-* This file is to detect changes to the Go interface
-* The comparison is part of the build process
-* If changes are deliberate it is necessary to regenerate this file for the build to pass
-* This is achieved by running ``cd clients/go && gocompat save ./...` and comitting the changes
-
 ## How to create a new record?
 
 Generally, you'll need to do 4 things:
@@ -80,8 +73,27 @@ You'll always need to add support for new records in the ES exporter. Even if yo
 2. Add a call to `createValueIndexTemplate` for the `ValueType` in [ElasticsearchExporter](../exporters/elasticsearch-exporter/src/main/java/io/camunda/zeebe/exporter/ElasticsearchExporter.java).
 3. Allow the record to be filtered through the [configuration](../exporters/elasticsearch-exporter/src/main/java/io/camunda/zeebe/exporter/ElasticsearchExporterConfiguration.java).
 4. Document this new filter option in the dist folder's [broker config templates](../dist/src/main/config/).
-5. Document this new filter option in the elasticsearch exporter's [README](../exporters/elasticsearch-exporter/README.md).
-6. Add a mapping for the ValueType to the [TestSupport](../exporters/elasticsearch-exporter/src/test/java/io/camunda/zeebe/exporter/TestSupport.java).
+5. Add a mapping for the ValueType to the [TestSupport](../exporters/elasticsearch-exporter/src/test/java/io/camunda/zeebe/exporter/TestSupport.java).
+
+### Support a RecordValue in the Opensearch exporter
+
+You'll always need to add support for new records in the OS exporter. Even if you don't yet want to export a new record,
+our tests will fail if you don't provide this support. Note that in step 3 below, you can choose whether or not the record is exported to OS by default.
+
+1. Add a record template to the exporter's [resources](../exporters/opensearch-exporter/src/main/resources/).
+
+- Tip: start by copying an existing template and change the relevant properties.
+
+2. Add a call to `createValueIndexTemplate` for the `ValueType` in [OpensearchExporter](../exporters/opensearch-exporter/src/main/java/io/camunda/zeebe/exporter/opensearch/OpensearchExporter.java).
+3. Allow the record to be filtered through the [configuration](../exporters/opensearch-exporter/src/main/java/io/camunda/zeebe/exporter/opensearch/OpensearchExporterConfiguration.java).
+4. Document this new filter option in the dist folder's [broker config templates](../dist/src/main/config/).
+5. Add a mapping for the ValueType to the [TestSupport](../exporters/opensearch-exporter/src/test/java/io/camunda/zeebe/exporter/opensearch/TestSupport.java).
+
+### Extend Official documentation
+
+Our Exporter configurations are documented in the [official docs](https://github.com/camunda/camunda-platform-docs).
+In the previous steps we've extended the configuration of the Elasticsearch and OpenSearch exporters.
+These configurations options need to be added to the official documentation.
 
 ## How to extend an existing record?
 

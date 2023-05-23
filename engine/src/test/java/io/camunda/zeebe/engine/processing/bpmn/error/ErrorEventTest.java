@@ -16,12 +16,10 @@ import io.camunda.zeebe.model.bpmn.BpmnModelInstance;
 import io.camunda.zeebe.model.bpmn.builder.AbstractStartEventBuilder;
 import io.camunda.zeebe.model.bpmn.builder.EventSubProcessBuilder;
 import io.camunda.zeebe.model.bpmn.builder.ServiceTaskBuilder;
-import io.camunda.zeebe.protocol.record.Assertions;
 import io.camunda.zeebe.protocol.record.Record;
 import io.camunda.zeebe.protocol.record.intent.JobIntent;
 import io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent;
 import io.camunda.zeebe.protocol.record.value.BpmnElementType;
-import io.camunda.zeebe.protocol.record.value.VariableRecordValue;
 import io.camunda.zeebe.test.util.record.RecordingExporter;
 import io.camunda.zeebe.test.util.record.RecordingExporterTestWatcher;
 import java.util.List;
@@ -38,6 +36,7 @@ public class ErrorEventTest {
   private static final String PROCESS_ID = "wf";
   private static final String JOB_TYPE = "test";
   private static final String ERROR_CODE = "ERROR";
+  private static final String ERROR_CODE_NUMBER = "404";
 
   private static final BpmnModelInstance SINGLE_BOUNDARY_EVENT =
       process(
@@ -144,6 +143,52 @@ public class ErrorEventTest {
                 .withElementType(BpmnElementType.BOUNDARY_EVENT))
         .extracting(r -> r.getValue().getElementId())
         .containsOnly("error-2");
+  }
+
+  @Test
+  public void shouldCatchErrorEventsByNumericErrorCode() {
+    // Regression for https://github.com/camunda/zeebe/issues/12326
+    // given
+    ENGINE
+        .deployment()
+        .withXmlResource(
+            process(
+                serviceTask ->
+                    serviceTask.boundaryEvent("error", b -> b.error(ERROR_CODE_NUMBER).endEvent())))
+        .deploy();
+
+    final var processInstanceKey = ENGINE.processInstance().ofBpmnProcessId(PROCESS_ID).create();
+
+    // when
+    ENGINE
+        .job()
+        .ofInstance(processInstanceKey)
+        .withType(JOB_TYPE)
+        .withErrorCode(ERROR_CODE_NUMBER)
+        .throwError();
+
+    // then
+    assertThat(
+            RecordingExporter.processInstanceRecords()
+                .withProcessInstanceKey(processInstanceKey)
+                .limitToProcessInstanceCompleted())
+        .extracting(r -> r.getValue().getBpmnElementType(), Record::getIntent)
+        .containsSubsequence(
+            tuple(BpmnElementType.SERVICE_TASK, ProcessInstanceIntent.ELEMENT_TERMINATING),
+            tuple(BpmnElementType.SERVICE_TASK, ProcessInstanceIntent.ELEMENT_TERMINATED),
+            tuple(BpmnElementType.BOUNDARY_EVENT, ProcessInstanceIntent.ELEMENT_ACTIVATING),
+            tuple(BpmnElementType.BOUNDARY_EVENT, ProcessInstanceIntent.ELEMENT_ACTIVATED),
+            tuple(BpmnElementType.BOUNDARY_EVENT, ProcessInstanceIntent.COMPLETE_ELEMENT),
+            tuple(BpmnElementType.BOUNDARY_EVENT, ProcessInstanceIntent.ELEMENT_COMPLETING),
+            tuple(BpmnElementType.BOUNDARY_EVENT, ProcessInstanceIntent.ELEMENT_COMPLETED),
+            tuple(BpmnElementType.SEQUENCE_FLOW, ProcessInstanceIntent.SEQUENCE_FLOW_TAKEN),
+            tuple(BpmnElementType.END_EVENT, ProcessInstanceIntent.ELEMENT_ACTIVATING),
+            tuple(BpmnElementType.END_EVENT, ProcessInstanceIntent.ELEMENT_ACTIVATED),
+            tuple(BpmnElementType.END_EVENT, ProcessInstanceIntent.ELEMENT_COMPLETING),
+            tuple(BpmnElementType.END_EVENT, ProcessInstanceIntent.ELEMENT_COMPLETED),
+            tuple(BpmnElementType.PROCESS, ProcessInstanceIntent.COMPLETE_ELEMENT),
+            tuple(BpmnElementType.PROCESS, ProcessInstanceIntent.ELEMENT_COMPLETING),
+            tuple(BpmnElementType.PROCESS, ProcessInstanceIntent.ELEMENT_COMPLETED));
   }
 
   @Test
@@ -620,226 +665,5 @@ public class ErrorEventTest {
             tuple(BpmnElementType.BOUNDARY_EVENT, ProcessInstanceIntent.ELEMENT_ACTIVATING),
             tuple(BpmnElementType.BOUNDARY_EVENT, ProcessInstanceIntent.ELEMENT_COMPLETED),
             tuple(BpmnElementType.PROCESS, ProcessInstanceIntent.ELEMENT_COMPLETED));
-  }
-
-  @Test
-  public void shouldPropagateErrorCodeVariable() {
-    // Given
-    final var process =
-        Bpmn.createExecutableProcess(PROCESS_ID)
-            .startEvent()
-            .serviceTask("task", t -> t.zeebeJobType(JOB_TYPE))
-            .boundaryEvent(
-                "error-boundary-event",
-                b -> b.errorEventDefinition().error(ERROR_CODE).errorCodeVariable("errorCode"))
-            .endEvent()
-            .done();
-
-    ENGINE.deployment().withXmlResource(process).deploy();
-
-    final var processInstanceKey = ENGINE.processInstance().ofBpmnProcessId(PROCESS_ID).create();
-
-    // when
-    ENGINE
-        .job()
-        .ofInstance(processInstanceKey)
-        .withType(JOB_TYPE)
-        .withErrorCode(ERROR_CODE)
-        .throwError();
-
-    // Then
-    final long scopeKey =
-        RecordingExporter.processInstanceRecords()
-            .withProcessInstanceKey(processInstanceKey)
-            .withElementType(BpmnElementType.BOUNDARY_EVENT)
-            .getFirst()
-            .getKey();
-
-    final Record<VariableRecordValue> variableRecords =
-        RecordingExporter.variableRecords()
-            .withProcessInstanceKey(processInstanceKey)
-            .withScopeKey(scopeKey)
-            .withName("errorCode")
-            .getFirst();
-
-    Assertions.assertThat(variableRecords.getValue()).hasValue("\"ERROR\"");
-  }
-
-  @Test
-  public void shouldPropagateErrorMessageVariable() {
-    // Given
-    final var process =
-        Bpmn.createExecutableProcess(PROCESS_ID)
-            .startEvent()
-            .serviceTask("task", t -> t.zeebeJobType(JOB_TYPE))
-            .boundaryEvent(
-                "error-boundary-event",
-                b ->
-                    b.errorEventDefinition().error(ERROR_CODE).errorMessageVariable("errorMessage"))
-            .endEvent()
-            .done();
-
-    ENGINE.deployment().withXmlResource(process).deploy();
-
-    final var processInstanceKey = ENGINE.processInstance().ofBpmnProcessId(PROCESS_ID).create();
-
-    // when
-    ENGINE
-        .job()
-        .ofInstance(processInstanceKey)
-        .withType(JOB_TYPE)
-        .withErrorCode(ERROR_CODE)
-        .withErrorMessage("error-message")
-        .throwError();
-
-    // Then
-    final long scopeKey =
-        RecordingExporter.processInstanceRecords()
-            .withProcessInstanceKey(processInstanceKey)
-            .withElementType(BpmnElementType.BOUNDARY_EVENT)
-            .getFirst()
-            .getKey();
-
-    final Record<VariableRecordValue> variableRecords =
-        RecordingExporter.variableRecords()
-            .withProcessInstanceKey(processInstanceKey)
-            .withScopeKey(scopeKey)
-            .withName("errorMessage")
-            .getFirst();
-
-    Assertions.assertThat(variableRecords.getValue()).hasValue("\"error-message\"");
-  }
-
-  @Test
-  public void shouldPropagateEmptyErrorMessageVariable() {
-    // Given
-    final var process =
-        Bpmn.createExecutableProcess(PROCESS_ID)
-            .startEvent()
-            .serviceTask("task", t -> t.zeebeJobType(JOB_TYPE))
-            .boundaryEvent(
-                "error-boundary-event",
-                b ->
-                    b.errorEventDefinition().error(ERROR_CODE).errorMessageVariable("errorMessage"))
-            .endEvent()
-            .done();
-
-    ENGINE.deployment().withXmlResource(process).deploy();
-
-    final var processInstanceKey = ENGINE.processInstance().ofBpmnProcessId(PROCESS_ID).create();
-
-    // when
-    ENGINE
-        .job()
-        .ofInstance(processInstanceKey)
-        .withType(JOB_TYPE)
-        .withErrorCode(ERROR_CODE)
-        .throwError();
-
-    // Then
-    final long scopeKey =
-        RecordingExporter.processInstanceRecords()
-            .withProcessInstanceKey(processInstanceKey)
-            .withElementType(BpmnElementType.BOUNDARY_EVENT)
-            .getFirst()
-            .getKey();
-
-    final Record<VariableRecordValue> variableRecords =
-        RecordingExporter.variableRecords()
-            .withProcessInstanceKey(processInstanceKey)
-            .withScopeKey(scopeKey)
-            .withName("errorMessage")
-            .getFirst();
-
-    Assertions.assertThat(variableRecords.getValue())
-        .describedAs(
-            "Expect that errorMessage variable has an empty string as value because no error message was provided with the thrown error")
-        .hasValue("\"\"");
-  }
-
-  @Test
-  public void shouldPropagateEmptyErrorMessageVariableFromErrorEndEvent() {
-    // Given
-    final var process =
-        Bpmn.createExecutableProcess(PROCESS_ID)
-            .startEvent()
-            .subProcess(
-                "sub",
-                s ->
-                    s.embeddedSubProcess().startEvent().endEvent("error", e -> e.error(ERROR_CODE)))
-            .boundaryEvent(
-                "error-boundary-event",
-                b ->
-                    b.errorEventDefinition().error(ERROR_CODE).errorMessageVariable("errorMessage"))
-            .endEvent()
-            .done();
-
-    ENGINE.deployment().withXmlResource(process).deploy();
-
-    // when
-    final var processInstanceKey = ENGINE.processInstance().ofBpmnProcessId(PROCESS_ID).create();
-
-    // Then
-    final long scopeKey =
-        RecordingExporter.processInstanceRecords()
-            .withProcessInstanceKey(processInstanceKey)
-            .withElementType(BpmnElementType.BOUNDARY_EVENT)
-            .getFirst()
-            .getKey();
-
-    final Record<VariableRecordValue> variableRecords =
-        RecordingExporter.variableRecords()
-            .withProcessInstanceKey(processInstanceKey)
-            .withScopeKey(scopeKey)
-            .withName("errorMessage")
-            .getFirst();
-
-    Assertions.assertThat(variableRecords.getValue())
-        .describedAs(
-            "Expect that errorMessage variable has an empty string as value because no error message was provided with the thrown error")
-        .hasValue("\"\"");
-  }
-
-  @Test
-  public void shouldApplyOutputMappingsWithErrorCodeAndErrorMessage() {
-    // Given
-    final var process =
-        Bpmn.createExecutableProcess(PROCESS_ID)
-            .startEvent()
-            .serviceTask("task", t -> t.zeebeJobType(JOB_TYPE))
-            .boundaryEvent(
-                "error-boundary-event",
-                b ->
-                    b.errorEventDefinition()
-                        .error(ERROR_CODE)
-                        .errorCodeVariable("errorCode")
-                        .errorMessageVariable("errorMessage"))
-            .zeebeOutputExpression("errorCode", "errCode")
-            .zeebeOutputExpression("errorMessage", "errMsg")
-            .endEvent()
-            .done();
-
-    ENGINE.deployment().withXmlResource(process).deploy();
-
-    final var processInstanceKey = ENGINE.processInstance().ofBpmnProcessId(PROCESS_ID).create();
-
-    // when
-    ENGINE
-        .job()
-        .ofInstance(processInstanceKey)
-        .withType(JOB_TYPE)
-        .withErrorCode(ERROR_CODE)
-        .withErrorMessage("error-message")
-        .throwError();
-
-    // Then
-    assertThat(
-            RecordingExporter.variableRecords()
-                .withProcessInstanceKey(processInstanceKey)
-                .withScopeKey(processInstanceKey)
-                .limit(2))
-        .extracting(Record::getValue)
-        .extracting(VariableRecordValue::getName, VariableRecordValue::getValue)
-        .containsSequence(tuple("errCode", "\"ERROR\""), tuple("errMsg", "\"error-message\""));
   }
 }

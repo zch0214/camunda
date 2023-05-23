@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package commands
 
 import (
@@ -19,7 +20,7 @@ import (
 	"github.com/camunda/zeebe/clients/go/v8/internal/utils"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/commands"
 	"github.com/spf13/cobra"
-	"io/ioutil"
+	"os"
 	"strconv"
 )
 
@@ -28,7 +29,7 @@ var (
 )
 
 var evaluateDecisionCmd = &cobra.Command{
-	Use:     "decision <processId or processKey>",
+	Use:     "decision <decisionId or decisionKey>",
 	Short:   "Evaluates a decision defined by the decision ID or decision key",
 	Args:    cobra.ExactArgs(1),
 	PreRunE: initClient,
@@ -78,7 +79,7 @@ func parseDecisionEvaluationVariables(decisionVariables string) (string, error) 
 	jsonErr := jsStringChecker.Validate("variables", decisionVariables)
 	if jsonErr != nil {
 		// not a JSON string
-		fileVariables, err := ioutil.ReadFile(decisionVariables)
+		fileVariables, err := os.ReadFile(decisionVariables)
 		if err != nil {
 			// not a file path or valid JSON string
 			return "", errors.New("invalid --variables passed. Invalid file or " + jsonErr.Error())

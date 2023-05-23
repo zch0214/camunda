@@ -53,7 +53,11 @@ public final class JobEventProcessors {
                 processingState.getKeyGenerator(),
                 jobMetrics,
                 jobBackoffChecker,
-                bpmnBehaviors.variableBehavior()))
+                bpmnBehaviors))
+        .onCommand(
+            ValueType.JOB,
+            JobIntent.YIELD,
+            new JobYieldProcessor(processingState, bpmnBehaviors, writers))
         .onCommand(
             ValueType.JOB,
             JobIntent.THROW_ERROR,
@@ -63,13 +67,18 @@ public final class JobEventProcessors {
                 keyGenerator,
                 jobMetrics))
         .onCommand(
-            ValueType.JOB, JobIntent.TIME_OUT, new JobTimeOutProcessor(processingState, jobMetrics))
+            ValueType.JOB,
+            JobIntent.TIME_OUT,
+            new JobTimeOutProcessor(
+                processingState, jobMetrics, bpmnBehaviors.jobActivationBehavior()))
         .onCommand(
             ValueType.JOB, JobIntent.UPDATE_RETRIES, new JobUpdateRetriesProcessor(processingState))
         .onCommand(
             ValueType.JOB, JobIntent.CANCEL, new JobCancelProcessor(processingState, jobMetrics))
         .onCommand(
-            ValueType.JOB, JobIntent.RECUR_AFTER_BACKOFF, new JobRecurProcessor(processingState))
+            ValueType.JOB,
+            JobIntent.RECUR_AFTER_BACKOFF,
+            new JobRecurProcessor(processingState, bpmnBehaviors.jobActivationBehavior()))
         .onCommand(
             ValueType.JOB_BATCH,
             JobBatchIntent.ACTIVATE,

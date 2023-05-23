@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.engine.processing.job;
 
+import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnJobActivationBehavior;
 import io.camunda.zeebe.engine.processing.streamprocessor.CommandProcessor;
 import io.camunda.zeebe.engine.state.immutable.JobState;
 import io.camunda.zeebe.engine.state.immutable.JobState.State;
@@ -21,9 +22,13 @@ public class JobRecurProcessor implements CommandProcessor<JobRecord> {
   private static final String NOT_FAILED_JOB_MESSAGE =
       "Expected to back off failed job with key '%d', but %s";
   private final JobState jobState;
+  private final BpmnJobActivationBehavior jobActivationBehavior;
 
-  public JobRecurProcessor(final ProcessingState processingState) {
+  public JobRecurProcessor(
+      final ProcessingState processingState,
+      final BpmnJobActivationBehavior jobActivationBehavior) {
     jobState = processingState.getJobState();
+    this.jobActivationBehavior = jobActivationBehavior;
   }
 
   @Override
@@ -33,7 +38,10 @@ public class JobRecurProcessor implements CommandProcessor<JobRecord> {
     final JobState.State state = jobState.getState(jobKey);
 
     if (state == State.FAILED) {
-      commandControl.accept(JobIntent.RECURRED_AFTER_BACKOFF, command.getValue());
+      final JobRecord recurredJob = command.getValue();
+
+      commandControl.accept(JobIntent.RECURRED_AFTER_BACKOFF, recurredJob);
+      jobActivationBehavior.publishWork(recurredJob);
     } else {
       final String textState;
 

@@ -11,6 +11,7 @@ import io.atomix.cluster.ClusterMembershipService;
 import io.atomix.cluster.Member;
 import io.atomix.cluster.MemberId;
 import io.atomix.cluster.messaging.ClusterCommunicationService;
+import io.atomix.utils.serializer.serializers.DefaultSerializers;
 import io.camunda.zeebe.broker.system.partitions.PartitionMessagingService;
 import java.nio.ByteBuffer;
 import java.util.Collection;
@@ -39,15 +40,15 @@ public class AtomixPartitionMessagingService implements PartitionMessagingServic
   @Override
   public void subscribe(
       final String subject, final Consumer<ByteBuffer> consumer, final Executor executor) {
-    communicationService.subscribe(subject, consumer, executor);
+    communicationService.subscribe(subject, DefaultSerializers.BASIC::decode, consumer, executor);
   }
 
   @Override
   public void broadcast(final String subject, final ByteBuffer payload) {
     final var reachableMembers =
         otherMembers.stream().filter(this::isReachable).collect(Collectors.toUnmodifiableSet());
-
-    communicationService.multicast(subject, payload, reachableMembers);
+    communicationService.multicast(
+        subject, payload, DefaultSerializers.BASIC::encode, reachableMembers, true);
   }
 
   @Override

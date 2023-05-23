@@ -284,7 +284,7 @@ public final class ProcessingStateMachine {
           loggedEvent,
           metadata,
           recoverableException);
-      actor.runDelayed(PROCESSING_RETRY_DELAY, () -> processCommand(currentRecord));
+      actor.schedule(PROCESSING_RETRY_DELAY, () -> processCommand(currentRecord));
     } catch (final UnrecoverableException unrecoverableException) {
       throw unrecoverableException;
     } catch (final ExceededBatchRecordSizeException exceededBatchRecordSizeException) {
@@ -311,6 +311,7 @@ public final class ProcessingStateMachine {
           });
     }
   }
+
   /**
    * Starts the batch processing with the given initial command and iterates over ProcessingResult
    * and applies all follow-up commands until the command limit is reached or no more follow-up

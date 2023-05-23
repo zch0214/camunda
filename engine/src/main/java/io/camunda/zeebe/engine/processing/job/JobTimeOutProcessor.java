@@ -8,6 +8,7 @@
 package io.camunda.zeebe.engine.processing.job;
 
 import io.camunda.zeebe.engine.metrics.JobMetrics;
+import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnJobActivationBehavior;
 import io.camunda.zeebe.engine.processing.streamprocessor.CommandProcessor;
 import io.camunda.zeebe.engine.state.immutable.JobState;
 import io.camunda.zeebe.engine.state.immutable.JobState.State;
@@ -22,10 +23,15 @@ public final class JobTimeOutProcessor implements CommandProcessor<JobRecord> {
       "Expected to time out activated job with key '%d', but %s";
   private final JobState jobState;
   private final JobMetrics jobMetrics;
+  private final BpmnJobActivationBehavior jobActivationBehavior;
 
-  public JobTimeOutProcessor(final ProcessingState state, final JobMetrics jobMetrics) {
+  public JobTimeOutProcessor(
+      final ProcessingState state,
+      final JobMetrics jobMetrics,
+      final BpmnJobActivationBehavior jobActivationBehavior) {
     jobState = state.getJobState();
     this.jobMetrics = jobMetrics;
+    this.jobActivationBehavior = jobActivationBehavior;
   }
 
   @Override
@@ -35,8 +41,11 @@ public final class JobTimeOutProcessor implements CommandProcessor<JobRecord> {
     final JobState.State state = jobState.getState(jobKey);
 
     if (state == State.ACTIVATED) {
-      commandControl.accept(JobIntent.TIMED_OUT, command.getValue());
-      jobMetrics.jobTimedOut(command.getValue().getType());
+      final JobRecord timedOutJob = command.getValue();
+
+      commandControl.accept(JobIntent.TIMED_OUT, timedOutJob);
+      jobMetrics.jobTimedOut(timedOutJob.getType());
+      jobActivationBehavior.publishWork(timedOutJob);
     } else {
       final String textState;
 

@@ -11,17 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package commands
 
 import (
 	"context"
 	"fmt"
 	"github.com/spf13/cobra"
-	"io/ioutil"
+	"os"
 )
 
 // Remove the nolint directive once deploy resource is the only command left
-//nolint
+// nolint
 var deployCmd = &cobra.Command{
 	Use:     "deploy <processPath>...",
 	Short:   "Deploys new resources for each file provided",
@@ -35,7 +36,7 @@ var deployCmd = &cobra.Command{
 
 		zbCmd := client.NewDeployProcessCommand()
 		for i := 0; i < len(resourceNamesFlag); i++ {
-			bytes, err := ioutil.ReadFile(args[i])
+			bytes, err := os.ReadFile(args[i])
 			if err != nil {
 				return err
 			}

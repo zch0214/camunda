@@ -11,19 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package commands
 
 import (
 	"context"
 	"fmt"
 	"github.com/spf13/cobra"
-	"io/ioutil"
+	"os"
 )
 
 var resourceNamesFlag []string
 
 // Remove the nolint directive when this command is the only remaining one for deploy
-//nolint
+// nolint
 var deployResourceCmd = &cobra.Command{
 	Use:     "resource <resourcePath>...",
 	Short:   "Deploys a new resource (e.g. process, decision) for each BPMN/DMN resource provided",
@@ -36,7 +37,7 @@ var deployResourceCmd = &cobra.Command{
 
 		zbCmd := client.NewDeployResourceCommand()
 		for i := 0; i < len(resourceNamesFlag); i++ {
-			bytes, err := ioutil.ReadFile(args[i])
+			bytes, err := os.ReadFile(args[i])
 			if err != nil {
 				return err
 			}

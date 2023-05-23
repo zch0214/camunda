@@ -9,6 +9,7 @@ package io.camunda.zeebe.broker.transport.partitionapi;
 
 import io.atomix.cluster.MemberId;
 import io.atomix.cluster.messaging.ClusterCommunicationService;
+import io.atomix.utils.serializer.serializers.DefaultSerializers;
 import io.camunda.zeebe.backup.processing.state.CheckpointState;
 import io.camunda.zeebe.broker.Loggers;
 import io.camunda.zeebe.broker.protocol.InterPartitionMessageEncoder;
@@ -74,7 +75,11 @@ final class InterPartitionCommandSenderImpl implements InterPartitionCommandSend
         Encoder.encode(checkpointId, receiverPartitionId, valueType, intent, recordKey, command);
 
     communicationService.unicast(
-        TOPIC_PREFIX + receiverPartitionId, message, MemberId.from("" + partitionLeader));
+        TOPIC_PREFIX + receiverPartitionId,
+        message,
+        DefaultSerializers.BASIC::encode,
+        MemberId.from("" + partitionLeader),
+        true);
   }
 
   void setCheckpointId(final long checkpointId) {

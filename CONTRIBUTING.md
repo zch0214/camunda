@@ -80,7 +80,7 @@ If you are reporting a bug, please help to speed up problem diagnosis by
 providing as much information as possible. Ideally, that would include a small
 [sample project][sample] that reproduces the problem.
 
-If you have a general usage question please ask on the [forum][] or [slack][] channel.
+If you have a general usage question please ask on the [forum](http://forum.camunda.io/) or [Slack](https://www.camunda.com/slack) channel.
 
 ## GitHub Issue Guidelines
 
@@ -98,20 +98,21 @@ follow the following steps:
 
 1. Check that a [GitHub issue][issues] exists for the task you want to work on.
    If one does not, create one. Refer to the [issue guidelines](#github-issue-guidelines).
-2. Checkout the `main` branch and pull the latest changes.
+2. Check that no one is already working on the issue, and make sure the team would accept a pull request for this topic. Some topics are complex in nature and may touch multiple of [Camunda's Components](https://docs.camunda.io/docs/components/), requiring internal coordination.
+3. Checkout the `main` branch and pull the latest changes.
 
    ```
    git checkout main
    git pull
    ```
-3. Create a new branch with the naming scheme `issueId-description`.
+4. Create a new branch with the naming scheme `issueId-description`.
 
    ```
    git checkout -b 123-adding-bpel-support`
    ```
-4. Follow the [Google Java Format](https://github.com/google/google-java-format#intellij-android-studio-and-other-jetbrains-ides)
+5. Follow the [Google Java Format](https://github.com/google/google-java-format#intellij-android-studio-and-other-jetbrains-ides)
    and [Zeebe Code Style](https://github.com/zeebe-io/zeebe/wiki/Code-Style) while coding.
-5. Implement the required changes on your branch and regularly push your
+6. Implement the required changes on your branch and regularly push your
    changes to the origin so that the CI can run. Code formatting, style and
    license header are fixed automatically by running maven. Checkstyle
    violations have to be fixed manually.
@@ -120,7 +121,7 @@ follow the following steps:
    git commit -am 'feat(broker): bpel support'
    git push -u origin 123-adding-bpel-support
    ```
-6. If you think you finished the issue please prepare the branch for reviewing.
+7. If you think you finished the issue please prepare the branch for reviewing.
    Please consider our [pull requests and code
    reviews](https://github.com/camunda/zeebe/wiki/Pull-Requests-and-Code-Reviews)
    guide, before requesting a review. In general the commits should be squashed
@@ -129,7 +130,7 @@ follow the following steps:
    it would be best if they are split up into another commit. Rule of thumb is
    that you should think about how a reviewer can best understand your changes.
    Please follow the [commit message guidelines](#commit-message-guidelines).
-7. After finishing up the squashing force push your changes to your branch.
+8. After finishing up the squashing force push your changes to your branch.
 
    ```
    git push --force-with-lease
@@ -163,8 +164,10 @@ Before opening your first pull request, please have a look at this [guide](https
       manually rebase `main` into the issue branch and retrigger a merge
       attempt.
    3. If there are CI errors the author of the pull request has to check if
-      they are caused by its changes and address them. If they are flaky tests
-      a merge can be retried with a comment with the content `bors retry`.
+      they are caused by its changes and address them. If they are flaky tests, please
+      have a look at this [guide](docs/ci.md#determine-flakiness) on how to handle them.
+      Once the CI errors are resolved, a merge can be retried with a comment with
+      the content `bors retry`.
 
 ## Reviewing a pull request
 
@@ -227,13 +230,13 @@ Commit messages use [Conventional Commits](https://www.conventionalcommits.org/e
 
 ```
 <header>
-<BLANK LINE>
-<body>
+<BLANK LINE> (optional - mandatory with body)
+<body> (optional)
 <BLANK LINE> (optional - mandatory with footer)
 <footer> (optional)
 ```
 
-Zeebe uses a bot which will check your commit messages when a pull request is
+Zeebe uses a GitHub Actions workflow checking your commit messages when a pull request is
 submitted. Please make sure to address any hints from the bot.
 
 ### Commit message header
@@ -269,6 +272,9 @@ The commit header should be kept short, preferably under 72 chars but we allow a
 ### Commit message body
 
 Should describe the motivation for the change.
+This is optional, but encouraged.
+Good commit messages explain what changed AND why you changed it.
+See [I've written a clear changelist description](https://github.com/camunda/zeebe/wiki/Pull-Requests-and-Code-Reviews#ive-written-a-clear-changelist-description).
 
 ## Contributor License Agreement
 
@@ -304,7 +310,7 @@ unacceptable behavior as soon as possible.
 
 [issues]: https://github.com/zeebe-io/zeebe/issues
 [forum]: https://forum.zeebe.io/
-[slack]: https://zeebe-slack-invite.herokuapp.com/
+[slack]: https://www.camunda.com/slack
 [sample]: https://github.com/zeebe-io/zeebe-test-template-java
 [status]: https://github.com/zeebe-io/zeebe/labels?q=Type
 [planned]: https://github.com/zeebe-io/zeebe/labels/Type%3A%20Enhancement

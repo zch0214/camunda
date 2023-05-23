@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
@@ -68,7 +69,7 @@ public final class DbProcessState implements MutableProcessState {
   private final ColumnFamily<DbForeignKey<DbString>, Digest> digestByIdColumnFamily;
   private final Digest digest = new Digest();
 
-  private final NextValueManager versionManager;
+  private final ProcessVersionManager versionManager;
 
   public DbProcessState(
       final ZeebeDb<ZbColumnFamilies> zeebeDb, final TransactionContext transactionContext) {
@@ -100,9 +101,7 @@ public final class DbProcessState implements MutableProcessState {
 
     processesByKey = new Long2ObjectHashMap<>();
 
-    versionManager =
-        new NextValueManager(
-            DEFAULT_VERSION_VALUE, zeebeDb, transactionContext, ZbColumnFamilies.PROCESS_VERSION);
+    versionManager = new ProcessVersionManager(DEFAULT_VERSION_VALUE, zeebeDb, transactionContext);
   }
 
   @Override
@@ -150,11 +149,11 @@ public final class DbProcessState implements MutableProcessState {
     processId.wrapBuffer(processRecord.getBpmnProcessIdBuffer());
     final var bpmnProcessId = processRecord.getBpmnProcessId();
 
-    final var currentVersion = versionManager.getCurrentValue(bpmnProcessId);
+    final var currentVersion = versionManager.getCurrentProcessVersion(bpmnProcessId);
     final var nextVersion = processRecord.getVersion();
 
     if (nextVersion > currentVersion) {
-      versionManager.setValue(bpmnProcessId, nextVersion);
+      versionManager.setProcessVersion(bpmnProcessId, nextVersion);
     }
   }
 
@@ -175,9 +174,16 @@ public final class DbProcessState implements MutableProcessState {
 
     final ExecutableProcess executableProcess =
         definitions.stream()
-            .filter(w -> BufferUtil.equals(persistedProcess.getBpmnProcessId(), w.getId()))
+            .filter(
+                process -> BufferUtil.equals(persistedProcess.getBpmnProcessId(), process.getId()))
             .findFirst()
-            .orElseThrow();
+            .orElseThrow(
+                () ->
+                    new NoSuchElementException(
+                        String.format(
+                            "Expected to find executable process in persisted process with key '%s',"
+                                + " but after transformation no such executable process could be found.",
+                            persistedProcess.getKey())));
 
     final DeployedProcess deployedProcess = new DeployedProcess(executableProcess, copiedProcess);
 
@@ -210,7 +216,7 @@ public final class DbProcessState implements MutableProcessState {
         processesByProcessIdAndVersion.get(processIdBuffer);
 
     processId.wrapBuffer(processIdBuffer);
-    final long latestVersion = versionManager.getCurrentValue(processIdBuffer);
+    final long latestVersion = versionManager.getCurrentProcessVersion(processIdBuffer);
 
     DeployedProcess deployedProcess;
     if (versionMap == null) {
@@ -277,7 +283,7 @@ public final class DbProcessState implements MutableProcessState {
 
   @Override
   public int getProcessVersion(final String bpmnProcessId) {
-    return (int) versionManager.getCurrentValue(bpmnProcessId);
+    return (int) versionManager.getCurrentProcessVersion(bpmnProcessId);
   }
 
   @Override

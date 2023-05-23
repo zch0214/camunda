@@ -13,10 +13,14 @@ import io.atomix.cluster.ClusterMembershipEvent;
 import io.atomix.cluster.ClusterMembershipEvent.Type;
 import io.atomix.cluster.ClusterMembershipEventListener;
 import io.atomix.cluster.Member;
+import io.atomix.cluster.MemberId;
 import io.camunda.zeebe.gateway.Loggers;
 import io.camunda.zeebe.protocol.impl.encoding.BrokerInfo;
 import io.camunda.zeebe.scheduler.Actor;
-import java.time.Duration;
+import io.camunda.zeebe.scheduler.ActorSchedulingService;
+import io.camunda.zeebe.scheduler.future.ActorFuture;
+import io.camunda.zeebe.scheduler.future.CompletableActorFuture;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -27,9 +31,12 @@ public final class BrokerTopologyManagerImpl extends Actor
 
   private static final Logger LOG = Loggers.GATEWAY_LOGGER;
 
-  protected final AtomicReference<BrokerClusterStateImpl> topology;
+  private final AtomicReference<BrokerClusterStateImpl> topology;
   private final Supplier<Set<Member>> membersSupplier;
   private final GatewayTopologyMetrics topologyMetrics = new GatewayTopologyMetrics();
+
+  private final Set<BrokerTopologyListener> topologyListeners = new HashSet<>();
+  private final ActorFuture<Void> startFuture = new CompletableActorFuture<>();
 
   public BrokerTopologyManagerImpl(final Supplier<Set<Member>> membersSupplier) {
     this.membersSupplier = membersSupplier;
@@ -48,6 +55,32 @@ public final class BrokerTopologyManagerImpl extends Actor
     this.topology.set(topology);
   }
 
+  @Override
+  public void addTopologyListener(final BrokerTopologyListener listener) {
+    actor.run(
+        () -> {
+          topologyListeners.add(listener);
+          final BrokerClusterStateImpl currentTopology = topology.get();
+          if (currentTopology != null) {
+            currentTopology.getBrokers().stream()
+                .map(b -> MemberId.from(String.valueOf(b)))
+                .forEach(listener::brokerAdded);
+          }
+        });
+  }
+
+  @Override
+  public void removeTopologyListener(final BrokerTopologyListener listener) {
+    actor.run(() -> topologyListeners.remove(listener));
+  }
+
+  public ActorFuture<Void> start(final ActorSchedulingService actorScheduler) {
+    if (!startFuture.isDone()) {
+      actorScheduler.submitActor(this);
+    }
+    return startFuture;
+  }
+
   private void checkForMissingEvents() {
     final Set<Member> members = membersSupplier.get();
     if (members == null || members.isEmpty()) {
@@ -58,11 +91,19 @@ public final class BrokerTopologyManagerImpl extends Actor
     for (final Member member : members) {
       final BrokerInfo brokerInfo = BrokerInfo.fromProperties(member.properties());
       if (brokerInfo != null) {
-        newTopology.addBrokerIfAbsent(brokerInfo.getNodeId());
-        processProperties(brokerInfo, newTopology);
+        addBroker(newTopology, member, brokerInfo);
       }
     }
     topology.set(newTopology);
+  }
+
+  private void addBroker(
+      final BrokerClusterStateImpl newTopology, final Member member, final BrokerInfo brokerInfo) {
+    if (newTopology.addBrokerIfAbsent(brokerInfo.getNodeId())) {
+      topologyListeners.forEach(l -> l.brokerAdded(member.id()));
+    }
+
+    processProperties(brokerInfo, newTopology);
   }
 
   @Override
@@ -72,8 +113,9 @@ public final class BrokerTopologyManagerImpl extends Actor
 
   @Override
   protected void onActorStarted() {
-    // to make gateway topology more robust we need to check for missing events periodically
-    actor.runAtFixedRate(Duration.ofSeconds(5), this::checkForMissingEvents);
+    // Get the initial member state before the listener is registered
+    checkForMissingEvents();
+    startFuture.complete(null);
   }
 
   @Override
@@ -88,33 +130,26 @@ public final class BrokerTopologyManagerImpl extends Actor
             final BrokerClusterStateImpl newTopology = new BrokerClusterStateImpl(topology.get());
 
             switch (eventType) {
-              case MEMBER_ADDED:
+              case MEMBER_ADDED -> {
                 LOG.debug("Received new broker {}.", brokerInfo);
-                newTopology.addBrokerIfAbsent(brokerInfo.getNodeId());
-                processProperties(brokerInfo, newTopology);
-                break;
-
-              case METADATA_CHANGED:
+                addBroker(newTopology, subject, brokerInfo);
+              }
+              case METADATA_CHANGED -> {
                 LOG.debug(
                     "Received metadata change from Broker {}, partitions {}, terms {} and health {}.",
                     brokerInfo.getNodeId(),
                     brokerInfo.getPartitionRoles(),
                     brokerInfo.getPartitionLeaderTerms(),
                     brokerInfo.getPartitionHealthStatuses());
-                newTopology.addBrokerIfAbsent(brokerInfo.getNodeId());
-                processProperties(brokerInfo, newTopology);
-                break;
-
-              case MEMBER_REMOVED:
+                addBroker(newTopology, subject, brokerInfo);
+              }
+              case MEMBER_REMOVED -> {
                 LOG.debug("Received broker was removed {}.", brokerInfo);
                 newTopology.removeBroker(brokerInfo.getNodeId());
-                break;
-
-              case REACHABILITY_CHANGED:
-              default:
-                LOG.debug(
-                    "Received {} for broker {}, do nothing.", eventType, brokerInfo.getNodeId());
-                break;
+                topologyListeners.forEach(l -> l.brokerRemoved(subject.id()));
+              }
+              default -> LOG.debug(
+                  "Received {} for broker {}, do nothing.", eventType, brokerInfo.getNodeId());
             }
 
             topology.set(newTopology);

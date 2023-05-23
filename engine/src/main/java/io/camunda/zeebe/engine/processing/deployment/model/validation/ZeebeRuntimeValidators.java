@@ -175,6 +175,12 @@ public final class ZeebeRuntimeValidators {
             .hasValidExpression(Signal::getName, ExpressionVerification::isOptional)
             .build(expressionLanguage),
         // Checks signal name expressions of start event signals
-        new ProcessSignalStartEventSignalNameValidator(expressionLanguage));
+        new ProcessSignalStartEventSignalNameValidator(expressionLanguage),
+        // Check that unsupported signal boundary events cannot be deployed
+        new UnsupportedSignalBoundaryEventValidator(),
+        // Check that unsupported signal intermediate catch events cannot be deployed
+        new UnsupportedSignalIntermediateCatchEventValidator(),
+        // Check that unsupported signal event subprocess cannot be deployed
+        new UnsupportedSignalEventSubprocessValidator());
   }
 }

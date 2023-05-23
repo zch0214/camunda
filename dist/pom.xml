@@ -5,7 +5,7 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>zeebe-parent</artifactId>
-    <version>8.2.0-SNAPSHOT</version>
+    <version>8.3.0-SNAPSHOT</version>
     <relativePath>../parent/pom.xml</relativePath>
   </parent>
 
@@ -39,6 +39,11 @@
     <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>zeebe-elasticsearch-exporter</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>io.camunda</groupId>
+      <artifactId>zeebe-opensearch-exporter</artifactId>
     </dependency>
 
     <dependency>
@@ -122,6 +127,11 @@
     </dependency>
 
     <dependency>
+      <groupId>io.camunda</groupId>
+      <artifactId>zeebe-transport</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>io.micrometer</groupId>
       <artifactId>micrometer-core</artifactId>
       <exclusions>
@@ -166,8 +176,8 @@
 
     <!-- Following are used for generating models from open api spec   -->
     <dependency>
-      <groupId>javax.validation</groupId>
-      <artifactId>validation-api</artifactId>
+      <groupId>jakarta.validation</groupId>
+      <artifactId>jakarta.validation-api</artifactId>
     </dependency>
 
     <dependency>
@@ -282,8 +292,7 @@
           <assembleDirectory>${project.build.directory}/camunda-zeebe</assembleDirectory>
           <configurationDirectory>config</configurationDirectory>
           <copyConfigurationDirectory>true</copyConfigurationDirectory>
-          <extraJvmArguments>-Xms128m
-            -XX:+ExitOnOutOfMemoryError
+          <extraJvmArguments>-XX:+ExitOnOutOfMemoryError
             -Dfile.encoding=UTF-8</extraJvmArguments>
           <includeConfigurationDirectoryInClasspath>true</includeConfigurationDirectoryInClasspath>
           <platforms>
@@ -331,17 +340,10 @@
             <configuration>
               <target>
                 <?SORTPOM IGNORE?> <!-- ordering is important here, chmod needs to run after copying -->
-                <copy failonerror="${zbctl.force}"
-                  file="${zbctl.rootDir}/clients/go/cmd/zbctl/dist/zbctl.exe"
-                  tofile="${project.build.directory}/camunda-zeebe/bin/zbctl.exe"/>
-                <copy failonerror="${zbctl.force}"
-                  file="${zbctl.rootDir}/clients/go/cmd/zbctl/dist/zbctl.darwin"
-                  tofile="${project.build.directory}/camunda-zeebe/bin/zbctl.darwin"/>
-                <copy failonerror="${zbctl.force}"
-                  file="${zbctl.rootDir}/clients/go/cmd/zbctl/dist/zbctl"
-                  tofile="${project.build.directory}/camunda-zeebe/bin/zbctl"/>
-                <chmod dir="${project.build.directory}/camunda-zeebe/bin"
-                  failonerror="${zbctl.force}" includes="zbctl*" perm="ugo+rx"/>
+                <copy failonerror="${zbctl.force}" file="${zbctl.rootDir}/clients/go/cmd/zbctl/dist/zbctl.exe" tofile="${project.build.directory}/camunda-zeebe/bin/zbctl.exe" />
+                <copy failonerror="${zbctl.force}" file="${zbctl.rootDir}/clients/go/cmd/zbctl/dist/zbctl.darwin" tofile="${project.build.directory}/camunda-zeebe/bin/zbctl.darwin" />
+                <copy failonerror="${zbctl.force}" file="${zbctl.rootDir}/clients/go/cmd/zbctl/dist/zbctl" tofile="${project.build.directory}/camunda-zeebe/bin/zbctl" />
+                <chmod dir="${project.build.directory}/camunda-zeebe/bin" failonerror="${zbctl.force}" includes="zbctl*" perm="ugo+rx" />
                 <?SORTPOM RESUME?>
               </target>
             </configuration>
@@ -383,6 +385,7 @@
           <!-- dependencies only packaged but not explicitly used -->
           <usedDependencies>
             <dependency>io.camunda:zeebe-elasticsearch-exporter</dependency>
+            <dependency>io.camunda:zeebe-opensearch-exporter</dependency>
 
             <!-- Needed for Spring Actuators, which provide health checks and liveness/readiness probed -->
             <dependency>org.springframework.boot:spring-boot-starter-web</dependency>
@@ -398,7 +401,7 @@
       <plugin>
         <groupId>org.openapitools</groupId>
         <artifactId>openapi-generator-maven-plugin</artifactId>
-        <version>6.3.0</version>
+        <version>6.6.0</version>
         <executions>
           <execution>
             <goals>
@@ -418,6 +421,7 @@
               <configOptions>
                 <sourceFolder>src/main</sourceFolder>
                 <additionalModelTypeAnnotations>@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)</additionalModelTypeAnnotations>
+                <useSpringBoot3>true</useSpringBoot3>
               </configOptions>
             </configuration>
           </execution>

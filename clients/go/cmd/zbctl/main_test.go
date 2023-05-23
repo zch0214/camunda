@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
@@ -189,6 +188,19 @@ var tests = []testCase{
 		goldenFile: "testdata/publish_message_with_variables_file.golden",
 		jsonOutput: true,
 	},
+	{
+		name:       "broadcast signal with a space and json string as variables",
+		setupCmds:  [][]string{strings.Fields("--insecure deploy testdata/signal_start_event.bpmn")},
+		cmd:        []string{"--insecure", "broadcast", "signal", "Start Process", "--variables", "{\"FOO\":\"BAR\"}"},
+		goldenFile: "testdata/broadcast_signal_with_space.golden",
+		jsonOutput: true,
+	},
+	{
+		name:       "broadcast signal with a json file as variables",
+		cmd:        []string{"--insecure", "broadcast", "signal", "Start Process", "--variables", "testdata/signal_variables.json"},
+		goldenFile: "testdata/broadcast_signal_with_variables_file.golden",
+		jsonOutput: true,
+	},
 }
 
 func TestZbctlWithInsecureGateway(t *testing.T) {
@@ -210,7 +222,7 @@ func TestZbctlWithInsecureGateway(t *testing.T) {
 		})
 }
 
-func (s *integrationTestSuite) AfterTest(suiteName, testName string) {
+func (s *integrationTestSuite) AfterTest(_, _ string) {
 	// overload to ignore the parent behavior; we instead print the container logs after each failed
 	// test and not at the very end of all test cases, where it's more difficult to know what went
 	// wrong; if you add more top level tests, like TestCommonCommands, make sure to also add a block
@@ -244,7 +256,7 @@ func (s *integrationTestSuite) TestCommonCommands() {
 					strings.Join(test.cmd, " "), err, cmdOut)
 			}
 
-			goldenOut, err := ioutil.ReadFile(test.goldenFile)
+			goldenOut, err := os.ReadFile(test.goldenFile)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -23,6 +23,7 @@ public class ElasticsearchExporterConfiguration {
 
   public final IndexConfiguration index = new IndexConfiguration();
   public final BulkConfiguration bulk = new BulkConfiguration();
+  public final RetentionConfiguration retention = new RetentionConfiguration();
   private final AuthenticationConfiguration authentication = new AuthenticationConfiguration();
 
   public boolean hasAuthenticationPresent() {
@@ -39,10 +40,16 @@ public class ElasticsearchExporterConfiguration {
         + "url='"
         + url
         + '\''
+        + ", requestTimeoutMs="
+        + requestTimeoutMs
         + ", index="
         + index
         + ", bulk="
         + bulk
+        + ", retention="
+        + retention
+        + ", authentication="
+        + authentication
         + '}';
   }
 
@@ -75,6 +82,8 @@ public class ElasticsearchExporterConfiguration {
         return index.variableDocument;
       case PROCESS_INSTANCE:
         return index.processInstance;
+      case PROCESS_INSTANCE_BATCH:
+        return index.processInstanceBatch;
       case PROCESS_INSTANCE_CREATION:
         return index.processInstanceCreation;
       case PROCESS_INSTANCE_MODIFICATION:
@@ -150,6 +159,7 @@ public class ElasticsearchExporterConfiguration {
     public boolean messageSubscription = true;
     public boolean process = true;
     public boolean processInstance = true;
+    public boolean processInstanceBatch = false;
     public boolean processInstanceCreation = true;
     public boolean processInstanceModification = true;
     public boolean processMessageSubscription = true;
@@ -190,7 +200,7 @@ public class ElasticsearchExporterConfiguration {
     @Override
     public String toString() {
       return "IndexConfiguration{"
-          + "indexPrefix='"
+          + "prefix='"
           + prefix
           + '\''
           + ", createTemplate="
@@ -201,38 +211,42 @@ public class ElasticsearchExporterConfiguration {
           + event
           + ", rejection="
           + rejection
-          + ", error="
-          + error
+          + ", decision="
+          + decision
+          + ", decisionEvaluation="
+          + decisionEvaluation
+          + ", decisionRequirements="
+          + decisionRequirements
           + ", deployment="
           + deployment
-          + ", process="
-          + process
+          + ", error="
+          + error
           + ", incident="
           + incident
           + ", job="
           + job
+          + ", jobBatch="
+          + jobBatch
           + ", message="
           + message
           + ", messageSubscription="
           + messageSubscription
-          + ", variable="
-          + variable
-          + ", variableDocument="
-          + variableDocument
+          + ", process="
+          + process
           + ", processInstance="
           + processInstance
+          + ", processInstanceBatch="
+          + processInstanceBatch
           + ", processInstanceCreation="
           + processInstanceCreation
           + ", processInstanceModification="
           + processInstanceModification
           + ", processMessageSubscription="
           + processMessageSubscription
-          + ", decisionRequirements="
-          + decisionRequirements
-          + ", decision="
-          + decision
-          + ", decisionEvaluation="
-          + decisionEvaluation
+          + ", variable="
+          + variable
+          + ", variableDocument="
+          + variableDocument
           + ", checkpoint="
           + checkpoint
           + ", timer="
@@ -251,7 +265,7 @@ public class ElasticsearchExporterConfiguration {
           + signalSubscription
           + ", resourceDeletion="
           + resourceDeletion
-          + ", recordDistribution="
+          + ", commandDistribution="
           + commandDistribution
           + '}';
     }
@@ -306,6 +320,50 @@ public class ElasticsearchExporterConfiguration {
     public String toString() {
       // we don't want to expose this information
       return "AuthenticationConfiguration{Confidential information}";
+    }
+  }
+
+  public static class RetentionConfiguration {
+
+    private boolean enabled = false;
+    private String minimumAge = "30d";
+    private String policyName = "zeebe-record-retention-policy";
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public void setEnabled(final boolean enabled) {
+      this.enabled = enabled;
+    }
+
+    public String getMinimumAge() {
+      return minimumAge;
+    }
+
+    public void setMinimumAge(final String minimumAge) {
+      this.minimumAge = minimumAge;
+    }
+
+    public String getPolicyName() {
+      return policyName;
+    }
+
+    public void setPolicyName(final String policyName) {
+      this.policyName = policyName;
+    }
+
+    @Override
+    public String toString() {
+      return "RetentionConfiguration{"
+          + "isEnabled="
+          + enabled
+          + ", minimumAge="
+          + minimumAge
+          + ", policyName='"
+          + policyName
+          + '\''
+          + '}';
     }
   }
 }

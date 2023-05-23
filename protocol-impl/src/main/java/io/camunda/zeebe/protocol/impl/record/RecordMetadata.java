@@ -30,6 +30,7 @@ import org.agrona.concurrent.UnsafeBuffer;
 public final class RecordMetadata implements BufferWriter, BufferReader {
   public static final int BLOCK_LENGTH =
       MessageHeaderEncoder.ENCODED_LENGTH + RecordMetadataEncoder.BLOCK_LENGTH;
+  public static final int DEFAULT_RECORD_VERSION = 1;
 
   private static final VersionInfo CURRENT_BROKER_VERSION =
       VersionInfo.parse(VersionUtil.getVersion());
@@ -51,6 +52,7 @@ public final class RecordMetadata implements BufferWriter, BufferReader {
   // always the current version by default
   private int protocolVersion = Protocol.PROTOCOL_VERSION;
   private VersionInfo brokerVersion = CURRENT_BROKER_VERSION;
+  private int recordVersion = DEFAULT_RECORD_VERSION;
 
   public RecordMetadata() {
     reset();
@@ -83,6 +85,13 @@ public final class RecordMetadata implements BufferWriter, BufferReader {
                         versionDecoder.minorVersion(),
                         versionDecoder.patchVersion()))
             .orElse(VersionInfo.UNKNOWN);
+
+    final int decodedRecordVersion = decoder.recordVersion();
+    if (decodedRecordVersion > 0) {
+      recordVersion = decodedRecordVersion;
+    } else {
+      recordVersion = DEFAULT_RECORD_VERSION;
+    }
 
     final int rejectionReasonLength = decoder.rejectionReasonLength();
 
@@ -122,7 +131,8 @@ public final class RecordMetadata implements BufferWriter, BufferReader {
         .protocolVersion(protocolVersion)
         .valueType(valueType)
         .intent(intentValue)
-        .rejectionType(rejectionType);
+        .rejectionType(rejectionType)
+        .recordVersion(recordVersion);
 
     encoder
         .brokerVersion()
@@ -227,6 +237,15 @@ public final class RecordMetadata implements BufferWriter, BufferReader {
     return brokerVersion;
   }
 
+  public RecordMetadata recordVersion(final int recordVersion) {
+    this.recordVersion = recordVersion;
+    return this;
+  }
+
+  public int getRecordVersion() {
+    return recordVersion;
+  }
+
   public RecordMetadata reset() {
     recordType = RecordType.NULL_VAL;
     requestId = RecordMetadataEncoder.requestIdNullValue();
@@ -238,6 +257,7 @@ public final class RecordMetadata implements BufferWriter, BufferReader {
     rejectionType = RejectionType.NULL_VAL;
     rejectionReason.wrap(0, 0);
     brokerVersion = CURRENT_BROKER_VERSION;
+    recordVersion = DEFAULT_RECORD_VERSION;
     return this;
   }
 
@@ -252,7 +272,8 @@ public final class RecordMetadata implements BufferWriter, BufferReader {
         rejectionType,
         rejectionReason,
         protocolVersion,
-        brokerVersion);
+        brokerVersion,
+        recordVersion);
   }
 
   @Override
@@ -272,7 +293,8 @@ public final class RecordMetadata implements BufferWriter, BufferReader {
         && recordType == that.recordType
         && rejectionType == that.rejectionType
         && rejectionReason.equals(that.rejectionReason)
-        && brokerVersion.equals(that.brokerVersion);
+        && brokerVersion.equals(that.brokerVersion)
+        && recordVersion == that.recordVersion;
   }
 
   @Override

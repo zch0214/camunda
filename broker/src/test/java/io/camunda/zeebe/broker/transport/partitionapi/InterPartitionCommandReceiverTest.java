@@ -242,7 +242,12 @@ final class InterPartitionCommandReceiverTest {
 
     final var messageCaptor = ArgumentCaptor.forClass(byte[].class);
     verify(communicationService)
-        .unicast(eq(TOPIC_PREFIX + receiverPartitionId), messageCaptor.capture(), any());
+        .unicast(
+            eq(TOPIC_PREFIX + receiverPartitionId),
+            messageCaptor.capture(),
+            any(),
+            any(),
+            eq(true));
 
     return messageCaptor.getValue();
   }

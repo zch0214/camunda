@@ -21,6 +21,7 @@ import io.camunda.zeebe.client.ZeebeClient;
 import io.camunda.zeebe.client.ZeebeClientConfiguration;
 import io.camunda.zeebe.client.api.JsonMapper;
 import io.camunda.zeebe.client.api.command.ActivateJobsCommandStep1;
+import io.camunda.zeebe.client.api.command.BroadcastSignalCommandStep1;
 import io.camunda.zeebe.client.api.command.CancelProcessInstanceCommandStep1;
 import io.camunda.zeebe.client.api.command.ClientException;
 import io.camunda.zeebe.client.api.command.CompleteJobCommandStep1;
@@ -40,7 +41,7 @@ import io.camunda.zeebe.client.api.command.UpdateRetriesJobCommandStep1;
 import io.camunda.zeebe.client.api.response.ActivatedJob;
 import io.camunda.zeebe.client.api.worker.JobClient;
 import io.camunda.zeebe.client.api.worker.JobWorkerBuilderStep1;
-import io.camunda.zeebe.client.impl.command.ActivateJobsCommandImpl;
+import io.camunda.zeebe.client.impl.command.BroadcastSignalCommandImpl;
 import io.camunda.zeebe.client.impl.command.CancelProcessInstanceCommandImpl;
 import io.camunda.zeebe.client.impl.command.CreateProcessInstanceCommandImpl;
 import io.camunda.zeebe.client.impl.command.DeleteResourceCommandImpl;
@@ -135,7 +136,7 @@ public final class ZeebeClientImpl implements ZeebeClient {
     configureConnectionSecurity(config, channelBuilder);
     channelBuilder.keepAliveTime(config.getKeepAlive().toMillis(), TimeUnit.MILLISECONDS);
     channelBuilder.userAgent("zeebe-client-java/" + VersionUtil.getVersion());
-
+    channelBuilder.maxInboundMessageSize(config.getMaxMessageSize());
     return channelBuilder.build();
   }
 
@@ -308,6 +309,12 @@ public final class ZeebeClientImpl implements ZeebeClient {
   }
 
   @Override
+  public BroadcastSignalCommandStep1 newBroadcastSignalCommand() {
+    return new BroadcastSignalCommandImpl(
+        asyncStub, config, jsonMapper, credentialsProvider::shouldRetryRequest);
+  }
+
+  @Override
   public ResolveIncidentCommandStep1 newResolveIncidentCommand(final long incidentKey) {
     return new ResolveIncidentCommandImpl(
         asyncStub,
@@ -332,20 +339,12 @@ public final class ZeebeClientImpl implements ZeebeClient {
 
   @Override
   public JobWorkerBuilderStep1 newWorker() {
-    return new JobWorkerBuilderImpl(
-        config,
-        asyncStub,
-        jobClient,
-        jsonMapper,
-        executorService,
-        closeables,
-        credentialsProvider::shouldRetryRequest);
+    return new JobWorkerBuilderImpl(config, jobClient, executorService, closeables);
   }
 
   @Override
   public ActivateJobsCommandStep1 newActivateJobsCommand() {
-    return new ActivateJobsCommandImpl(
-        asyncStub, config, jsonMapper, credentialsProvider::shouldRetryRequest);
+    return jobClient.newActivateJobsCommand();
   }
 
   @Override

@@ -4,3 +4,5 @@ zeebe:
       features:
         enableYieldingDueDateChecker: true
         enableActorMetrics: true
+        enableMessageTTLCheckerAsync: true
+        enableTimerDueDateCheckerAsync: true

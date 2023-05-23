@@ -23,6 +23,8 @@ import io.camunda.zeebe.protocol.impl.record.value.error.ErrorRecord;
 import io.camunda.zeebe.protocol.record.RejectionType;
 import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.ErrorIntent;
+import io.camunda.zeebe.protocol.record.intent.ProcessInstanceCreationIntent;
+import io.camunda.zeebe.protocol.record.intent.ProcessInstanceRelatedIntent;
 import io.camunda.zeebe.protocol.record.value.ProcessInstanceRelated;
 import io.camunda.zeebe.stream.api.ProcessingResult;
 import io.camunda.zeebe.stream.api.ProcessingResultBuilder;
@@ -44,7 +46,7 @@ public class Engine implements RecordProcessor {
       "Expected to process record '%s' without errors, but exception occurred with message '%s'.";
 
   private static final EnumSet<ValueType> SUPPORTED_VALUETYPES =
-      EnumSet.range(ValueType.JOB, ValueType.COMMAND_DISTRIBUTION);
+      EnumSet.range(ValueType.JOB, ValueType.PROCESS_INSTANCE_BATCH);
 
   private EventApplier eventApplier;
   private RecordProcessorMap recordProcessorMap;
@@ -56,12 +58,14 @@ public class Engine implements RecordProcessor {
       new ProcessingResultBuilderMutex();
 
   private Writers writers;
-  private TypedRecordProcessorFactory typedRecordProcessorFactory;
+  private final TypedRecordProcessorFactory typedRecordProcessorFactory;
+  private final EngineConfiguration config;
 
-  public Engine() {}
-
-  public Engine(final TypedRecordProcessorFactory typedRecordProcessorFactory) {
+  public Engine(
+      final TypedRecordProcessorFactory typedRecordProcessorFactory,
+      final EngineConfiguration config) {
     this.typedRecordProcessorFactory = typedRecordProcessorFactory;
+    this.config = config;
   }
 
   @Override
@@ -72,11 +76,10 @@ public class Engine implements RecordProcessor {
             recordProcessorContext.getPartitionId(),
             zeebeDb,
             recordProcessorContext.getTransactionContext(),
-            recordProcessorContext.getKeyGenerator(),
-            recordProcessorContext.jobStreamer());
+            recordProcessorContext.getKeyGenerator());
     final var scheduledTaskDbState = new ScheduledTaskDbState(zeebeDb, zeebeDb.createContext());
 
-    eventApplier = new EventAppliers(processingState);
+    eventApplier = new EventAppliers().registerEventAppliers(processingState);
 
     writers = new Writers(resultBuilderMutex, eventApplier);
 
@@ -87,7 +90,8 @@ public class Engine implements RecordProcessor {
             processingState,
             scheduledTaskDbState,
             writers,
-            recordProcessorContext.getPartitionCommandSender());
+            recordProcessorContext.getPartitionCommandSender(),
+            config);
 
     final TypedRecordProcessors typedRecordProcessors =
         typedRecordProcessorFactory.createProcessors(typedProcessorContext);
@@ -103,7 +107,8 @@ public class Engine implements RecordProcessor {
 
   @Override
   public void replay(final TypedRecord event) {
-    eventApplier.applyState(event.getKey(), event.getIntent(), event.getValue());
+    eventApplier.applyState(
+        event.getKey(), event.getIntent(), event.getValue(), event.getRecordVersion());
   }
 
   @Override
@@ -128,9 +133,13 @@ public class Engine implements RecordProcessor {
         return processingResultBuilder.build();
       }
 
-      final boolean isNotOnBlacklist =
-          !processingState.getBlackListState().isOnBlacklist(typedCommand);
-      if (isNotOnBlacklist) {
+      // There is no blacklist check needed if the intent is not instance related
+      // nor if the intent is to create new instances, which can't be blacklisted yet
+      final boolean noBlacklistCheckNeeded =
+          !(record.getIntent() instanceof ProcessInstanceRelatedIntent)
+              || record.getIntent() instanceof ProcessInstanceCreationIntent;
+      if (noBlacklistCheckNeeded
+          || !processingState.getBlackListState().isOnBlacklist(typedCommand)) {
         currentProcessor.processRecord(record);
       }
     }

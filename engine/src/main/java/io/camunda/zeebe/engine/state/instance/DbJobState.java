@@ -16,16 +16,11 @@ import io.camunda.zeebe.db.impl.DbLong;
 import io.camunda.zeebe.db.impl.DbNil;
 import io.camunda.zeebe.db.impl.DbString;
 import io.camunda.zeebe.engine.Loggers;
-import io.camunda.zeebe.engine.metrics.JobMetrics;
 import io.camunda.zeebe.engine.state.immutable.JobState;
 import io.camunda.zeebe.engine.state.mutable.MutableJobState;
 import io.camunda.zeebe.protocol.ZbColumnFamilies;
 import io.camunda.zeebe.protocol.impl.record.value.job.JobRecord;
-import io.camunda.zeebe.stream.api.ActivatedJob;
-import io.camunda.zeebe.stream.api.GatewayStreamer;
-import io.camunda.zeebe.stream.api.JobActivationProperties;
 import io.camunda.zeebe.util.EnsureUtil;
-import io.camunda.zeebe.util.buffer.BufferUtil;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import org.agrona.DirectBuffer;
@@ -67,16 +62,10 @@ public final class DbJobState implements JobState, MutableJobState {
       backoffColumnFamily;
   private long nextBackOffDueDate;
 
-  private final JobMetrics metrics;
-
-  private final GatewayStreamer<JobActivationProperties, ActivatedJob> jobStreamer;
-
   public DbJobState(
       final ZeebeDb<ZbColumnFamilies> zeebeDb,
       final TransactionContext transactionContext,
-      final int partitionId,
-      final GatewayStreamer<JobActivationProperties, ActivatedJob> jobStreamer) {
-    this.jobStreamer = jobStreamer;
+      final int partitionId) {
 
     jobKey = new DbLong();
     fkJob = new DbForeignKey<>(jobKey, ZbColumnFamilies.JOBS);
@@ -105,8 +94,6 @@ public final class DbJobState implements JobState, MutableJobState {
     backoffColumnFamily =
         zeebeDb.createColumnFamily(
             ZbColumnFamilies.JOB_BACKOFF, transactionContext, backoffJobKey, DbNil.INSTANCE);
-
-    metrics = new JobMetrics(partitionId);
   }
 
   @Override
@@ -205,6 +192,11 @@ public final class DbJobState implements JobState, MutableJobState {
       updateJob(key, updatedValue, State.FAILED);
       makeJobNotActivatable(updatedValue.getTypeBuffer());
     }
+  }
+
+  @Override
+  public void yield(final long key, final JobRecord updatedValue) {
+    updateJob(key, updatedValue, State.ACTIVATABLE);
   }
 
   @Override
@@ -344,15 +336,6 @@ public final class DbJobState implements JobState, MutableJobState {
     return callback.test(jobKey, job);
   }
 
-  private void notifyJobAvailable(final DirectBuffer jobType) {
-    if (jobStreamer != null) {
-      // ignore the result for now
-      // TODO: remove the cloneBuffer eventually, but it's required now due to the
-      //  ActivatableJobsNotificationTests
-      jobStreamer.streamFor(BufferUtil.cloneBuffer(jobType));
-    }
-  }
-
   private void createJobRecord(final long key, final JobRecord record) {
     jobKey.wrapLong(key);
     // do not persist variables in job state
@@ -387,9 +370,6 @@ public final class DbJobState implements JobState, MutableJobState {
     // Need to upsert here because jobs can be marked as failed (and thus made activatable)
     // without activating them first
     activatableColumnFamily.upsert(typeJobKey, DbNil.INSTANCE);
-
-    // always notify
-    notifyJobAvailable(type);
   }
 
   private void makeJobNotActivatable(final DirectBuffer type) {

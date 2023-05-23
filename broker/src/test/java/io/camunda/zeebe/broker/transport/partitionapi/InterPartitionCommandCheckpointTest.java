@@ -187,7 +187,8 @@ final class InterPartitionCommandCheckpointTest {
     sender.sendCommand(1, valueType, intent, new JobRecord());
 
     final var messageCaptor = ArgumentCaptor.forClass(byte[].class);
-    verify(communicationService).unicast(eq(TOPIC_PREFIX + 1), messageCaptor.capture(), any());
+    verify(communicationService)
+        .unicast(eq(TOPIC_PREFIX + 1), messageCaptor.capture(), any(), any(), eq(true));
     receiver.handleMessage(new MemberId("0"), messageCaptor.getValue());
   }
 }

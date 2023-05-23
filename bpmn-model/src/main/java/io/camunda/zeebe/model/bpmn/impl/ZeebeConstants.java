@@ -48,14 +48,9 @@ public class ZeebeConstants {
 
   public static final String ATTRIBUTE_DECISION_ID = "decisionId";
 
-  public static final String ATTRIBUTE_ERROR_CODE_VARIABLE = "errorCodeVariable";
-  public static final String ATTRIBUTE_ERROR_MESSAGE_VARIABLE = "errorMessageVariable";
-
   public static final String ATTRIBUTE_EXPRESSION = "expression";
 
   public static final String ATTRIBUTE_RESULT_VARIABLE = "resultVariable";
-
-  public static final String ELEMENT_ERROR = "error";
 
   public static final String ELEMENT_HEADER = "header";
   public static final String ELEMENT_INPUT = "input";
@@ -87,6 +82,7 @@ public class ZeebeConstants {
 
   /** Form key format used for camunda-forms format */
   public static final String USER_TASK_FORM_KEY_CAMUNDA_FORMS_FORMAT = "camunda-forms";
+
   /** Form key location used for forms embedded in the same BPMN file, i.e. zeebeUserTaskForm */
   public static final String USER_TASK_FORM_KEY_BPMN_LOCATION = "bpmn";
 }

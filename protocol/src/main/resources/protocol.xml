@@ -48,6 +48,7 @@
       <validValue name="SIGNAL">31</validValue>
       <validValue name="RESOURCE_DELETION">32</validValue>
       <validValue name="COMMAND_DISTRIBUTION">33</validValue>
+      <validValue name="PROCESS_INSTANCE_BATCH">34</validValue>
 
       <!-- Management records / record not related to process automation -->
       <validValue name="CHECKPOINT">254</validValue>
@@ -86,10 +87,6 @@
       <type name="patchVersion" primitiveType="int32"/>
     </composite>
 
-    <composite name="UUID" description="Universally Unique ID">
-      <type name="high" primitiveType="int64" />
-      <type name="low" primitiveType="int64" />
-    </composite>
   </types>
 
   <!-- L1 General Messages 0 - 99 -->
@@ -143,6 +140,7 @@
     <!-- populated when RecordType is COMMAND_REJECTION -->
     <field name="rejectionType" id="7" type="RejectionType"/>
     <field name="brokerVersion" id="9" type="Version" sinceVersion="2" presence="optional"/>
+    <field name="recordVersion" id="10" type="uint16" sinceVersion="3" presence="optional"/>
     <!-- populated when RecordType is COMMAND_REJECTION, UTF-8-encoded String -->
     <data name="rejectionReason" id="8" type="varDataEncoding"/>
   </sbe:message>
@@ -169,16 +167,5 @@
       <field name="healthStatus" id="17" type="PartitionHealthStatus"/>
     </group>
     <data name="version" id="14" type="varDataEncoding"/>
-  </sbe:message>
-
-  <!-- L3 Gateway Stream messages 400-499 -->
-  <sbe:message name="AddStreamRequest" id="400" description="Adds a gateway stream to a broker">
-    <field name="id" id="1" type="UUID" />
-    <data name="streamType" id="2" type="varDataEncoding" />
-    <data name="metadata" id="3" type="varDataEncoding" />
-  </sbe:message>
-
-  <sbe:message name="RemoveStreamRequest" id="401" description="Removes a gateway stream from a broker">
-    <field name="id" id="1" type="UUID" />
   </sbe:message>
 </sbe:messageSchema>

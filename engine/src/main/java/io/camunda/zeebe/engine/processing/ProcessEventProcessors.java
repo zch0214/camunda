@@ -15,10 +15,12 @@ import io.camunda.zeebe.engine.processing.message.ProcessMessageSubscriptionCorr
 import io.camunda.zeebe.engine.processing.message.ProcessMessageSubscriptionCreateProcessor;
 import io.camunda.zeebe.engine.processing.message.ProcessMessageSubscriptionDeleteProcessor;
 import io.camunda.zeebe.engine.processing.message.command.SubscriptionCommandSender;
+import io.camunda.zeebe.engine.processing.processinstance.ActivateProcessInstanceBatchProcessor;
 import io.camunda.zeebe.engine.processing.processinstance.CreateProcessInstanceProcessor;
 import io.camunda.zeebe.engine.processing.processinstance.CreateProcessInstanceWithResultProcessor;
 import io.camunda.zeebe.engine.processing.processinstance.ProcessInstanceCommandProcessor;
 import io.camunda.zeebe.engine.processing.processinstance.ProcessInstanceModificationProcessor;
+import io.camunda.zeebe.engine.processing.processinstance.TerminateProcessInstanceBatchProcessor;
 import io.camunda.zeebe.engine.processing.streamprocessor.TypedRecordProcessor;
 import io.camunda.zeebe.engine.processing.streamprocessor.TypedRecordProcessors;
 import io.camunda.zeebe.engine.processing.streamprocessor.writers.Writers;
@@ -33,6 +35,7 @@ import io.camunda.zeebe.engine.state.mutable.MutableProcessMessageSubscriptionSt
 import io.camunda.zeebe.engine.state.mutable.MutableProcessingState;
 import io.camunda.zeebe.protocol.impl.record.value.processinstance.ProcessInstanceRecord;
 import io.camunda.zeebe.protocol.record.ValueType;
+import io.camunda.zeebe.protocol.record.intent.ProcessInstanceBatchIntent;
 import io.camunda.zeebe.protocol.record.intent.ProcessInstanceCreationIntent;
 import io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent;
 import io.camunda.zeebe.protocol.record.intent.ProcessInstanceModificationIntent;
@@ -83,6 +86,7 @@ public final class ProcessEventProcessors {
         typedRecordProcessors, processingState, writers, bpmnBehaviors, processEngineMetrics);
     addProcessInstanceModificationStreamProcessors(
         typedRecordProcessors, processingState, writers, bpmnBehaviors);
+    addProcessInstanceBatchStreamProcessors(typedRecordProcessors, processingState, writers);
 
     return bpmnStreamProcessor;
   }
@@ -216,5 +220,27 @@ public final class ProcessEventProcessors {
         ValueType.PROCESS_INSTANCE_MODIFICATION,
         ProcessInstanceModificationIntent.MODIFY,
         modificationProcessor);
+  }
+
+  private static void addProcessInstanceBatchStreamProcessors(
+      final TypedRecordProcessors typedRecordProcessors,
+      final MutableProcessingState processingState,
+      final Writers writers) {
+    typedRecordProcessors
+        .onCommand(
+            ValueType.PROCESS_INSTANCE_BATCH,
+            ProcessInstanceBatchIntent.TERMINATE,
+            new TerminateProcessInstanceBatchProcessor(
+                writers,
+                processingState.getKeyGenerator(),
+                processingState.getElementInstanceState()))
+        .onCommand(
+            ValueType.PROCESS_INSTANCE_BATCH,
+            ProcessInstanceBatchIntent.ACTIVATE,
+            new ActivateProcessInstanceBatchProcessor(
+                writers,
+                processingState.getKeyGenerator(),
+                processingState.getElementInstanceState(),
+                processingState.getProcessState()));
   }
 }

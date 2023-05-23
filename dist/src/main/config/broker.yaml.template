@@ -279,6 +279,19 @@
           # This setting can also be overridden using the environment variable ZEEBE_BROKER_DATA_BACKUP_GCS_BASEPATH
           # basePath:
 
+          # When set, this overrides the host that the GCS client connects to.
+          # By default, this is not set because the client can automatically discover the correct host to
+          # connect to.
+          # This setting can also be overridden using the environment variable ZEEBE_BROKER_DATA_BACKUP_GCS_HOST
+          # host:
+
+          # Configures which authentication method is used for connecting to GCS. Can be either 'auto' or 'none'.
+          # Choosing 'auto' means that the GCS client uses application default credentials which automatically
+          # discovers appropriate credentials from the runtime environment: https://cloud.google.com/docs/authentication/application-default-credentials
+          # Choosing 'none' means that no authentication is attempted which is only applicable for testing with emulated GCS.
+          # This setting can also be overridden using the environment variable ZEEBE_BROKER_DATA_BACKUP_GCS_AUTH.
+          # auth: auto
+
     # cluster:
       # This section contains all cluster related configurations, to setup a zeebe cluster
 
@@ -354,7 +367,7 @@
         # The default behavior is optimized for safety, and flushing occurs on every leader commit
         # and follower append in a synchronous fashion. You can introduce a delay to reduce the
         # performance penalty of flushing via `delayTime`.
-        flush:
+        # flush:
           # If false, explicit flushing of the Raft log is disabled, and flushing only occurs right
           # before a snapshot is taken. You should only disable explicit flushing if you are willing
           # to accept potential data loss at the expense of performance. Before disabling it, try
@@ -627,6 +640,7 @@
         #     process: true
         #     processEvent: false
         #     processInstance: true
+        #     processInstanceBatch: false
         #     processInstanceCreation: true
         #     processInstanceModification: true
         #     processMessageSubscription: true
@@ -636,6 +650,77 @@
         #     timer: true
         #     variable: true
         #     variableDocument: true
+        #
+        #   retention:
+        #     enabled: false
+        #     minimumAge: 30d
+        #     policyName: zeebe-record-retention-policy
+
+      # Opensearch Exporter ----------
+      # An example configuration for the opensearch exporter:
+      #
+      # These setting can also be overridden using the environment variables "ZEEBE_BROKER_EXPORTERS_OPENSEARCH_..."
+      #
+      # opensearch:
+        # className: io.camunda.zeebe.exporter.opensearch.OpensearchExporter
+        #
+        # args:
+        #   url: http://localhost:9200
+        #   requestTimeoutMs: 1000
+        #
+        #   bulk:
+        #     delay: 5
+        #     size: 1000
+        #     memoryLimit: 10485760
+        #
+        #   authentication:
+        #     username: opensearch
+        #     password: changeme
+        #
+        #   aws:
+        #     enabled: true
+        #     serviceName: es
+        #     region: eu-west-1
+        #
+        #   index:
+        #     prefix: zeebe-record
+        #     createTemplate: true
+        #
+        #     numberOfShards: 3
+        #     numberOfReplicas: 0
+        #
+        #     command: false
+        #     event: true
+        #     rejection: false
+        #
+        #     commandDistribution: true
+        #     decisionRequirements: true
+        #     decision: true
+        #     decisionEvaluation: true
+        #     deployment: true
+        #     deploymentDistribution: true
+        #     error: true
+        #     escalation: true
+        #     incident: true
+        #     job: true
+        #     jobBatch: false
+        #     message: true
+        #     messageStartSubscription: true
+        #     messageSubscription: true
+        #     process: true
+        #     processEvent: false
+        #     processInstance: true
+        #     processInstanceBatch: false
+        #     processInstanceCreation: true
+        #     processInstanceModification: true
+        #     processMessageSubscription: true
+        #     resourceDeletion: true
+        #     signal: true
+        #     signalSubscription: true
+        #     timer: true
+        #     variable: true
+        #     variableDocument: true
+
     # processing:
       # Sets the maximum number of commands that processed within one batch.
       # The processor will process until no more follow up commands are created by the initial command
@@ -723,7 +808,7 @@
       # raft:
         # Sets the timeout for all requests send by raft leaders and followers.
         # This setting can also be overridden using the environment variable ZEEBE_BROKER_EXPERIMENTAL_RAFT_REQUESTTIMEOUT
-        # requestTimeout: 5s
+        # requestTimeout: 2500ms
 
         # If the leader is not able to reach the quorum, the leader may step down.
         # This is triggered after a number of requests, to a quorum of followers, has failed, and the number of failures
@@ -810,6 +895,14 @@
         # This setting can also be set using the environment variable ZEEBE_BROKER_EXPERIMENTAL_ROCKSDB_DISABLEWAL
         # disableWal: true
 
+        # Configures if the RocksDB SST files should be partitioned based on some virtual column families.
+        # By default RocksDB will not partition the SST files, which might have influence on the compacting of certain key ranges.
+        # Enabling this option gives RocksDB some good hints how to improve compaction and reduce the write amplification.
+        # Benchmarks have show impressive results allowing to sustain performance on larger states, but it is not yet 100% clear what implications it else has except
+        # increasing the file count of runtime and snapshots.
+        # This setting can also be set using the environment variable ZEEBE_BROKER_EXPERIMENTAL_ROCKSDB_ENABLESSTPARTITIONING
+        # enableSstPartitioning: false
+
       # consistencyChecks:
         # Configures if the basic operations on RocksDB, such as inserting or deleting key-value pairs, should check preconditions,
         # for example that a key does not already exist when inserting.
@@ -837,6 +930,26 @@
         # This setting can also be set using the environmentvariable ZEEBE_BROKER_EXPERIMENTAL_QUERYAPI_ENABLED
         # enabled: false
 
+      # engine:
+        # messages:
+          # Allows to configure the Message TTL Checker's batch limit. This is the number of buffered
+          # messages that it can expire in a single batch. When it reaches this limit, it expires
+          # another batch of buffered messages. When there are no messages in the buffer past their
+          # Time-To-Live, then it goes idle, and reschedules itself after an interval defined with
+          # `ttlCheckerInterval`. The batch of message expirations is processed on the stream processor
+          # blocking other stream processing activities like process execution and job activation/completion.
+          # A smaller batch limit will thus enable greater concurrency with the other stream processing activities.
+          # A larger batch limit can allow faster message expiration, but at the cost of blocking the other
+          # stream processing activities for extended periods. Defaults to MAX_INTEGER (2^31-1).
+          # This setting can also be set using the environment variable ZEEBE_BROKER_EXPERIMENTAL_ENGINE_MESSAGES_TTLCHECKERBATCHLIMIT
+          # ttlCheckerBatchLimit: 0x7fffffff
+
+          # Allows to configure the Message TTL Checker's interval. This is the period during which the
+          # checker is idle in between two of its executions. Note that it can expire multiple batches
+          # of messages in a single execution. See `ttlCheckerBatchLimit` to configure the size of these batches.
+          # This setting can also be set using the environment variable ZEEBE_BROKER_EXPERIMENTAL_ENGINE_MESSAGES_TTLCHECKERINTERVAL
+          # ttlCheckerInterval: 1m
+
       # Allows to configure feature flags. These are used to test new features in dev and int environments prior
       # to rolling them out to production
       # features:
@@ -854,3 +967,20 @@
         # Controls whether to collect metrics about actor usage such as actor job execution latencies
         # This setting can also be overridden using the environment variable ZEEBE_BROKER_EXPERIMENTAL_FEATURES_ENABLEACTORMETRICS
         # enableActorMetrics: false
+
+        # While disabled, checking the Time-To-Live of buffered messages blocks all other executions
+        # that occur on the stream processor, including process execution and job activation/completion.
+        # When enabled, the Message TTL Checker will run asynchronous to the Engine's stream processor.
+        # This helps improve throughput and process latency in use cases that publish many messages
+        # with a non-zero TTL. We recommend testing this feature in a non-production environment before
+        # enabling it in production.
+        # This setting can also be overridden using the environment variable ZEEBE_BROKER_EXPERIMENTAL_FEATURES_ENABLEMESSAGETTLCHECKERASYNC
+        # enableMessageTTLCheckerAsync: false
+
+        # While disabled, checking for due timers blocks all other executions that occur on the
+        # stream processor, including process execution and job activation/completion.
+        # When enabled, the Due Date Checker will run asynchronous to the Engine's stream processor.
+        # This helps improve throughput and process latency when there are a lot of timers.
+        # We recommend testing this feature in a non-production environment before enabling it in production.
+        # This setting can also be overridden using the environment variable ZEEBE_BROKER_EXPERIMENTAL_FEATURES_ENABLETIMERDUEDATECHECKERASYNC
+        # enableTimerDueDateCheckerAsync: false

@@ -199,6 +199,14 @@ class TransactionalColumnFamily<
   }
 
   @Override
+  public void whileEqualPrefix(
+      final DbKey keyPrefix,
+      final KeyType startAtKey,
+      final KeyValuePairVisitor<KeyType, ValueType> visitor) {
+    ensureInOpenTransaction(transaction -> forEachInPrefix(startAtKey, keyPrefix, visitor));
+  }
+
+  @Override
   public void deleteExisting(final KeyType key) {
     ensureInOpenTransaction(
         transaction -> {
@@ -324,6 +332,7 @@ class TransactionalColumnFamily<
       final DbKey prefix, final KeyValuePairVisitor<KeyType, ValueType> visitor) {
     forEachInPrefix(prefix, prefix, visitor);
   }
+
   /**
    * This is the preferred method to implement methods that iterate over a column family.
    *

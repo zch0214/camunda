@@ -7,9 +7,12 @@
  */
 package io.camunda.zeebe.engine.processing.job;
 
+import static io.camunda.zeebe.util.StringUtil.limitString;
 import static io.camunda.zeebe.util.buffer.BufferUtil.wrapString;
 
 import io.camunda.zeebe.engine.metrics.JobMetrics;
+import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnBehaviors;
+import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnJobActivationBehavior;
 import io.camunda.zeebe.engine.processing.streamprocessor.CommandProcessor;
 import io.camunda.zeebe.engine.processing.streamprocessor.writers.SideEffectWriter;
 import io.camunda.zeebe.engine.processing.streamprocessor.writers.StateWriter;
@@ -31,6 +34,7 @@ import org.agrona.DirectBuffer;
 public final class JobFailProcessor implements CommandProcessor<JobRecord> {
 
   private static final DirectBuffer DEFAULT_ERROR_MESSAGE = wrapString("No more retries left.");
+  private static final int MAX_ERROR_MESSAGE_SIZE = 500;
   private final IncidentRecord incidentEvent = new IncidentRecord();
 
   private final JobState jobState;
@@ -39,6 +43,7 @@ public final class JobFailProcessor implements CommandProcessor<JobRecord> {
   private final JobMetrics jobMetrics;
   private final JobBackoffChecker jobBackoffChecker;
   private final VariableBehavior variableBehavior;
+  private final BpmnJobActivationBehavior jobActivationBehavior;
   private final SideEffectWriter sideEffectWriter;
 
   public JobFailProcessor(
@@ -47,14 +52,15 @@ public final class JobFailProcessor implements CommandProcessor<JobRecord> {
       final KeyGenerator keyGenerator,
       final JobMetrics jobMetrics,
       final JobBackoffChecker jobBackoffChecker,
-      final VariableBehavior variableBehavior) {
+      final BpmnBehaviors bpmnBehaviors) {
     jobState = state.getJobState();
     this.keyGenerator = keyGenerator;
     this.jobBackoffChecker = jobBackoffChecker;
     defaultProcessor =
         new DefaultJobCommandPreconditionGuard("fail", jobState, this::acceptCommand);
     this.jobMetrics = jobMetrics;
-    this.variableBehavior = variableBehavior;
+    variableBehavior = bpmnBehaviors.variableBehavior();
+    jobActivationBehavior = bpmnBehaviors.jobActivationBehavior();
     sideEffectWriter = writers.sideEffect();
   }
 
@@ -114,7 +120,8 @@ public final class JobFailProcessor implements CommandProcessor<JobRecord> {
     final var retries = command.getValue().getRetries();
     final var retryBackOff = command.getValue().getRetryBackoff();
     failedJob.setRetries(retries);
-    failedJob.setErrorMessage(command.getValue().getErrorMessageBuffer());
+    failedJob.setErrorMessage(
+        limitString(command.getValue().getErrorMessage(), MAX_ERROR_MESSAGE_SIZE));
     failedJob.setRetryBackoff(retryBackOff);
     failedJob.setVariables(command.getValue().getVariablesBuffer());
 
@@ -129,5 +136,10 @@ public final class JobFailProcessor implements CommandProcessor<JobRecord> {
     }
     commandControl.accept(JobIntent.FAILED, failedJob);
     jobMetrics.jobFailed(failedJob.getType());
+
+    final boolean retryImmediately = retries > 0 && retryBackOff <= 0;
+    if (retryImmediately) {
+      jobActivationBehavior.publishWork(failedJob);
+    }
   }
 }

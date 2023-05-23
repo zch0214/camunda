@@ -7,35 +7,45 @@
  */
 package io.camunda.zeebe.backup.gcs;
 
-public record GcsBackupConfig(String bucketName, String basePath) {
-  public GcsBackupConfig(String bucketName, String basePath) {
+import static java.util.Objects.requireNonNull;
+
+import io.camunda.zeebe.backup.gcs.GcsBackupStoreException.ConfigurationException;
+import io.camunda.zeebe.backup.gcs.GcsConnectionConfig.Authentication.Auto;
+
+public record GcsBackupConfig(String bucketName, String basePath, GcsConnectionConfig connection) {
+  public GcsBackupConfig(String bucketName, String basePath, GcsConnectionConfig connection) {
     this.bucketName = requireBucketName(bucketName);
     this.basePath = sanitizeBasePath(basePath);
+    this.connection = requireNonNull(connection);
   }
 
-  private String requireBucketName(final String bucketName) {
+  private static String requireBucketName(final String bucketName) {
     if (bucketName == null || bucketName.isBlank()) {
-      throw new IllegalArgumentException("bucketName must be provided");
+      throw new ConfigurationException("bucketName must be provided");
     }
     return bucketName;
   }
 
-  private String sanitizeBasePath(final String basePath) {
-    if (basePath == null || basePath.isBlank()) {
+  private static String sanitizeBasePath(final String basePath) {
+    if (basePath == null) {
+      return null;
+    }
+
+    var sanitized = basePath.trim();
+    if (sanitized.isEmpty() || sanitized.equals("/")) {
       return null;
     }
 
     // Remove one leading and one trailing slash if present.
-    String sanitized = basePath;
-    if (basePath.startsWith("/")) {
-      sanitized = basePath.substring(1);
+    while (sanitized.startsWith("/")) {
+      sanitized = sanitized.substring(1);
     }
-    if (basePath.endsWith("/")) {
+    while (sanitized.endsWith("/")) {
       sanitized = sanitized.substring(0, sanitized.length() - 1);
     }
 
     if (sanitized.isBlank()) {
-      throw new IllegalArgumentException(
+      throw new ConfigurationException(
           "After removing leading and trailing '/' characters from basePath '%s', the remainder is empty and not a valid base path"
               .formatted(basePath));
     }
@@ -45,6 +55,8 @@ public record GcsBackupConfig(String bucketName, String basePath) {
   public static final class Builder {
     private String bucketName;
     private String basePath;
+    private String host;
+    private GcsConnectionConfig.Authentication auth;
 
     public Builder withBucketName(final String bucketName) {
       this.bucketName = bucketName;
@@ -56,8 +68,23 @@ public record GcsBackupConfig(String bucketName, String basePath) {
       return this;
     }
 
+    public Builder withHost(String host) {
+      this.host = host;
+      return this;
+    }
+
+    public Builder withoutAuthentication() {
+      this.auth = new GcsConnectionConfig.Authentication.None();
+      return this;
+    }
+
+    public Builder withAutoAuthentication() {
+      this.auth = new Auto();
+      return this;
+    }
+
     public GcsBackupConfig build() {
-      return new GcsBackupConfig(bucketName, basePath);
+      return new GcsBackupConfig(bucketName, basePath, new GcsConnectionConfig(host, auth));
     }
   }
 }

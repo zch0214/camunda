@@ -1,33 +1,31 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base"
+    "config:base",
+    ":semanticCommitTypeAll(deps)"
   ],
   "baseBranches": [
     "main",
-    "stable/8.0",
-    "stable/8.1"
+    "/^stable\\/8\\..*/"
   ],
-  "dependencyDashboard": false,
+  "dependencyDashboard": true,
   "enabledManagers": [
     "dockerfile"
   ],
   "packageRules": [
     {
-      "matchBaseBranches": [
-        "/^stable\/.*"
+      "matchManagers": [
+        "dockerfile"
       ],
       "matchUpdateTypes": [
         "major",
-        "minor"
+        "minor",
+        "patch"
       ],
       "enabled": false
     }
   ],
   "dockerfile": {
-    "semanticCommits": "enabled",
-    "semanticCommitType": "deps",
-    "semanticCommitScope": "docker",
     "ignorePaths": [
       "benchmarks/**",
       "clients/go/vendor/**"

@@ -16,6 +16,7 @@ import io.camunda.zeebe.engine.processing.common.ElementActivationBehavior;
 import io.camunda.zeebe.engine.processing.common.EventTriggerBehavior;
 import io.camunda.zeebe.engine.processing.common.ExpressionProcessor;
 import io.camunda.zeebe.engine.processing.message.command.SubscriptionCommandSender;
+import io.camunda.zeebe.engine.processing.streamprocessor.JobStreamer;
 import io.camunda.zeebe.engine.processing.streamprocessor.writers.Writers;
 import io.camunda.zeebe.engine.processing.timer.DueDateTimerChecker;
 import io.camunda.zeebe.engine.processing.variable.VariableBehavior;
@@ -41,6 +42,8 @@ public final class BpmnBehaviorsImpl implements BpmnBehaviors {
   private final EventTriggerBehavior eventTriggerBehavior;
   private final VariableBehavior variableBehavior;
   private final ElementActivationBehavior elementActivationBehavior;
+  private final BpmnJobActivationBehavior jobActivationBehavior;
+  private final BpmnSignalBehavior signalBehavior;
 
   public BpmnBehaviorsImpl(
       final MutableProcessingState processingState,
@@ -49,7 +52,8 @@ public final class BpmnBehaviorsImpl implements BpmnBehaviors {
       final DecisionBehavior decisionBehavior,
       final SubscriptionCommandSender subscriptionCommandSender,
       final int partitionsCount,
-      final DueDateTimerChecker timerChecker) {
+      final DueDateTimerChecker timerChecker,
+      final JobStreamer jobStreamer) {
     expressionBehavior =
         new ExpressionProcessor(
             ExpressionLanguageFactory.createExpressionLanguage(),
@@ -117,6 +121,10 @@ public final class BpmnBehaviorsImpl implements BpmnBehaviors {
             stateBehavior,
             writers);
 
+    jobActivationBehavior =
+        new BpmnJobActivationBehavior(
+            jobStreamer, processingState.getVariableState(), writers, jobMetrics);
+
     jobBehavior =
         new BpmnJobBehavior(
             processingState.getKeyGenerator(),
@@ -125,6 +133,7 @@ public final class BpmnBehaviorsImpl implements BpmnBehaviors {
             expressionBehavior,
             stateBehavior,
             incidentBehavior,
+            jobActivationBehavior,
             jobMetrics);
 
     multiInstanceOutputCollectionBehavior =
@@ -136,6 +145,13 @@ public final class BpmnBehaviorsImpl implements BpmnBehaviors {
             writers,
             catchEventBehavior,
             processingState.getElementInstanceState());
+
+    signalBehavior =
+        new BpmnSignalBehavior(
+            processingState.getKeyGenerator(),
+            processingState.getVariableState(),
+            writers,
+            expressionBehavior);
   }
 
   @Override
@@ -194,6 +210,11 @@ public final class BpmnBehaviorsImpl implements BpmnBehaviors {
   }
 
   @Override
+  public BpmnSignalBehavior signalBehavior() {
+    return signalBehavior;
+  }
+
+  @Override
   public MultiInstanceOutputCollectionBehavior outputCollectionBehavior() {
     return multiInstanceOutputCollectionBehavior;
   }
@@ -216,5 +237,10 @@ public final class BpmnBehaviorsImpl implements BpmnBehaviors {
   @Override
   public ElementActivationBehavior elementActivationBehavior() {
     return elementActivationBehavior;
+  }
+
+  @Override
+  public BpmnJobActivationBehavior jobActivationBehavior() {
+    return jobActivationBehavior;
   }
 }
