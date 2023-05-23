@@ -137,7 +137,7 @@ public final class DeploymentCreateProcessor implements TypedRecordProcessor<Dep
 
     final long key = keyGenerator.nextKey();
     responseWriter.writeEventOnCommand(key, DeploymentIntent.CREATED, deploymentEvent, command);
-    stateWriter.appendFollowUpEvent(key, DeploymentIntent.CREATED, deploymentEvent);
+    stateWriter.appendFollowUpEvent(key, DeploymentIntent.CREATED, deploymentEvent, 2);
 
     distributionBehavior.distributeCommand(command);
   }
