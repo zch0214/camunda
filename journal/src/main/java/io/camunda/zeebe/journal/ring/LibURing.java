@@ -34,7 +34,12 @@ public interface LibURing {
 
   int io_uring_submit(final @In Pointer ring);
 
-  int io_uring_wait_cqe(final @In Pointer ring, final @Out PointerByReference cqe);
+  int io_uring_wait_cqe(final @In Pointer ring, final @Out PointerByReference cqe_ptr);
+
+  int io_uring_wait_cqe_nr(
+      final @In Pointer ring,
+      final @Out PointerByReference cqe_ptr,
+      final @In @u_int32_t long wait_nr);
 
   void io_uring_cqe_seen(final @In Pointer ring, final @In Pointer cqe);
 
@@ -43,8 +48,13 @@ public interface LibURing {
 
   void io_uring_sqe_set_data(final @In Pointer sqe, final @In Pointer user_data);
 
+  void io_uring_sqe_set_data64(final @In Pointer sqe, final @In @u_int64_t long user_data);
+
   @Out
   Pointer io_uring_cqe_get_data(final @In Pointer cqe);
+
+  @u_int64_t
+  long io_uring_cqe_get_data64(final @In Pointer cqe);
 
   void io_uring_sqe_set_flags(final @In Pointer sqe, final @In @u_int32_t long flags);
 
@@ -115,12 +125,28 @@ public interface LibURing {
     }
 
     @Override
+    public void io_uring_sqe_set_data64(final Pointer sqe, final long user_data) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Pointer io_uring_cqe_get_data(final Pointer cqe) {
       throw new UnsupportedOperationException();
     }
 
     @Override
+    public long io_uring_cqe_get_data64(final Pointer cqe) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void io_uring_sqe_set_flags(final Pointer sqe, final long flags) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public int io_uring_wait_cqe_nr(final Pointer ring, final PointerByReference cqe_ptr,
+        final long wait_nr) {
       throw new UnsupportedOperationException();
     }
 

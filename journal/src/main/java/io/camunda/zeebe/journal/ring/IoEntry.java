@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.journal.ring;
 
+import com.kenai.jffi.MemoryIO;
 import java.nio.ByteBuffer;
 import jnr.ffi.Memory;
 import jnr.ffi.Pointer;
@@ -17,15 +18,13 @@ public final class IoEntry {
 
   static final Layout LAYOUT = new Layout(Runtime.getSystemRuntime());
 
-  private final Layout layout;
   private final jnr.ffi.Pointer pointer;
 
   public IoEntry() {
-    this(LAYOUT, Memory.allocateDirect(LAYOUT.getRuntime(), LAYOUT.size(), true));
+    this(Memory.allocateDirect(LAYOUT.getRuntime(), LAYOUT.size(), true));
   }
 
-  public IoEntry(final Layout layout, final jnr.ffi.Pointer pointer) {
-    this.layout = layout;
+  public IoEntry(final jnr.ffi.Pointer pointer) {
     this.pointer = pointer;
   }
 
@@ -40,24 +39,6 @@ public final class IoEntry {
 
   public int fd() {
     return LAYOUT.fd.get(pointer);
-  }
-
-  public IoEntry type(final Type type) {
-    LAYOUT.type.set(pointer, type.value);
-    return this;
-  }
-
-  public Type type() {
-    return Type.of(LAYOUT.type.intValue(pointer));
-  }
-
-  public Pointer buffer() {
-    return LAYOUT.buffer.get(pointer);
-  }
-
-  public IoEntry buffer(final ByteBuffer buffer) {
-    LAYOUT.buffer.set(pointer, jnr.ffi.Pointer.wrap(pointer.getRuntime(), buffer));
-    return this;
   }
 
   private static final class Layout extends StructLayout {

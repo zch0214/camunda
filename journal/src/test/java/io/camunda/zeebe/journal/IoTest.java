@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.journal;
 
+import com.kenai.jffi.MemoryIO;
 import com.sun.nio.file.ExtendedOpenOption;
 import io.camunda.zeebe.journal.ring.CompletionQueueEntry;
 import io.camunda.zeebe.journal.ring.IoEntry;
@@ -19,10 +20,12 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
+import java.time.LocalDateTime;
 import jnr.constants.platform.OpenFlags;
 import jnr.ffi.Pointer;
-import jnr.ffi.Runtime;
-import jnr.posix.POSIX;import jnr.posix.POSIXFactory;
+import jnr.ffi.byref.PointerByReference;
+import jnr.posix.POSIX;
+import jnr.posix.POSIXFactory;
 import org.agrona.IoUtil;
 import org.junit.jupiter.api.Test;
 import org.springframework.util.StopWatch;
@@ -30,47 +33,50 @@ import org.springframework.util.StopWatch;
 public class IoTest {
 
   @Test
-  void shouldCreateRing() {
+  void shouldCreateRing() throws IOException {
     final var liburing = LibURing.ofNativeLibrary();
     final var ring = new Ring();
     var result = liburing.io_uring_queue_init(2, ring.pointer(), 0);
-    final POSIX posix = POSIXFactory.getNativePOSIX();if (result < 0) {
+    final POSIX posix = POSIXFactory.getNativePOSIX();
+    if (result < 0) {
       System.out.println("Failed to init ring: " + posix.strerror(-result));
       System.exit(1);
     }
 
     final var fd =
-        posix
-            .open(
-                "/home/nicolas/tmp/ring.buf",
-                OpenFlags.O_CREAT.intValue() | OpenFlags.O_RDWR.intValue(),
-                0644);
-    final byte[] bytes = "Hello Ring World!".getBytes();
+        posix.open(
+            "/home/nicolas/tmp/ring.buf",
+            OpenFlags.O_CREAT.intValue()
+                | OpenFlags.O_RDWR.intValue()
+                | OpenFlags.O_APPEND.intValue(),
+            0644);
+    final byte[] bytes = (LocalDateTime.now() + " - Hello Ring World!\n").getBytes();
     final var buffer =
         ByteBuffer.allocateDirect(bytes.length).order(ByteOrder.nativeOrder()).put(bytes).rewind();
 
     // write and flush pipelined
     var sqePointer = liburing.io_uring_get_sqe(ring.pointer());
-
-    final var writeEntry = new IoEntry().fd(fd).type(Type.WRITE).buffer(buffer);
-    liburing.io_uring_prep_write(sqePointer, fd, writeEntry.buffer(), bytes.length, 0);
-    liburing.io_uring_sqe_set_data(sqePointer, writeEntry.pointer());
+    liburing.io_uring_prep_write(
+        sqePointer, fd, Pointer.wrap(sqePointer.getRuntime(), buffer), bytes.length, 0);
     liburing.io_uring_sqe_set_flags(sqePointer, /* IOSQE_IO_LINK */ 4);
+    liburing.io_uring_sqe_set_data64(sqePointer, 1L);
     submit(liburing, ring);
 
     sqePointer = liburing.io_uring_get_sqe(ring.pointer());
     liburing.io_uring_prep_fsync(sqePointer, fd, 0);
     liburing.io_uring_sqe_set_flags(sqePointer, /* IOSQE_IO_LINK */ 4);
+    liburing.io_uring_sqe_set_data64(sqePointer, 2L);
     submit(liburing, ring);
 
-    final var cqe = new CompletionQueueEntry();
-    waitForCompletion(liburing, ring, cqe);
-    waitForCompletion(liburing, ring, cqe);
+    waitForCompletion(liburing, ring);
+    waitForCompletion(liburing, ring);
 
     sqePointer = liburing.io_uring_get_sqe(ring.pointer());
     liburing.io_uring_prep_close(sqePointer, fd);
     liburing.io_uring_sqe_set_flags(sqePointer, /* IOSQE_IO_LINK */ 4);
+    liburing.io_uring_sqe_set_data64(sqePointer, 3L);
     submit(liburing, ring);
+    waitForCompletion(liburing, ring);
 
     // close the ring
     liburing.io_uring_queue_exit(ring.pointer());
@@ -88,10 +94,10 @@ public class IoTest {
     }
   }
 
-  private static void waitForCompletion(
-      final LibURing liburing, final Ring ring, final CompletionQueueEntry cqe) {
-    int result;
-    result = liburing.io_uring_wait_cqe(ring.pointer(), cqe.reference());
+  private static void waitForCompletion(final LibURing liburing, final Ring ring) {
+    final var reference = new PointerByReference();
+    final int result = liburing.io_uring_wait_cqe(ring.pointer(), reference);
+    final var cqe = new CompletionQueueEntry(reference.getValue());
     if (result < 0) {
       System.out.println(
           "Failed to await completion on ring: " + POSIXFactory.getNativePOSIX().strerror(-result));
@@ -104,7 +110,7 @@ public class IoTest {
       System.exit(1);
     }
 
-    final var userData = liburing.io_uring_cqe_get_data(cqe.pointer());
+    final var userData = liburing.io_uring_cqe_get_data64(cqe.pointer());
     liburing.io_uring_cqe_seen(ring.pointer(), cqe.pointer());
   }
 

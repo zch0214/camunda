@@ -11,36 +11,48 @@ import jnr.ffi.Memory;
 import jnr.ffi.Pointer;
 import jnr.ffi.Runtime;
 import jnr.ffi.StructLayout;
-import jnr.ffi.byref.PointerByReference;
 
 public final class CompletionQueueEntry {
   private static final Layout LAYOUT = new Layout(Runtime.getSystemRuntime());
   private final jnr.ffi.Pointer pointer;
-  private final PointerByReference reference;
 
   public CompletionQueueEntry() {
-    this(Memory.allocateDirect(Runtime.getSystemRuntime(), LAYOUT.size()));
+    this(Memory.allocateDirect(LAYOUT.getRuntime(), LAYOUT.size()));
   }
 
   public CompletionQueueEntry(final Pointer pointer) {
-    this(pointer, new PointerByReference(pointer));
-  }
-
-  public CompletionQueueEntry(final Pointer pointer, final PointerByReference reference) {
     this.pointer = pointer;
-    this.reference = reference;
   }
 
   public jnr.ffi.Pointer pointer() {
     return pointer;
   }
 
-  public PointerByReference reference() {
-    return reference;
+  public long user_data64() {
+    return LAYOUT.user_data.get(pointer);
   }
 
-  public Pointer user_data() {
-    return LAYOUT.user_data.get(pointer);
+  public int result() {
+    return LAYOUT.res.get(pointer);
+  }
+
+  public long flags() {
+    return LAYOUT.flags.get(pointer);
+  }
+
+  @Override
+  public String toString() {
+    return "CompletionQueueEntry{ref=[address="
+        + pointer.address()
+        + ", size="
+        + pointer.size()
+        + "], user_data="
+        + user_data64()
+        + ", res="
+        + res()
+        + ", flags="
+        + flags()
+        + "}";
   }
 
   public int res() {
@@ -49,7 +61,7 @@ public final class CompletionQueueEntry {
 
   @SuppressWarnings("unused")
   private static final class Layout extends StructLayout {
-    private final Pointer user_data = new Pointer();
+    private final Unsigned64 user_data = new Unsigned64();
     private final Signed32 res = new Signed32();
     private final Unsigned32 flags = new Unsigned32();
 
