@@ -24,6 +24,8 @@ import jnr.ffi.types.u_int64_t;
  *
  * <p>For a full list of functions, see <a
  * href="https://manpages.debian.org/unstable/liburing-dev/index.html">the manpages</a>
+ *
+ * <p>And white paper: <a href="https://kernel.dk/io_uring.pdf">here</a>
  */
 @SuppressWarnings({"checkstyle:methodname", "unused", "CheckStyle"})
 public interface LibURing {
