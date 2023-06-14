@@ -106,15 +106,6 @@ public final class ZeebeRuntimeValidationTest {
         List.of(expect(ZeebeInput.class, INVALID_EXPRESSION_MESSAGE))
       },
       {
-        // empty expression
-        Bpmn.createExecutableProcess("process")
-            .startEvent()
-            .serviceTask("task", s -> s.zeebeInput("", "bar"))
-            .endEvent()
-            .done(),
-        List.of(expect(ZeebeInput.class, MISSING_EXPRESSION_MESSAGE))
-      },
-      {
         // empty path expression
         Bpmn.createExecutableProcess("process")
             .startEvent()
@@ -148,15 +139,6 @@ public final class ZeebeRuntimeValidationTest {
             .endEvent()
             .done(),
         List.of(expect(ZeebeOutput.class, STATIC_EXPRESSION_MESSAGE))
-      },
-      {
-        // empty expression
-        Bpmn.createExecutableProcess("process")
-            .startEvent()
-            .serviceTask("task", s -> s.zeebeOutput("", "bar"))
-            .endEvent()
-            .done(),
-        List.of(expect(ZeebeOutput.class, MISSING_EXPRESSION_MESSAGE))
       },
       {
         // invalid target expression

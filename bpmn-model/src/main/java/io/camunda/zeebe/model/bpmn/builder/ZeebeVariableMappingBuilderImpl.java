@@ -46,7 +46,9 @@ public class ZeebeVariableMappingBuilderImpl<B extends AbstractBaseElementBuilde
     final ZeebeIoMapping ioMapping =
         elementBuilder.getCreateSingleExtensionElement(ZeebeIoMapping.class);
     final ZeebeInput input = elementBuilder.createChild(ioMapping, ZeebeInput.class);
-    input.setSource(source);
+    if (source != null) {
+      input.setSource(source);
+    }
     input.setTarget(target);
 
     return elementBuilder;
@@ -57,7 +59,9 @@ public class ZeebeVariableMappingBuilderImpl<B extends AbstractBaseElementBuilde
     final ZeebeIoMapping ioMapping =
         elementBuilder.getCreateSingleExtensionElement(ZeebeIoMapping.class);
     final ZeebeOutput input = elementBuilder.createChild(ioMapping, ZeebeOutput.class);
-    input.setSource(source);
+    if (source != null) {
+      input.setSource(source);
+    }
     input.setTarget(target);
 
     return elementBuilder;

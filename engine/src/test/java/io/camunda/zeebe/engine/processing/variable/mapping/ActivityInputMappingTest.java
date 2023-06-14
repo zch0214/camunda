@@ -65,6 +65,11 @@ public final class ActivityInputMappingTest {
         activityVariables(variable("x", "1"))
       },
       {
+        "{'x': null}",
+        mapping(b -> b.zeebeInputExpression(null, "x")),
+        activityVariables(variable("x", "null"))
+      },
+      {
         "{'x': 1}",
         mapping(b -> b.zeebeInputExpression("x", "y")),
         activityVariables(variable("y", "1"))

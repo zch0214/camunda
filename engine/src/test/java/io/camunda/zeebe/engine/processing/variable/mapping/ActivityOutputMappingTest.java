@@ -68,6 +68,11 @@ public final class ActivityOutputMappingTest {
         scopeVariables(variable("y", "1"))
       },
       {
+        "{'x': null}",
+        mapping(b -> b.zeebeOutputExpression(null, "y")),
+        scopeVariables(variable("y", "null"))
+      },
+      {
         "{'x': 1, 'y': 2}",
         mapping(b -> b.zeebeOutputExpression("y", "z")),
         scopeVariables(variable("z", "2"))

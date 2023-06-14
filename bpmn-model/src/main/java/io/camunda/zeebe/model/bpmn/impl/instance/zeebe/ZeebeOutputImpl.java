@@ -35,7 +35,11 @@ public class ZeebeOutputImpl extends BpmnModelElementInstanceImpl implements Zee
 
   @Override
   public String getSource() {
-    return sourceAttribute.getValue(this);
+    final String source = sourceAttribute.getValue(this);
+    if (source != null) {
+      return source;
+    }
+    return "= null";
   }
 
   @Override
@@ -64,7 +68,6 @@ public class ZeebeOutputImpl extends BpmnModelElementInstanceImpl implements Zee
         typeBuilder
             .stringAttribute(ZeebeConstants.ATTRIBUTE_SOURCE)
             .namespace(BpmnModelConstants.ZEEBE_NS)
-            .required()
             .build();
 
     targetAttribute =
