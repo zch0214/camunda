@@ -7,7 +7,6 @@
  */
 package io.camunda.zeebe.engine.state;
 
-import io.camunda.zeebe.db.TransactionContext;
 import io.camunda.zeebe.db.ZeebeDb;
 import io.camunda.zeebe.engine.state.immutable.MessageState;
 import io.camunda.zeebe.engine.state.immutable.TimerInstanceState;
@@ -20,9 +19,9 @@ public final class ScheduledTaskDbState {
   private final TimerInstanceState timerInstanceState;
 
   public ScheduledTaskDbState(
-      final ZeebeDb<ZbColumnFamilies> zeebeDb, final TransactionContext transactionContext) {
-    messageState = new DbMessageState(zeebeDb, transactionContext);
-    timerInstanceState = new DbTimerInstanceState(zeebeDb, transactionContext);
+      final ZeebeDb<ZbColumnFamilies> zeebeDb) {
+    messageState = new DbMessageState(zeebeDb, zeebeDb.createContext());
+    timerInstanceState = new DbTimerInstanceState(zeebeDb, zeebeDb.createContext());
   }
 
   public MessageState getMessageState() {

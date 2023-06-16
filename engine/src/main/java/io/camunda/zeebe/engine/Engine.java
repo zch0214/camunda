@@ -76,7 +76,7 @@ public class Engine implements RecordProcessor {
             zeebeDb,
             recordProcessorContext.getTransactionContext(),
             recordProcessorContext.getKeyGenerator());
-    final var scheduledTaskDbState = new ScheduledTaskDbState(zeebeDb, zeebeDb.createContext());
+    final var scheduledTaskDbState = new ScheduledTaskDbState(zeebeDb);
 
     eventApplier = recordProcessorContext.getEventApplierFactory().apply(processingState);
 
