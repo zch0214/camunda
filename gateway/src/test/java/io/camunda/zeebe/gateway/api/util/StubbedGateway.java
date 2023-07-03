@@ -145,7 +145,8 @@ public final class StubbedGateway {
 
     @Override
     public ActorFuture<Void> remove(final ClientStreamId streamId) {
-      streamIdToConsumer.remove(streamId);
+      final var consumer = streamIdToConsumer.remove(streamId);
+      registeredStreams.remove(consumer.streamType);
 
       return CompletableActorFuture.completed(null);
     }

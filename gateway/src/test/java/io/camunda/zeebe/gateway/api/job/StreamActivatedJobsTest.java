@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import org.awaitility.Awaitility;
 import org.junit.Test;
 
 public class StreamActivatedJobsTest extends GatewayTest {
@@ -82,12 +83,12 @@ public class StreamActivatedJobsTest extends GatewayTest {
   }
 
   @Test
-  public void shouldRemoveStreamOnComplete() {
+  public void shouldRemoveStreamOnError() {
     // given
     final String jobType = "testJob";
     final String worker = "testWorker";
     final Duration timeout = Duration.ofMinutes(1);
-    final List<String> fetchVariables = Arrays.asList("foo");
+    final List<String> fetchVariables = List.of("foo");
 
     final TestStreamObserver streamObserver =
         getStreamActivatedJobsRequest(jobType, worker, timeout, fetchVariables);
@@ -98,8 +99,31 @@ public class StreamActivatedJobsTest extends GatewayTest {
     streamObserver.onError(new RuntimeException("test on error"));
 
     // then
-    assertThat(jobStreamer.containsStreamFor(jobType)).isFalse();
+    Awaitility.await("until the stream is removed")
+        .until(() -> !jobStreamer.containsStreamFor(jobType));
   }
+
+  @Test
+  public void shouldRemoveStreamOnCancel() {
+    // given
+    final String jobType = "testJob";
+    final String worker = "testWorker";
+    final Duration timeout = Duration.ofMinutes(1);
+    final List<String> fetchVariables = List.of("foo");
+    final TestStreamObserver streamObserver =
+        getStreamActivatedJobsRequest(jobType, worker, timeout, fetchVariables);
+    assertThat(jobStreamer.containsStreamFor(jobType)).isTrue();
+
+    // when
+    streamObserver.cancel();
+
+    // then
+    Awaitility.await("until the stream is removed")
+        .until(() -> !jobStreamer.containsStreamFor(jobType));
+  }
+
+  // TODO: how to test onClose? it seems the graceful way to close a stream from the client side is
+  // simply to cancel it, as per the gRPC docs. So is onClose only for when we close it server side?
 
   private TestStreamObserver getStreamActivatedJobsRequest(
       final String jobType,
@@ -122,9 +146,6 @@ public class StreamActivatedJobsTest extends GatewayTest {
     return streamObserver;
   }
 
-  // TODO test onClose with error and completed
-  // TODO test onCancel
-
   private static class TestStreamObserver
       implements ClientResponseObserver<StreamActivatedJobsRequest, ActivatedJob> {
     private ClientCallStreamObserver<StreamActivatedJobsRequest> requestStream;
@@ -145,9 +166,7 @@ public class StreamActivatedJobsTest extends GatewayTest {
     }
 
     @Override
-    public void onCompleted() {
-      requestStream.onCompleted();
-    }
+    public void onCompleted() {}
 
     @Override
     public void beforeStart(
