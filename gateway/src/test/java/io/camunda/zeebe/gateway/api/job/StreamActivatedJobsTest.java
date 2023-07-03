@@ -15,7 +15,9 @@ import io.camunda.zeebe.gateway.protocol.GatewayOuterClass.StreamActivatedJobsRe
 import io.camunda.zeebe.protocol.impl.record.value.job.JobRecord;
 import io.camunda.zeebe.protocol.impl.stream.job.ActivatedJobImpl;
 import io.camunda.zeebe.test.util.MsgPackUtil;
-import io.grpc.stub.StreamObserver;
+import io.camunda.zeebe.util.buffer.BufferUtil;
+import io.grpc.stub.ClientCallStreamObserver;
+import io.grpc.stub.ClientResponseObserver;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,7 +36,7 @@ public class StreamActivatedJobsTest extends GatewayTest {
     final List<String> fetchVariables = Arrays.asList("foo", "bar");
 
     final List<ActivatedJob> streamedJobs =
-        getStreamActivatedJobsRequest(jobType, worker, timeout, fetchVariables);
+        getStreamActivatedJobsRequest(jobType, worker, timeout, fetchVariables).streamedJobs;
 
     assertThat(streamedJobs).isEmpty();
 
@@ -64,7 +66,7 @@ public class StreamActivatedJobsTest extends GatewayTest {
     final List<String> fetchVariables = List.of("foo");
 
     final List<ActivatedJob> streamedJobs1 =
-        getStreamActivatedJobsRequest(jobType1, worker, timeout, fetchVariables);
+        getStreamActivatedJobsRequest(jobType1, worker, timeout, fetchVariables).streamedJobs;
     getStreamActivatedJobsRequest(jobType2, worker, timeout, fetchVariables);
 
     // when
@@ -79,7 +81,27 @@ public class StreamActivatedJobsTest extends GatewayTest {
     assertThat(streamedJobs1).isEmpty();
   }
 
-  private List<ActivatedJob> getStreamActivatedJobsRequest(
+  @Test
+  public void shouldRemoveStreamOnComplete() {
+    // given
+    final String jobType = "testJob";
+    final String worker = "testWorker";
+    final Duration timeout = Duration.ofMinutes(1);
+    final List<String> fetchVariables = Arrays.asList("foo");
+
+    final TestStreamObserver streamObserver =
+        getStreamActivatedJobsRequest(jobType, worker, timeout, fetchVariables);
+
+    assertThat(jobStreamer.containsStreamFor(jobType)).isTrue();
+
+    // when
+    streamObserver.onError(new RuntimeException("test on error"));
+
+    // then
+    assertThat(jobStreamer.containsStreamFor(jobType)).isFalse();
+  }
+
+  private TestStreamObserver getStreamActivatedJobsRequest(
       final String jobType,
       final String worker,
       final Duration timeout,
@@ -93,41 +115,24 @@ public class StreamActivatedJobsTest extends GatewayTest {
             .build();
 
     final List<ActivatedJob> streamedJobs = new ArrayList<>();
-    asyncClient.streamActivatedJobs(request, new TestStreamObserver(streamedJobs));
+    final TestStreamObserver streamObserver = new TestStreamObserver(streamedJobs);
+    asyncClient.streamActivatedJobs(request, streamObserver);
+    jobStreamer.waitStreamToBeAvailable(BufferUtil.wrapString(jobType));
 
-    return streamedJobs;
-  }
-
-  @Test
-  public void shouldRemoveWhenNonAvailable() {
-    // given
-    final String jobType1 = "testJob1";
-    final String jobType2 = "testJob2";
-    final String worker = "testWorker";
-    final Duration timeout = Duration.ofMinutes(1);
-    final List<String> fetchVariables = List.of("foo");
-
-    final List<ActivatedJob> streamedJobs1 =
-        getStreamActivatedJobsRequest(jobType1, worker, timeout, fetchVariables);
-    getStreamActivatedJobsRequest(jobType2, worker, timeout, fetchVariables);
-
-    // when
-    final ActivatedJobImpl activatedJob = new ActivatedJobImpl();
-    final JobRecord jobRecord = new JobRecord();
-    jobRecord.setType(jobType2); // only push job for job type 2
-    activatedJob.setRecord(jobRecord);
-
-    jobStreamer.push(activatedJob).join();
-
-    // then
-    assertThat(streamedJobs1).isEmpty();
+    return streamObserver;
   }
 
   // TODO test onClose with error and completed
   // TODO test onCancel
 
-  private record TestStreamObserver(List<ActivatedJob> streamedJobs)
-      implements StreamObserver<ActivatedJob> {
+  private static class TestStreamObserver
+      implements ClientResponseObserver<StreamActivatedJobsRequest, ActivatedJob> {
+    private ClientCallStreamObserver<StreamActivatedJobsRequest> requestStream;
+    private final List<ActivatedJob> streamedJobs;
+
+    public TestStreamObserver(final List<ActivatedJob> streamedJobs) {
+      this.streamedJobs = streamedJobs;
+    }
 
     @Override
     public void onNext(final ActivatedJob value) {
@@ -135,9 +140,23 @@ public class StreamActivatedJobsTest extends GatewayTest {
     }
 
     @Override
-    public void onError(final Throwable t) {}
+    public void onError(final Throwable t) {
+      requestStream.onError(t);
+    }
 
     @Override
-    public void onCompleted() {}
+    public void onCompleted() {
+      requestStream.onCompleted();
+    }
+
+    @Override
+    public void beforeStart(
+        final ClientCallStreamObserver<StreamActivatedJobsRequest> requestStream) {
+      this.requestStream = requestStream;
+    }
+
+    public void cancel() {
+      requestStream.cancel("test cancel", new RuntimeException());
+    }
   }
 }

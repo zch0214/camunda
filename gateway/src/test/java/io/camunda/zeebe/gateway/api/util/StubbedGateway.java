@@ -27,6 +27,7 @@ import io.camunda.zeebe.scheduler.future.CompletableActorFuture;
 import io.camunda.zeebe.transport.stream.api.ClientStreamConsumer;
 import io.camunda.zeebe.transport.stream.api.ClientStreamId;
 import io.camunda.zeebe.transport.stream.api.ClientStreamer;
+import io.camunda.zeebe.util.buffer.BufferUtil;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -153,10 +154,6 @@ public final class StubbedGateway {
     public void close() {}
 
     public CompletableFuture<Void> push(final ActivatedJobImpl activatedJob) {
-      // since we are using an async client, we need some time before the test request executes
-      // below, we reserve some time for a client to register for a job type
-      Awaitility.await("wait until stream is registed")
-          .until(() -> registeredStreams.containsKey(activatedJob.jobRecord().getTypeBuffer()));
       final StreamTypeConsumer streamTypeConsumer =
           registeredStreams.get(activatedJob.jobRecord().getTypeBuffer());
 
@@ -167,6 +164,17 @@ public final class StubbedGateway {
       }
 
       return CompletableFuture.failedFuture(new RuntimeException("No stream exists with given id"));
+    }
+
+    public boolean containsStreamFor(final String streamType) {
+      return registeredStreams.containsKey(BufferUtil.wrapString(streamType));
+    }
+
+    public void waitStreamToBeAvailable(final DirectBuffer jobType) {
+      // since we are using an async client, we need some time before the test request executes
+      // below, we reserve some time for a client to register for a job type
+      Awaitility.await("wait until stream is registered")
+          .until(() -> registeredStreams.containsKey(jobType));
     }
   }
 
