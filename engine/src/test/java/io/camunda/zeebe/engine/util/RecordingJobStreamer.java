@@ -7,9 +7,9 @@
  */
 package io.camunda.zeebe.engine.util;
 
-import io.camunda.zeebe.engine.processing.streamprocessor.JobActivationProperties;
 import io.camunda.zeebe.engine.processing.streamprocessor.JobStreamer;
 import io.camunda.zeebe.protocol.impl.stream.job.ActivatedJob;
+import io.camunda.zeebe.protocol.impl.stream.job.JobActivationProperties;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.agrona.DirectBuffer;
+import org.agrona.MutableDirectBuffer;
 
 public class RecordingJobStreamer implements JobStreamer {
 
@@ -55,6 +56,14 @@ public class RecordingJobStreamer implements JobStreamer {
 
     @Override
     public void wrap(final DirectBuffer buffer, final int offset, final int length) {}
+
+    @Override
+    public int getLength() {
+      return 0;
+    }
+
+    @Override
+    public void write(final MutableDirectBuffer buffer, final int offset) {}
   }
 
   public static class RecordingJobStream implements JobStream {

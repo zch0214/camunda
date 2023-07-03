@@ -275,6 +275,30 @@ public final class ResponseMapper {
     return responseBuilder.build();
   }
 
+  public static ActivatedJob toActivatedJob(
+      final io.camunda.zeebe.protocol.impl.stream.job.ActivatedJob brokerResponse) {
+    final long jobKey = brokerResponse.jobKey();
+    final JobRecord job = brokerResponse.jobRecord();
+
+    final var responseBuilder =
+        ActivatedJob.newBuilder()
+            .setKey(jobKey)
+            .setType(bufferAsString(job.getTypeBuffer()))
+            .setBpmnProcessId(job.getBpmnProcessId())
+            .setElementId(job.getElementId())
+            .setProcessInstanceKey(job.getProcessInstanceKey())
+            .setProcessDefinitionVersion(job.getProcessDefinitionVersion())
+            .setProcessDefinitionKey(job.getProcessDefinitionKey())
+            .setElementInstanceKey(job.getElementInstanceKey())
+            .setCustomHeaders(bufferAsJson(job.getCustomHeadersBuffer()))
+            .setWorker(bufferAsString(job.getWorkerBuffer()))
+            .setRetries(job.getRetries())
+            .setDeadline(job.getDeadline())
+            .setVariables(bufferAsJson(job.getVariablesBuffer()));
+
+    return responseBuilder.build();
+  }
+
   public static ResolveIncidentResponse toResolveIncidentResponse(
       final long key, final IncidentRecord incident) {
     return ResolveIncidentResponse.getDefaultInstance();
