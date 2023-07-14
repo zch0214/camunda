@@ -11,7 +11,7 @@ import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 public class GossipHandler {
-  private PersistedClusterState currentClusterState;
+  private LocalPersistedClusterState currentClusterState;
 
   private Consumer<Cluster> ringGossiper;
 

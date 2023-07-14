@@ -10,22 +10,24 @@ package io.camunda.zeebe.broker.clustering.dynamic;
 import java.util.concurrent.CompletableFuture;
 
 public class GossipBasedSSOTClusterState implements SSOTClusterState {
-  private final PersistedClusterState clusterState;
+  private final LocalPersistedClusterState clusterState;
 
-  public GossipBasedSSOTClusterState(final PersistedClusterState persistedClusterState) {
+  public GossipBasedSSOTClusterState(final LocalPersistedClusterState persistedClusterState) {
     clusterState = persistedClusterState;
-  }
-
-  void initialize() {
-    // read cluster state from local file
   }
 
   @Override
   public CompletableFuture<Cluster> getClusterState() {
-    return CompletableFuture.completedFuture(clusterState.getClusterState());
+    if (isCoordinator()) {
+      return CompletableFuture.completedFuture(clusterState.getClusterState());
+    } else {
+      // Find the coordinator, and send a remote request
+      throw new UnsupportedOperationException("To be implemented");
+    }
   }
 
-  public void setClusterState(final Cluster cluster) {
-    clusterState.setClusterState(cluster);
+  private boolean isCoordinator() {
+    // TODO
+    return false;
   }
 }

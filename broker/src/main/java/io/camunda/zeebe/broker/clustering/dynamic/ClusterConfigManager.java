@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 public class ClusterConfigManager implements ClusterMembershipEventListener {
   private static final long RETRY_DELAY = 5_000; // 5 seconds
   private final ScheduledExecutorService executorService;
-  private final PersistedClusterState persistedClusterState;
+  private final LocalPersistedClusterState persistedClusterState;
   private final SSOTClusterState ssotClusterState;
   private final GossipHandler gossipHandler;
 
@@ -58,7 +58,12 @@ public class ClusterConfigManager implements ClusterMembershipEventListener {
   @Override
   public void event(final ClusterMembershipEvent event) {
     // TODO, on metadata changed, read cluster config from the event, and update local if necessary
+    executorService.execute(
+        () -> {
+          final Cluster newCluster = null; // TODO: readFromEvent
+          if (!persistedClusterState.getClusterState().equals(newCluster)) {
+            gossipHandler.onRingChanged(newCluster);
+          }
+        });
   }
-
-
 }

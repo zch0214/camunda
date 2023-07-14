@@ -10,18 +10,22 @@ package io.camunda.zeebe.broker.clustering.dynamic;
 import io.atomix.cluster.MemberId;
 import io.camunda.zeebe.broker.system.configuration.ClusterCfg;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 
 public class GossipBasedCoordinator implements ConfigCoordinator {
 
-  private final PersistedClusterState persistedClusterState;
+  private final ScheduledExecutorService executorService;
+  private final LocalPersistedClusterState persistedClusterState;
   private final ClusterCfg clusterCfg;
 
   private final GossipHandler gossipHandler;
 
   public GossipBasedCoordinator(
-      final PersistedClusterState persistedClusterState,
+      final ScheduledExecutorService executorService,
+      final LocalPersistedClusterState persistedClusterState,
       final ClusterCfg clusterCfg,
       final GossipHandler gossipHandler) {
+    this.executorService = executorService;
     this.persistedClusterState = persistedClusterState;
     this.clusterCfg = clusterCfg;
     this.gossipHandler = gossipHandler;
@@ -29,24 +33,48 @@ public class GossipBasedCoordinator implements ConfigCoordinator {
 
   @Override
   public CompletableFuture<Void> start() {
-    if (persistedClusterState.getClusterState() == null) {
-      generateNewConfiguration(clusterCfg);
-    }
-    return CompletableFuture.completedFuture(null);
+    final CompletableFuture<Void> started = new CompletableFuture<>();
+    executorService.execute(
+        () -> {
+          if (persistedClusterState.getClusterState() == null) {
+            generateNewConfiguration(clusterCfg);
+            // TODO error handling
+            started.complete(null);
+          }
+        });
+
+    return started;
   }
 
   @Override
-  public CompletableFuture<Boolean> addMember() {
-    return null;
+  public CompletableFuture<Void> addMember(final MemberId memberId) {
+    final CompletableFuture<Void> started = new CompletableFuture<>();
+    executorService.execute(
+        () -> {
+          tryAddMember(memberId);
+          started.complete(null);
+        });
+    return started;
+  }
+
+  @Override
+  public CompletableFuture<Void> leaveMember() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public CompletableFuture<Cluster> getCluster() {
+    final CompletableFuture<Cluster> result = new CompletableFuture<>();
+    executorService.execute(() -> result.complete(persistedClusterState.getClusterState()));
+    return result;
   }
 
   private void generateNewConfiguration(final ClusterCfg clusterCfg) {
-    // TODO register listener outside
     // generate config from clusterCfg
     // persistedClusterState.setClusterState(clusterV0);
   }
 
-  private boolean addMember(final MemberId memberId) {
+  private boolean tryAddMember(final MemberId memberId) {
     // TODO: pre-check, member already does not exist, no config change plan in
     // progress etc.
 

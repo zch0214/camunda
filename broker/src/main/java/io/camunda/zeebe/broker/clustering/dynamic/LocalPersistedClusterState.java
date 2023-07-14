@@ -7,14 +7,10 @@
  */
 package io.camunda.zeebe.broker.clustering.dynamic;
 
-import java.util.concurrent.CompletableFuture;
+// cluster state persisted locally in each broker
+public interface LocalPersistedClusterState {
 
-public class RemoteGossipBasedSSOTClusterState implements SSOTClusterState {
+  Cluster getClusterState();
 
-  @Override
-  public CompletableFuture<Cluster> getClusterState() {
-    // Find coordinator
-    // Send remote request
-    return new CompletableFuture<>();
-  }
+  void setClusterState(Cluster cluster);
 }

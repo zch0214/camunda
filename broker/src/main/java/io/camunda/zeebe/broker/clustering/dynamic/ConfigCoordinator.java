@@ -7,12 +7,16 @@
  */
 package io.camunda.zeebe.broker.clustering.dynamic;
 
+import io.atomix.cluster.MemberId;
 import java.util.concurrent.CompletableFuture;
 
 public interface ConfigCoordinator {
 
   CompletableFuture<Void> start();
 
-  CompletableFuture<Boolean> addMember();
+  CompletableFuture<Void> addMember(final MemberId memberId);
 
+  CompletableFuture<Void> leaveMember();
+
+  CompletableFuture<Cluster> getCluster();
 }

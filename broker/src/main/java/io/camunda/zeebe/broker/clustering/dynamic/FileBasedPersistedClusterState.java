@@ -7,7 +7,7 @@
  */
 package io.camunda.zeebe.broker.clustering.dynamic;
 
-public class FileBasedPersistedClusterState implements PersistedClusterState {
+public class FileBasedPersistedClusterState implements LocalPersistedClusterState {
   Cluster cluster;
 
   void initialize() {
