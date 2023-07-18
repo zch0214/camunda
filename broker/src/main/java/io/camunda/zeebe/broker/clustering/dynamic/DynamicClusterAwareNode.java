@@ -39,6 +39,7 @@ public class DynamicClusterAwareNode {
       final AtomixCluster atomixCluster) {
     this.memberId = memberId;
     this.atomixCluster = atomixCluster;
+    final boolean isCoordinator = memberId.id().equals("0");
 
     final var threadFactory =
         new ThreadFactoryBuilder()
@@ -55,9 +56,7 @@ public class DynamicClusterAwareNode {
         new FileBasedPersistedClusterState(configFile);
     final SSOTClusterState gossipSSOTClusterState =
         new GossipBasedSSOTClusterState(
-            localPersistedClusterState,
-            memberId.id().equals("0"),
-            atomixCluster.getCommunicationService());
+            localPersistedClusterState, isCoordinator, atomixCluster.getCommunicationService());
 
     final ConfigChangeApplier configChangeApplier = new ConfigChangeApplier(memberId);
     final GossipHandler gossipHandler =
@@ -69,7 +68,8 @@ public class DynamicClusterAwareNode {
             clusterCfg,
             localPersistedClusterState,
             gossipSSOTClusterState,
-            gossipHandler);
+            gossipHandler,
+            isCoordinator);
 
     atomixCluster.getMembershipService().addListener(clusterConfigManager);
 

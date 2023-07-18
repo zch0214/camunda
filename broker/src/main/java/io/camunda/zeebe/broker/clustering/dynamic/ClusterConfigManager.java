@@ -26,17 +26,20 @@ public class ClusterConfigManager implements ClusterMembershipEventListener {
   private final GossipHandler gossipHandler;
 
   private final CompletableFuture<Boolean> started = new CompletableFuture<>();
+  private final boolean isCoordinator;
 
   public ClusterConfigManager(
       final ScheduledExecutorService executorService,
       final ClusterCfg clusterCfg,
       final LocalPersistedClusterState persistedClusterState,
       final SSOTClusterState ssotClusterState,
-      final GossipHandler gossipHandler) {
+      final GossipHandler gossipHandler,
+      final boolean isCoordinator) {
     this.executorService = executorService;
     this.persistedClusterState = persistedClusterState;
     this.ssotClusterState = ssotClusterState;
     this.gossipHandler = gossipHandler;
+    this.isCoordinator = isCoordinator;
     executorService.execute(() -> initialize(clusterCfg));
   }
 
@@ -77,9 +80,24 @@ public class ClusterConfigManager implements ClusterMembershipEventListener {
           final Cluster newCluster = Cluster.decode(encodedConfig);
           if (persistedClusterState.getClusterState() == null
               || !persistedClusterState.getClusterState().equals(newCluster)) {
+
+            if (isCoordinator
+                && newCluster.version() > persistedClusterState.getClusterState().version()) {
+              // Detect coordinator data loss and inconsistent version
+              LOG.error(
+                  "Cluster config different in coordinator and other nodes. Received version{}, local version{}. Coordinator probably restarted with data loss.",
+                  newCluster.version(),
+                  persistedClusterState.getClusterState().version());
+              // TODO: one way to automatic handle is as follows
+              // overwrite coordinator's configuration, shutdown and remove already started
+              // partitions, and Restart coordinator
+              // Other - manually fix the configuration
+            }
+
             LOG.info(
                 "Received different cluster config via gossip from member {}. Updating.",
                 event.subject().id().id());
+
             gossipHandler.onRingChanged(newCluster);
           }
         });
