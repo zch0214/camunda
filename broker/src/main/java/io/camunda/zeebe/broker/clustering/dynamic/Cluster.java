@@ -23,7 +23,15 @@ public record Cluster(long version, ClusterState clusterState, ClusterChangePlan
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
-  public byte[] encode() {
+  public String encode() {
+    try {
+      return objectMapper.writeValueAsString(this);
+    } catch (final JsonProcessingException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  public byte[] encodeAsBytes() {
     try {
       return objectMapper.writeValueAsBytes(this);
     } catch (final JsonProcessingException e) {
@@ -38,9 +46,17 @@ public record Cluster(long version, ClusterState clusterState, ClusterChangePlan
     return new Cluster(newVersion, newClusterState, newChanges);
   }
 
-  public static Cluster decode(final byte[] bytes) {
+  public static Cluster decode(final String encodedString) {
     try {
-      return objectMapper.readValue(bytes, Cluster.class);
+      return objectMapper.readValue(encodedString, Cluster.class);
+    } catch (final IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  public static Cluster decode(final byte[] encodedBytes) {
+    try {
+      return objectMapper.readValue(encodedBytes, Cluster.class);
     } catch (final IOException e) {
       throw new UncheckedIOException(e);
     }
@@ -61,7 +77,7 @@ public record Cluster(long version, ClusterState clusterState, ClusterChangePlan
     }
   }
 
-  public record ClusterChangeOperation(MemberId memberId, ClusterChangeOperationEnum operation) {}
+  public record ClusterChangeOperation(String memberId, ClusterChangeOperationEnum operation) {}
 
   public record ClusterChangePlan(long version, List<ClusterChangeOperation> nextSteps) {
     boolean hasPending() {
@@ -90,8 +106,9 @@ public record Cluster(long version, ClusterState clusterState, ClusterChangePlan
 
   public record ClusterState(Map<MemberId, MemberState> members) {
     ClusterState addMember(final MemberId memberId, final MemberState memberState) {
-      members.put(memberId, memberState); // TODO make immutable
-      return new ClusterState(members);
+      final var newMembers = new HashMap<>(members);
+      newMembers.put(memberId, memberState);
+      return new ClusterState(Map.copyOf(newMembers));
     }
 
     ClusterState updateMember(final MemberId memberId, final State state) {

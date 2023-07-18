@@ -778,7 +778,7 @@ public class SwimMembershipProtocol
    * @param updates the updated members to gossip
    */
   private void gossip(final SwimMember member, final Collection<ImmutableMember> updates) {
-    GOSSIP_LOGGER.trace("{} - Gossipping updates {} to {}", localMember.id(), updates, member);
+    GOSSIP_LOGGER.info("{} - Gossipping updates {} to {}", localMember.id(), updates, member);
     bootstrapService
         .getUnicastService()
         .unicast(member.address(), MEMBERSHIP_GOSSIP, SERIALIZER.encode(updates));

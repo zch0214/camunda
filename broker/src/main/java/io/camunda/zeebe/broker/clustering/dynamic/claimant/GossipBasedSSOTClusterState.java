@@ -39,7 +39,11 @@ public class GossipBasedSSOTClusterState implements SSOTClusterState {
   @Override
   public CompletableFuture<Cluster> getClusterState() {
     if (isCoordinator()) {
-      return CompletableFuture.completedFuture(clusterState.getClusterState());
+      if (clusterState.getClusterState() != null) {
+        return CompletableFuture.completedFuture(clusterState.getClusterState());
+      } else {
+        return CompletableFuture.failedFuture(new RuntimeException("uninitialized"));
+      }
     } else {
       // Find the coordinator, and send a remote request
       return communicationService.send(

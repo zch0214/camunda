@@ -31,9 +31,9 @@ public class FileBasedPersistedClusterState implements LocalPersistedClusterStat
       cluster = null;
       return;
     }
-    final byte[] bytes = Files.readAllBytes(configFile);
-    if (bytes.length > 0) {
-      cluster = Cluster.decode(bytes);
+    final var configString = Files.readString(configFile);
+    if (configString.length() > 0) {
+      cluster = Cluster.decode(configString);
     } else {
       cluster = null;
     }
@@ -46,10 +46,13 @@ public class FileBasedPersistedClusterState implements LocalPersistedClusterStat
 
   @Override
   public void setClusterState(final Cluster cluster) {
+    if (cluster == null) {
+      return;
+    }
     this.cluster = cluster;
     try {
-      Files.write(
-          configFile, cluster.encode(), StandardOpenOption.WRITE, StandardOpenOption.CREATE);
+      final String encode = cluster.encode();
+      Files.writeString(configFile, encode, StandardOpenOption.WRITE, StandardOpenOption.CREATE);
     } catch (final IOException e) {
       throw new RuntimeException(e);
     }

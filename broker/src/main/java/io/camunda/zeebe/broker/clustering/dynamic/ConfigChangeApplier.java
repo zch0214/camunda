@@ -29,7 +29,7 @@ public class ConfigChangeApplier {
   public void apply(
       final ClusterChangePlan changes, final Consumer<UnaryOperator<Cluster>> clusterUpdater) {
     final var nextStep = changes.nextSteps().get(0);
-    if (!nextStep.memberId().equals(localMemberId)) {
+    if (!nextStep.memberId().equals(localMemberId.id())) {
       return;
     }
 

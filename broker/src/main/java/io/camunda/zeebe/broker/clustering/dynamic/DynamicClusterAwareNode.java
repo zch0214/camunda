@@ -7,9 +7,11 @@
  */
 package io.camunda.zeebe.broker.clustering.dynamic;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.atomix.cluster.AtomixCluster;
 import io.atomix.cluster.MemberId;
 import io.atomix.cluster.messaging.ClusterCommunicationService;
+import io.atomix.utils.concurrent.AtomixThreadFactory;
 import io.camunda.zeebe.broker.clustering.dynamic.claimant.GossipBasedCoordinator;
 import io.camunda.zeebe.broker.clustering.dynamic.claimant.GossipBasedSSOTClusterState;
 import io.camunda.zeebe.broker.system.configuration.ClusterCfg;
@@ -17,9 +19,13 @@ import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 public class DynamicClusterAwareNode {
 
+  private static final Logger LOG = LoggerFactory.getLogger(DynamicClusterAwareNode.class);
   private final MemberId memberId;
   private final AtomixCluster atomixCluster;
   private final ScheduledExecutorService executorService;
@@ -33,7 +39,17 @@ public class DynamicClusterAwareNode {
       final AtomixCluster atomixCluster) {
     this.memberId = memberId;
     this.atomixCluster = atomixCluster;
-    executorService = new ScheduledThreadPoolExecutor(1);
+
+    final var threadFactory =
+        new ThreadFactoryBuilder()
+            .setNameFormat("node-%d")
+            .setThreadFactory(new AtomixThreadFactory())
+            .setUncaughtExceptionHandler(
+                (t, e) -> LOG.error("Uncaught exception on " + t.getName(), e))
+            .build();
+
+    executorService = new ScheduledThreadPoolExecutor(1, threadFactory);
+    executorService.execute(() -> MDC.put("actor-name", "member-" + memberId.id()));
 
     final LocalPersistedClusterState localPersistedClusterState =
         new FileBasedPersistedClusterState(configFile);
@@ -68,6 +84,10 @@ public class DynamicClusterAwareNode {
     return Optional.ofNullable(coordinator);
   }
 
+  public ClusterConfigManager getConfigManager() {
+    return clusterConfigManager;
+  }
+
   private void tryStartCoordinator(
       final LocalPersistedClusterState persistedClusterState,
       final ClusterCfg clusterCfg,
@@ -93,6 +113,6 @@ public class DynamicClusterAwareNode {
         .getMembershipService()
         .getLocalMember()
         .properties()
-        .put("config", cluster.encode());
+        .setProperty("config", cluster.encode());
   }
 }

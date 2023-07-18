@@ -103,11 +103,15 @@ public class GossipBasedCoordinator implements ConfigCoordinator {
 
   private byte[] encodeQueryResponse(final Cluster response) {
 
-    return response.encode();
+    return response.encodeAsBytes();
   }
 
   private Cluster getConfig(final MemberId memberId, final byte[] ignore) {
-    return persistedClusterState.getClusterState();
+    if (persistedClusterState.getClusterState() != null) {
+      return persistedClusterState.getClusterState();
+    } else {
+      throw new RuntimeException("Config not found");
+    }
   }
 
   private byte[] decodeQuery(final byte[] bytes) {
@@ -148,7 +152,7 @@ public class GossipBasedCoordinator implements ConfigCoordinator {
 
   private Cluster addMemberToCluster(final Cluster cluster, final MemberId memberId) {
     final ClusterChangeOperation operation =
-        new ClusterChangeOperation(memberId, ClusterChangeOperationEnum.JOIN);
+        new ClusterChangeOperation(memberId.id(), ClusterChangeOperationEnum.JOIN);
     final long newVersion = cluster.version() + 1;
     return new Cluster(
         newVersion, // increment version

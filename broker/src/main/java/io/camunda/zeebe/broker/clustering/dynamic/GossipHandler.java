@@ -55,11 +55,19 @@ public class GossipHandler {
   }
 
   private Cluster merge(final Cluster ring, final Cluster newCluster) {
-    return ring.merge(newCluster);
+    if (ring != null) {
+      return ring.merge(newCluster);
+    } else {
+      return newCluster;
+    }
   }
 
   private boolean isSameAsExistingCluster(final Cluster newCluster) {
     // TODO
-    return currentClusterState.getClusterState().equals(newCluster);
+    if (currentClusterState.getClusterState() != null) {
+      return currentClusterState.getClusterState().equals(newCluster);
+    } else {
+      return newCluster == null;
+    }
   }
 }

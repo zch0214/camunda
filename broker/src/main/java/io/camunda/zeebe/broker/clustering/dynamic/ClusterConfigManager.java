@@ -42,21 +42,23 @@ public class ClusterConfigManager implements ClusterMembershipEventListener {
 
   private void initialize(final ClusterCfg clusterCfg) {
     if (persistedClusterState.getClusterState() == null) {
-      LOG.info("No local cluster stat found, asking the coordinator");
+      LOG.info("No local cluster state found, asking the coordinator");
       ssotClusterState
           .getClusterState()
-          .thenAccept(
-              newCluster -> {
-                gossipHandler.onRingChanged(newCluster);
-                started.complete(true);
-              })
-          .exceptionally(
-              error -> {
-                LOG.info("Failed to get cluster config from coordinator, retrying", error);
-                executorService.schedule(
-                    () -> initialize(clusterCfg), RETRY_DELAY, TimeUnit.MILLISECONDS);
-                return null;
-              });
+          .whenCompleteAsync(
+              (newCluster, error) -> {
+                if (error != null) {
+                  LOG.info("Failed to get cluster config from coordinator, retrying", error);
+                  executorService.schedule(
+                      () -> initialize(clusterCfg), RETRY_DELAY, TimeUnit.MILLISECONDS);
+                } else {
+                  LOG.info("Got new config from coordinator : {}", newCluster);
+                  gossipHandler.onRingChanged(newCluster);
+                  started.complete(true);
+                }
+              },
+              executorService);
+
     } else {
       // local config available use that
       started.complete(true);
@@ -67,18 +69,23 @@ public class ClusterConfigManager implements ClusterMembershipEventListener {
   public void event(final ClusterMembershipEvent event) {
     executorService.execute(
         () -> {
-          final var encodedConfig = event.subject().properties().get("config");
+          final var encodedConfig = event.subject().properties().getProperty("config");
           if (encodedConfig == null) {
             return;
           }
 
-          final Cluster newCluster = Cluster.decode((byte[]) encodedConfig);
-          if (!persistedClusterState.getClusterState().equals(newCluster)) {
+          final Cluster newCluster = Cluster.decode(encodedConfig);
+          if (persistedClusterState.getClusterState() == null
+              || !persistedClusterState.getClusterState().equals(newCluster)) {
             LOG.info(
                 "Received different cluster config via gossip from member {}. Updating.",
                 event.subject().id().id());
             gossipHandler.onRingChanged(newCluster);
           }
         });
+  }
+
+  public boolean isStarted() {
+    return started.isDone() && !started.isCompletedExceptionally();
   }
 }
