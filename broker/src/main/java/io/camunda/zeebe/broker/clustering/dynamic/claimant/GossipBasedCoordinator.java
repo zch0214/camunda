@@ -5,30 +5,48 @@
  * Licensed under the Zeebe Community License 1.1. You may not use this file
  * except in compliance with the Zeebe Community License 1.1.
  */
-package io.camunda.zeebe.broker.clustering.dynamic;
+package io.camunda.zeebe.broker.clustering.dynamic.claimant;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.atomix.cluster.MemberId;
+import io.atomix.cluster.messaging.ClusterCommunicationService;
+import io.camunda.zeebe.broker.clustering.dynamic.Cluster;
+import io.camunda.zeebe.broker.clustering.dynamic.Cluster.ClusterChangeOperation;
+import io.camunda.zeebe.broker.clustering.dynamic.Cluster.ClusterChangeOperationEnum;
+import io.camunda.zeebe.broker.clustering.dynamic.ConfigCoordinator;
+import io.camunda.zeebe.broker.clustering.dynamic.GossipHandler;
+import io.camunda.zeebe.broker.clustering.dynamic.LocalPersistedClusterState;
 import io.camunda.zeebe.broker.system.configuration.ClusterCfg;
+import java.io.UncheckedIOException;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GossipBasedCoordinator implements ConfigCoordinator {
 
+  public static final String CONFIG_QUERY = "get-latest-config";
+  private static final Logger LOG = LoggerFactory.getLogger(GossipBasedCoordinator.class);
   private final ScheduledExecutorService executorService;
   private final LocalPersistedClusterState persistedClusterState;
   private final ClusterCfg clusterCfg;
 
   private final GossipHandler gossipHandler;
 
+  private final ClusterCommunicationService clusterCommunicationService;
+
   public GossipBasedCoordinator(
       final ScheduledExecutorService executorService,
       final LocalPersistedClusterState persistedClusterState,
       final ClusterCfg clusterCfg,
-      final GossipHandler gossipHandler) {
+      final GossipHandler gossipHandler,
+      final ClusterCommunicationService clusterCommunicationService) {
     this.executorService = executorService;
     this.persistedClusterState = persistedClusterState;
     this.clusterCfg = clusterCfg;
     this.gossipHandler = gossipHandler;
+    this.clusterCommunicationService = clusterCommunicationService;
   }
 
   @Override
@@ -37,12 +55,19 @@ public class GossipBasedCoordinator implements ConfigCoordinator {
     executorService.execute(
         () -> {
           if (persistedClusterState.getClusterState() == null) {
+            LOG.info("No persisted configuration found. Generating new config");
             generateNewConfiguration(clusterCfg);
+
+            clusterCommunicationService.replyTo(
+                CONFIG_QUERY,
+                this::decodeQuery,
+                this::getConfig,
+                this::encodeQueryResponse,
+                executorService);
             // TODO error handling
             started.complete(null);
           }
         });
-
     return started;
   }
 
@@ -69,6 +94,23 @@ public class GossipBasedCoordinator implements ConfigCoordinator {
     return result;
   }
 
+  private byte[] encodeQueryResponse(final Cluster response) {
+    try {
+      return response.encode();
+    } catch (final JsonProcessingException e) {
+      // TODO
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  private Cluster getConfig(final MemberId memberId, final byte[] ignore) {
+    return persistedClusterState.getClusterState();
+  }
+
+  private byte[] decodeQuery(final byte[] bytes) {
+    return bytes;
+  }
+
   private void generateNewConfiguration(final ClusterCfg clusterCfg) {
     // generate config from clusterCfg
     // persistedClusterState.setClusterState(clusterV0);
@@ -83,7 +125,13 @@ public class GossipBasedCoordinator implements ConfigCoordinator {
   }
 
   private Cluster addMemberToCluster(final Cluster cluster, final MemberId memberId) {
-    // TODO
-    return null;
+    final ClusterChangeOperation operation =
+        new ClusterChangeOperation(memberId, ClusterChangeOperationEnum.JOIN);
+    final long newVersion = cluster.version() + 1;
+    return new Cluster(
+        newVersion, // increment version
+        cluster.clusterState(), // no change to cluster config yet
+        new Cluster.ClusterChangePlan(
+            newVersion, List.of(operation))); // Change plan consists of just one change
   }
 }

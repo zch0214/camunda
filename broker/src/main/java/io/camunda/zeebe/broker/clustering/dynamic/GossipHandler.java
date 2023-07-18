@@ -11,20 +11,31 @@ import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 public class GossipHandler {
-  private LocalPersistedClusterState currentClusterState;
+  private final LocalPersistedClusterState currentClusterState;
 
-  private Consumer<Cluster> ringGossiper;
+  private final Consumer<Cluster> configGossiper;
+
+  private final ConfigChangeApplier configChangeApplier;
+
+  public GossipHandler(
+      final LocalPersistedClusterState currentClusterState,
+      final Consumer<Cluster> configGossiper,
+      final ConfigChangeApplier configChangeApplier) {
+    this.currentClusterState = currentClusterState;
+    this.configGossiper = configGossiper;
+    this.configChangeApplier = configChangeApplier;
+  }
 
   public void onRingChanged(final Cluster newCluster) {
     if (isSameAsExistingCluster(newCluster)) {
       return;
     }
 
-    final var nextRing = merge(currentClusterState.getClusterState(), newCluster);
-    currentClusterState.setClusterState(nextRing);
+    final var nextConfig = merge(currentClusterState.getClusterState(), newCluster);
+    currentClusterState.setClusterState(nextConfig);
 
-    if (nextRing.changes().hasPending()) {
-      // TODO
+    if (nextConfig.changes().hasPending()) {
+      configChangeApplier.apply(nextConfig.changes(), this::update);
     }
   }
 
@@ -33,13 +44,13 @@ public class GossipHandler {
     if (!isSameAsExistingCluster(nextRing)) {
       // Gossip new ring
       onRingChanged(nextRing);
-      ringGossiper.accept(currentClusterState.getClusterState());
+      configGossiper.accept(currentClusterState.getClusterState());
     }
   }
 
   private Cluster merge(final Cluster ring, final Cluster newCluster) {
     // TODO
-    return ring;
+    return ring.merge(newCluster);
   }
 
   private boolean isSameAsExistingCluster(final Cluster newCluster) {
