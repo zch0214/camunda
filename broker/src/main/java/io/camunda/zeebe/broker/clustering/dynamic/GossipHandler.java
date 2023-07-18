@@ -40,7 +40,6 @@ public class GossipHandler {
     LOG.info("Update to new config {}", nextConfig);
 
     if (nextConfig.changes().hasPending()) {
-      LOG.info("Applying config changes {}", nextConfig.changes());
       configChangeApplier.apply(nextConfig.changes(), this::update);
     }
   }

@@ -33,9 +33,12 @@ public class ConfigChangeApplier {
       return;
     }
 
+    LOG.info("Applying config changes {}", nextStep);
+
     switch (nextStep.operation()) {
       case JOIN -> {
         LOG.info("Member {} joining cluster.", localMemberId);
+        // Can be async if the node has to do a set of tasks before it can be marked as joined
         LOG.info("Member {} joined cluster. Updating config", localMemberId);
         final var nextChanges = changes.advance();
         clusterUpdater.accept(
