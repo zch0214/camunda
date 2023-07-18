@@ -34,6 +34,7 @@ public class DynamicClusterAwareNode {
     this.memberId = memberId;
     this.atomixCluster = atomixCluster;
     executorService = new ScheduledThreadPoolExecutor(1);
+
     final LocalPersistedClusterState localPersistedClusterState =
         new FileBasedPersistedClusterState(configFile);
     final SSOTClusterState gossipSSOTClusterState =

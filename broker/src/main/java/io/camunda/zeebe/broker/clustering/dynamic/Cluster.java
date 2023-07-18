@@ -23,7 +23,7 @@ public record Cluster(long version, ClusterState clusterState, ClusterChangePlan
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
-  public byte[] encode(){
+  public byte[] encode() {
     try {
       return objectMapper.writeValueAsBytes(this);
     } catch (final JsonProcessingException e) {
@@ -88,7 +88,7 @@ public record Cluster(long version, ClusterState clusterState, ClusterChangePlan
     }
   }
 
-  record ClusterState(Map<MemberId, MemberState> members) {
+  public record ClusterState(Map<MemberId, MemberState> members) {
     ClusterState addMember(final MemberId memberId, final MemberState memberState) {
       members.put(memberId, memberState); // TODO make immutable
       return new ClusterState(members);

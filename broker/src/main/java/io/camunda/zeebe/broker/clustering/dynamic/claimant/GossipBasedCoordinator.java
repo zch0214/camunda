@@ -7,20 +7,27 @@
  */
 package io.camunda.zeebe.broker.clustering.dynamic.claimant;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.atomix.cluster.MemberId;
 import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.camunda.zeebe.broker.clustering.dynamic.Cluster;
 import io.camunda.zeebe.broker.clustering.dynamic.Cluster.ClusterChangeOperation;
 import io.camunda.zeebe.broker.clustering.dynamic.Cluster.ClusterChangeOperationEnum;
+import io.camunda.zeebe.broker.clustering.dynamic.Cluster.ClusterChangePlan;
+import io.camunda.zeebe.broker.clustering.dynamic.Cluster.ClusterState;
+import io.camunda.zeebe.broker.clustering.dynamic.Cluster.MemberState;
+import io.camunda.zeebe.broker.clustering.dynamic.Cluster.PartitionState;
+import io.camunda.zeebe.broker.clustering.dynamic.Cluster.State;
 import io.camunda.zeebe.broker.clustering.dynamic.ConfigCoordinator;
 import io.camunda.zeebe.broker.clustering.dynamic.GossipHandler;
 import io.camunda.zeebe.broker.clustering.dynamic.LocalPersistedClusterState;
 import io.camunda.zeebe.broker.system.configuration.ClusterCfg;
-import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,12 +102,8 @@ public class GossipBasedCoordinator implements ConfigCoordinator {
   }
 
   private byte[] encodeQueryResponse(final Cluster response) {
-    try {
-      return response.encode();
-    } catch (final JsonProcessingException e) {
-      // TODO
-      throw new UncheckedIOException(e);
-    }
+
+    return response.encode();
   }
 
   private Cluster getConfig(final MemberId memberId, final byte[] ignore) {
@@ -112,8 +115,27 @@ public class GossipBasedCoordinator implements ConfigCoordinator {
   }
 
   private void generateNewConfiguration(final ClusterCfg clusterCfg) {
-    // generate config from clusterCfg
-    // persistedClusterState.setClusterState(clusterV0);
+    // TODO: generate config from clusterCfg.
+
+    // For now use hard-coded config
+    final var members =
+        IntStream.of(0, 1, 2)
+            .mapToObj(i -> MemberId.from(String.valueOf(i)))
+            .collect(Collectors.toMap(Function.identity(), this::getConfigOfMember));
+    final var clusterState = new ClusterState(members);
+    final var initialConfig = new Cluster(0, clusterState, new ClusterChangePlan(0, List.of()));
+    persistedClusterState.setClusterState(initialConfig);
+  }
+
+  private MemberState getConfigOfMember(final MemberId memberId) {
+    if (memberId.id().equals("0")) {
+      return new MemberState(0, State.ACTIVE, Map.of(1, new PartitionState(State.ACTIVE, 1)));
+    } else if (memberId.id().equals("1")) {
+      return new MemberState(0, State.ACTIVE, Map.of(2, new PartitionState(State.ACTIVE, 1)));
+    } else if (memberId.id().equals("2")) {
+      return new MemberState(0, State.ACTIVE, Map.of(3, new PartitionState(State.ACTIVE, 1)));
+    }
+    throw new IllegalStateException();
   }
 
   private boolean tryAddMember(final MemberId memberId) {
