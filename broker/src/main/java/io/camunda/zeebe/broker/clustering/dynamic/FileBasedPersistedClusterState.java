@@ -7,12 +7,36 @@
  */
 package io.camunda.zeebe.broker.clustering.dynamic;
 
-public class FileBasedPersistedClusterState implements LocalPersistedClusterState {
-  Cluster cluster;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
-  void initialize() {
-    // TODO
-    // read from local file
+public class FileBasedPersistedClusterState implements LocalPersistedClusterState {
+  private Cluster cluster;
+  private final Path configFile;
+
+  public FileBasedPersistedClusterState(final Path configFile) {
+    this.configFile = configFile;
+    try {
+      initialize();
+    } catch (final IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  void initialize() throws IOException {
+    if (!Files.exists(configFile)) {
+      cluster = null;
+      return;
+    }
+    final byte[] bytes = Files.readAllBytes(configFile);
+    if (bytes.length > 0) {
+      cluster = Cluster.decode(bytes);
+    } else {
+      cluster = null;
+    }
   }
 
   @Override
@@ -23,6 +47,11 @@ public class FileBasedPersistedClusterState implements LocalPersistedClusterStat
   @Override
   public void setClusterState(final Cluster cluster) {
     this.cluster = cluster;
-    // Write to file
+    try {
+      Files.write(
+          configFile, cluster.encode(), StandardOpenOption.WRITE, StandardOpenOption.CREATE);
+    } catch (final IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

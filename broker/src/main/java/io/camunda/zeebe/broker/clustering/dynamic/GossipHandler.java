@@ -9,8 +9,11 @@ package io.camunda.zeebe.broker.clustering.dynamic;
 
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GossipHandler {
+  private static final Logger LOG = LoggerFactory.getLogger(GossipHandler.class);
   private final LocalPersistedClusterState currentClusterState;
 
   private final Consumer<Cluster> configGossiper;
@@ -31,10 +34,13 @@ public class GossipHandler {
       return;
     }
 
+    LOG.info("Current config {}", currentClusterState.getClusterState());
     final var nextConfig = merge(currentClusterState.getClusterState(), newCluster);
     currentClusterState.setClusterState(nextConfig);
+    LOG.info("Update to new config {}", nextConfig);
 
     if (nextConfig.changes().hasPending()) {
+      LOG.info("Applying config changes {}", nextConfig.changes());
       configChangeApplier.apply(nextConfig.changes(), this::update);
     }
   }
@@ -49,7 +55,6 @@ public class GossipHandler {
   }
 
   private Cluster merge(final Cluster ring, final Cluster newCluster) {
-    // TODO
     return ring.merge(newCluster);
   }
 

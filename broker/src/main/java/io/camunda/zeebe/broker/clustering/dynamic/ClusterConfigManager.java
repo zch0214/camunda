@@ -13,9 +13,13 @@ import io.camunda.zeebe.broker.system.configuration.ClusterCfg;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ClusterConfigManager implements ClusterMembershipEventListener {
   private static final long RETRY_DELAY = 5_000; // 5 seconds
+
+  private static final Logger LOG = LoggerFactory.getLogger(ClusterConfigManager.class);
   private final ScheduledExecutorService executorService;
   private final LocalPersistedClusterState persistedClusterState;
   private final SSOTClusterState ssotClusterState;
@@ -26,16 +30,19 @@ public class ClusterConfigManager implements ClusterMembershipEventListener {
   public ClusterConfigManager(
       final ScheduledExecutorService executorService,
       final ClusterCfg clusterCfg,
-      final SSOTClusterState ssotClusterState) {
+      final LocalPersistedClusterState persistedClusterState,
+      final SSOTClusterState ssotClusterState,
+      final GossipHandler gossipHandler) {
     this.executorService = executorService;
+    this.persistedClusterState = persistedClusterState;
     this.ssotClusterState = ssotClusterState;
-    persistedClusterState = new FileBasedPersistedClusterState();
+    this.gossipHandler = gossipHandler;
     executorService.execute(() -> initialize(clusterCfg));
-    gossipHandler = null;
   }
 
   private void initialize(final ClusterCfg clusterCfg) {
     if (persistedClusterState.getClusterState() == null) {
+      LOG.info("No local cluster stat found, asking the coordinator");
       ssotClusterState
           .getClusterState()
           .thenAccept(
@@ -45,6 +52,7 @@ public class ClusterConfigManager implements ClusterMembershipEventListener {
               })
           .exceptionally(
               error -> {
+                LOG.info("Failed to get cluster config from coordinator, retrying", error);
                 executorService.schedule(
                     () -> initialize(clusterCfg), RETRY_DELAY, TimeUnit.MILLISECONDS);
                 return null;
@@ -57,11 +65,18 @@ public class ClusterConfigManager implements ClusterMembershipEventListener {
 
   @Override
   public void event(final ClusterMembershipEvent event) {
-    // TODO, on metadata changed, read cluster config from the event, and update local if necessary
     executorService.execute(
         () -> {
-          final Cluster newCluster = null; // TODO: readFromEvent
+          final var encodedConfig = event.subject().properties().get("config");
+          if (encodedConfig == null) {
+            return;
+          }
+
+          final Cluster newCluster = Cluster.decode((byte[]) encodedConfig);
           if (!persistedClusterState.getClusterState().equals(newCluster)) {
+            LOG.info(
+                "Received different cluster config via gossip from member {}. Updating.",
+                event.subject().id().id());
             gossipHandler.onRingChanged(newCluster);
           }
         });

@@ -23,8 +23,12 @@ public record Cluster(long version, ClusterState clusterState, ClusterChangePlan
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
-  public byte[] encode() throws JsonProcessingException {
-    return objectMapper.writeValueAsBytes(this);
+  public byte[] encode(){
+    try {
+      return objectMapper.writeValueAsBytes(this);
+    } catch (final JsonProcessingException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   public Cluster merge(final Cluster newCluster) {
