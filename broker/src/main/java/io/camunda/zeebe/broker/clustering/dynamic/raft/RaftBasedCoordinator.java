@@ -19,8 +19,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 public class RaftBasedCoordinator implements ConfigCoordinator, RaftRoleChangeListener {
 
-  public static final String
-      SYSTEM_PARTITION_LEADER_PROPERTY_NAME = "systemPartitionLeader";
+  public static final String SYSTEM_PARTITION_LEADER_PROPERTY_NAME = "systemPartitionLeader";
   private final ScheduledExecutorService executorService;
   private final RaftPartition raftPartition;
   private final ClusterConfigStateMachine clusterConfigStateMachine;
@@ -118,11 +117,15 @@ public class RaftBasedCoordinator implements ConfigCoordinator, RaftRoleChangeLi
   }
 
   private void transitionToLeader() {
+    clusterConfigStateMachine.onCommit(
+        0); // should get the latest state before transitioning to leader, to ensure that queries
+    // returns the latest
     currentRole = Role.LEADER;
     membershipService
         .getLocalMember()
         .properties()
-        .setProperty(SYSTEM_PARTITION_LEADER_PROPERTY_NAME, membershipService.getLocalMember().id().id());
+        .setProperty(
+            SYSTEM_PARTITION_LEADER_PROPERTY_NAME, membershipService.getLocalMember().id().id());
   }
 
   public boolean isLeader() {

@@ -93,6 +93,10 @@ public final class RaftPartition implements Partition, HealthMonitorable {
     return CompletableFuture.completedFuture(this);
   }
 
+  public boolean isRunningOnThisBroker(final MemberId localMemberId) {
+    return partitionMetadata.members().contains(localMemberId);
+  }
+
   private void initServer(final PartitionManagementService managementService) {
     server = createServer(managementService);
 
