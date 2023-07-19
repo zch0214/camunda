@@ -7,7 +7,7 @@
  */
 package io.camunda.zeebe.broker.clustering.dynamic.raft;
 
-import static io.camunda.zeebe.broker.clustering.dynamic.claimant.GossipBasedCoordinator.CONFIG_QUERY;
+import static io.camunda.zeebe.broker.clustering.dynamic.gossip.GossipBasedCoordinator.CONFIG_QUERY;
 
 import io.atomix.cluster.ClusterMembershipService;
 import io.atomix.cluster.MemberId;

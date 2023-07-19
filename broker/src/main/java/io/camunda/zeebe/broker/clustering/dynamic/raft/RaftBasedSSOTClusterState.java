@@ -15,7 +15,7 @@ import io.atomix.cluster.MemberId;
 import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.camunda.zeebe.broker.clustering.dynamic.Cluster;
 import io.camunda.zeebe.broker.clustering.dynamic.SSOTClusterState;
-import io.camunda.zeebe.broker.clustering.dynamic.claimant.GossipBasedCoordinator;
+import io.camunda.zeebe.broker.clustering.dynamic.gossip.GossipBasedCoordinator;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
