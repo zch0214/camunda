@@ -40,6 +40,9 @@ public class RaftBasedSSOTClusterState implements SSOTClusterState, ClusterMembe
       return raftBasedCoordinator.get().getCluster();
     } else {
       final MemberId coordinatorId = getLeaderOfSystemPartition();
+      if (coordinatorId == null) {
+        return CompletableFuture.failedFuture(new RuntimeException("Leader not known"));
+      }
       return communicationService.send(
           GossipBasedCoordinator.CONFIG_QUERY,
           new byte[0],

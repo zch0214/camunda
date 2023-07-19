@@ -64,9 +64,10 @@ public class DynamicClusterAwareNodeWithRaft {
             raftPath,
             atomixCluster.getMembershipService(),
             atomixCluster.getCommunicationService());
-    final SSOTClusterState gossipSSOTClusterState =
+    final RaftBasedSSOTClusterState raftBasedSSOTClusterState =
         new RaftBasedSSOTClusterState(
             optionalRaftBasedCoordinator, atomixCluster.getCommunicationService());
+    atomixCluster.getMembershipService().addListener(raftBasedSSOTClusterState);
 
     final ConfigChangeApplier configChangeApplier = new ConfigChangeApplier(memberId);
     final GossipHandler gossipHandler =
@@ -77,7 +78,7 @@ public class DynamicClusterAwareNodeWithRaft {
             executorService,
             clusterCfg,
             localPersistedClusterState,
-            gossipSSOTClusterState,
+            raftBasedSSOTClusterState,
             gossipHandler,
             isCoordinator);
 
@@ -97,7 +98,9 @@ public class DynamicClusterAwareNodeWithRaft {
                   executorService,
                   partition,
                   new ClusterConfigStateMachine(executorService, partition),
-                  membershipService);
+                  membershipService,
+                  communicationService);
+          coordinator.start();
           return coordinator;
         });
   }

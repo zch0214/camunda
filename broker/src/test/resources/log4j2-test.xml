@@ -12,6 +12,7 @@
     <Logger name="io.camunda.zeebe" level="debug"/>
     <Logger name="io.camunda.zeebe.broker.jobstream" level="trace"/>
     <Logger name="io.atomix" level="warn"/>
+    <Logger name="io.atomix.raft" level="info"/>
 
 
     <Root level="info">

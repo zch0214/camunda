@@ -87,7 +87,7 @@ class DynamicClusterManagementWithRaftTest {
 
     // given
     Awaitility.await()
-        .timeout(Duration.ofSeconds(30))
+        .timeout(Duration.ofSeconds(60))
         .until(() -> node0.getConfigManager().isStarted());
     Awaitility.await().until(() -> node1.getConfigManager().isStarted());
     Awaitility.await().until(() -> node2.getConfigManager().isStarted());

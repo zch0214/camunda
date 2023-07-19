@@ -38,9 +38,8 @@ public class SystemPartitionFactory {
     final var partitionGroup = buildRaftPartitionGroup(rootPath, new NoopSnapshotFactory());
     final var partitionService =
         new DefaultPartitionService(membershipService, communicationService, partitionGroup);
-    partitionService.start().join();
-    partitionService.getPartitionGroup().getPartition(0);
-    final var raftPartition = (RaftPartition) partitionService.getPartitionGroup().getPartition(0);
+    partitionService.start();
+    final var raftPartition = (RaftPartition) partitionService.getPartitionGroup().getPartition(1);
     if (raftPartition.isRunningOnThisBroker(membershipService.getLocalMember().id())) {
       return Optional.of(raftPartition);
     } else {
