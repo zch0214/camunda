@@ -16,12 +16,14 @@ public class RaftBasedLocalPersistedClusterState implements LocalPersistedCluste
 
   private final FileBasedPersistedClusterState localPersistedState;
 
-  private final Optional<RaftBasedCoordinator> optionalCoordinator;
+  private Optional<RaftBasedCoordinator> optionalCoordinator;
 
   public RaftBasedLocalPersistedClusterState(
-      final FileBasedPersistedClusterState localPersistedState,
-      final Optional<RaftBasedCoordinator> optionalCoordinator) {
+      final FileBasedPersistedClusterState localPersistedState) {
     this.localPersistedState = localPersistedState;
+  }
+
+  public void setOptionalCoordinator(final Optional<RaftBasedCoordinator> optionalCoordinator) {
     this.optionalCoordinator = optionalCoordinator;
   }
 

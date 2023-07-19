@@ -30,6 +30,7 @@ public class GossipHandler {
   }
 
   public void onRingChanged(final Cluster newCluster) {
+    // TODO: run on executor
     if (isSameAsExistingCluster(newCluster)) {
       return;
     }

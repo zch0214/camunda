@@ -109,9 +109,6 @@ class DynamicClusterManagementWithRaftTest {
     Awaitility.await()
         .timeout(Duration.ofMinutes(1))
         .untilAsserted(
-            () ->
-                assertThat(
-                        node0.getCoordinator().get().getCluster().join().clusterState().members())
-                    .hasSize(4));
+            () -> assertThat(node0.getCluster().join().clusterState().members()).hasSize(4));
   }
 }

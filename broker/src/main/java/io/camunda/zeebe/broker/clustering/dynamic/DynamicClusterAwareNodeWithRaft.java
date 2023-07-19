@@ -15,11 +15,13 @@ import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.atomix.utils.concurrent.AtomixThreadFactory;
 import io.camunda.zeebe.broker.clustering.dynamic.raft.ClusterConfigStateMachine;
 import io.camunda.zeebe.broker.clustering.dynamic.raft.RaftBasedCoordinator;
+import io.camunda.zeebe.broker.clustering.dynamic.raft.RaftBasedLocalPersistedClusterState;
 import io.camunda.zeebe.broker.clustering.dynamic.raft.RaftBasedSSOTClusterState;
 import io.camunda.zeebe.broker.clustering.dynamic.raft.SystemPartitionFactory;
 import io.camunda.zeebe.broker.system.configuration.ClusterCfg;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import org.slf4j.Logger;
@@ -34,6 +36,7 @@ public class DynamicClusterAwareNodeWithRaft {
   private final ScheduledExecutorService executorService;
   private final ClusterConfigManager clusterConfigManager;
   private RaftBasedCoordinator coordinator;
+  private final RaftBasedSSOTClusterState raftBasedSSOTClusterState;
 
   public DynamicClusterAwareNodeWithRaft(
       final MemberId memberId,
@@ -56,23 +59,26 @@ public class DynamicClusterAwareNodeWithRaft {
     executorService = new ScheduledThreadPoolExecutor(1, threadFactory);
     executorService.execute(() -> MDC.put("actor-name", "member-" + memberId.id()));
 
-    final LocalPersistedClusterState localPersistedClusterState =
-        new FileBasedPersistedClusterState(configFile);
-
-    final var optionalRaftBasedCoordinator =
-        tryCreateSystemPartition(
-            raftPath,
-            atomixCluster.getMembershipService(),
-            atomixCluster.getCommunicationService());
-    final RaftBasedSSOTClusterState raftBasedSSOTClusterState =
-        new RaftBasedSSOTClusterState(
-            optionalRaftBasedCoordinator, atomixCluster.getCommunicationService());
-    atomixCluster.getMembershipService().addListener(raftBasedSSOTClusterState);
+    final RaftBasedLocalPersistedClusterState localPersistedClusterState =
+        new RaftBasedLocalPersistedClusterState(new FileBasedPersistedClusterState(configFile));
 
     final ConfigChangeApplier configChangeApplier = new ConfigChangeApplier(memberId);
     final GossipHandler gossipHandler =
         new GossipHandler(
             localPersistedClusterState, this::gossipConfigUpdate, configChangeApplier);
+
+    final var optionalRaftBasedCoordinator =
+        tryCreateSystemPartition(
+            raftPath,
+            atomixCluster.getMembershipService(),
+            atomixCluster.getCommunicationService(),
+            gossipHandler);
+    localPersistedClusterState.setOptionalCoordinator(optionalRaftBasedCoordinator);
+    raftBasedSSOTClusterState =
+        new RaftBasedSSOTClusterState(
+            optionalRaftBasedCoordinator, atomixCluster.getCommunicationService());
+    atomixCluster.getMembershipService().addListener(raftBasedSSOTClusterState);
+
     clusterConfigManager =
         new ClusterConfigManager(
             executorService,
@@ -88,7 +94,8 @@ public class DynamicClusterAwareNodeWithRaft {
   private Optional<RaftBasedCoordinator> tryCreateSystemPartition(
       final Path path,
       final ClusterMembershipService membershipService,
-      final ClusterCommunicationService communicationService) {
+      final ClusterCommunicationService communicationService,
+      final GossipHandler gossipHandler) {
     final var systemPartition =
         new SystemPartitionFactory().start(path, membershipService, communicationService);
     return systemPartition.map(
@@ -99,7 +106,8 @@ public class DynamicClusterAwareNodeWithRaft {
                   partition,
                   new ClusterConfigStateMachine(executorService, partition),
                   membershipService,
-                  communicationService);
+                  communicationService,
+                  gossipHandler);
           coordinator.start();
           return coordinator;
         });
@@ -119,5 +127,9 @@ public class DynamicClusterAwareNodeWithRaft {
         .getLocalMember()
         .properties()
         .setProperty("config", cluster.encode());
+  }
+
+  public CompletableFuture<Cluster> getCluster() {
+    return raftBasedSSOTClusterState.getClusterState();
   }
 }

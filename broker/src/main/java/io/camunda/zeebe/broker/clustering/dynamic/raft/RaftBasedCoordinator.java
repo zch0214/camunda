@@ -16,12 +16,15 @@ import io.atomix.raft.RaftRoleChangeListener;
 import io.atomix.raft.RaftServer.Role;
 import io.atomix.raft.partition.RaftPartition;
 import io.camunda.zeebe.broker.clustering.dynamic.Cluster;
+import io.camunda.zeebe.broker.clustering.dynamic.Cluster.ClusterChangeOperation;
+import io.camunda.zeebe.broker.clustering.dynamic.Cluster.ClusterChangeOperationEnum;
 import io.camunda.zeebe.broker.clustering.dynamic.Cluster.ClusterChangePlan;
 import io.camunda.zeebe.broker.clustering.dynamic.Cluster.ClusterState;
 import io.camunda.zeebe.broker.clustering.dynamic.Cluster.MemberState;
 import io.camunda.zeebe.broker.clustering.dynamic.Cluster.PartitionState;
 import io.camunda.zeebe.broker.clustering.dynamic.Cluster.State;
 import io.camunda.zeebe.broker.clustering.dynamic.ConfigCoordinator;
+import io.camunda.zeebe.broker.clustering.dynamic.GossipHandler;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -41,17 +44,21 @@ public class RaftBasedCoordinator implements ConfigCoordinator, RaftRoleChangeLi
   private Role currentRole;
   private final ClusterCommunicationService clusterCommunicationService;
 
+  private final GossipHandler gossipHandler;
+
   public RaftBasedCoordinator(
       final ScheduledExecutorService executorService,
       final RaftPartition raftPartition,
       final ClusterConfigStateMachine clusterConfigStateMachine,
       final ClusterMembershipService membershipService,
-      final ClusterCommunicationService clusterCommunicationService) {
+      final ClusterCommunicationService clusterCommunicationService,
+      final GossipHandler gossipHandler) {
     this.executorService = executorService;
     this.raftPartition = raftPartition;
     this.clusterConfigStateMachine = clusterConfigStateMachine;
     this.membershipService = membershipService;
     this.clusterCommunicationService = clusterCommunicationService;
+    this.gossipHandler = gossipHandler;
   }
 
   @Override
@@ -74,7 +81,17 @@ public class RaftBasedCoordinator implements ConfigCoordinator, RaftRoleChangeLi
           if (currentRole != Role.LEADER) {
             added.completeExceptionally(new IllegalStateException("Not leader"));
           } else {
-            // TODO
+            clusterConfigStateMachine
+                .update(cluster -> addMemberToCluster(cluster, memberId))
+                .whenComplete(
+                    (cluster, error) -> {
+                      if (error == null) {
+                        added.complete(null);
+                        gossipHandler.update(prev -> cluster);
+                      } else {
+                        added.completeExceptionally(error);
+                      }
+                    });
           }
         });
     return added;
@@ -89,6 +106,7 @@ public class RaftBasedCoordinator implements ConfigCoordinator, RaftRoleChangeLi
             added.completeExceptionally(new IllegalStateException("Not leader"));
           } else {
             // TODO
+
           }
         });
     return added;
@@ -121,6 +139,17 @@ public class RaftBasedCoordinator implements ConfigCoordinator, RaftRoleChangeLi
     return result;
   }
 
+  private Cluster addMemberToCluster(final Cluster cluster, final MemberId memberId) {
+    final ClusterChangeOperation operation =
+        new ClusterChangeOperation(memberId.id(), ClusterChangeOperationEnum.JOIN);
+    final long newVersion = cluster.version() + 1;
+    return new Cluster(
+        newVersion, // increment version
+        cluster.clusterState(), // no change to cluster config yet
+        new Cluster.ClusterChangePlan(
+            newVersion, List.of(operation))); // Change plan consists of just one change
+  }
+
   private byte[] encodeQueryResponse(final Cluster response) {
     return response.encodeAsBytes();
   }
@@ -142,14 +171,13 @@ public class RaftBasedCoordinator implements ConfigCoordinator, RaftRoleChangeLi
   }
 
   private void transitionToFollower() {
+    clusterConfigStateMachine.transitionToFollower();
     currentRole = Role.FOLLOWER;
     membershipService.getLocalMember().properties().remove(SYSTEM_PARTITION_LEADER_PROPERTY_NAME);
   }
 
   private void transitionToLeader() {
-    clusterConfigStateMachine.onCommit(
-        0); // should get the latest state before transitioning to leader, to ensure that queries
-    // returns the latest
+    clusterConfigStateMachine.transitionToLeader();
     currentRole = Role.LEADER;
     membershipService
         .getLocalMember()
@@ -169,6 +197,8 @@ public class RaftBasedCoordinator implements ConfigCoordinator, RaftRoleChangeLi
                 generateInitialConfig();
               } else if (error != null) {
                 executorService.schedule(this::initialize, 1, TimeUnit.SECONDS);
+              } else {
+                // update gossip state
               }
             });
   }
