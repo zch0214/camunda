@@ -50,7 +50,7 @@ public class DynamicClusterAwareNodeWithRaft {
 
     final var threadFactory =
         new ThreadFactoryBuilder()
-            .setNameFormat("node-%d")
+            .setNameFormat("thread-%d")
             .setThreadFactory(new AtomixThreadFactory())
             .setUncaughtExceptionHandler(
                 (t, e) -> LOG.error("Uncaught exception on " + t.getName(), e))

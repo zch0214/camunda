@@ -82,7 +82,7 @@ class DynamicClusterManagementTest {
   @Test
   void shouldRun() {
 
-    // given
+    // should start with initial configuration
     Awaitility.await()
         .timeout(Duration.ofSeconds(30))
         .until(() -> node0.getConfigManager().isStarted());
@@ -91,7 +91,7 @@ class DynamicClusterManagementTest {
     assertThat(node0.getCoordinator().get().getCluster().join().clusterState().members())
         .hasSize(3);
 
-    // when
+    // when node 3 is added
     final var node3 =
         new DynamicClusterAwareNode(
             MemberId.from("3"),
@@ -101,8 +101,9 @@ class DynamicClusterManagementTest {
     Awaitility.await()
         .timeout(Duration.ofSeconds(30))
         .until(() -> node3.getConfigManager().isStarted());
-
     node0.getCoordinator().get().addMember(MemberId.from("3"));
+
+    // should add node 3 to cluster configuration
     Awaitility.await()
         .timeout(Duration.ofMinutes(1))
         .untilAsserted(
