@@ -53,9 +53,9 @@ public class GossipHandler {
     }
   }
 
-  private Cluster merge(final Cluster ring, final Cluster newCluster) {
-    if (ring != null) {
-      return ring.merge(newCluster);
+  private Cluster merge(final Cluster currentCluster, final Cluster newCluster) {
+    if (currentCluster != null) {
+      return currentCluster.merge(newCluster);
     } else {
       return newCluster;
     }

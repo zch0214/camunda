@@ -59,16 +59,27 @@ public class ClusterConfigStateMachine implements RaftCommitListener, AppendList
     return result;
   }
 
-  public void setCluster(final Cluster cluster) {
+  public void setCluster(final Cluster newCluster) {
     executorService.execute(
         () -> {
           position++;
-          final var data = ByteBuffer.wrap(cluster.encodeAsBytes());
+          // merge to ensure concurrent changes between gossip and raft are merged correctly. Only
+          // required if we use a combination of gossip + raft. For a solution with only raft, all
+          // changes can only be executed by the raft leader.
+          final var data = ByteBuffer.wrap(merge(cluster, newCluster).encodeAsBytes());
           raftPartition
               .getServer()
               .getAppender()
               .ifPresent(appender -> appender.appendEntry(position, position, data, this));
         });
+  }
+
+  private Cluster merge(final Cluster currentCluster, final Cluster newCluster) {
+    if (currentCluster != null) {
+      return currentCluster.merge(newCluster);
+    } else {
+      return newCluster;
+    }
   }
 
   public void start() {

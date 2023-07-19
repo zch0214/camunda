@@ -200,4 +200,13 @@ public class RaftBasedCoordinator implements ConfigCoordinator, RaftRoleChangeLi
   public boolean isLeader() {
     return raftPartition.getServer().getAppender().isPresent();
   }
+
+  public void updateCluster(final Cluster cluster) {
+    executorService.execute(
+        () -> {
+          if (currentRole == Role.LEADER) {
+            clusterConfigStateMachine.setCluster(cluster);
+          }
+        });
+  }
 }

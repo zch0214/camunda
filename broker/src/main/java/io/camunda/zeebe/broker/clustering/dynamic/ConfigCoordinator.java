@@ -18,5 +18,9 @@ public interface ConfigCoordinator {
 
   CompletableFuture<Void> leaveMember();
 
+  /**
+   * Can be called during broker startup, for example by PartitionManagerStep to find the partition
+   * distribution. Startup should be blocked until cluster configuration is available.
+   */
   CompletableFuture<Cluster> getCluster();
 }
