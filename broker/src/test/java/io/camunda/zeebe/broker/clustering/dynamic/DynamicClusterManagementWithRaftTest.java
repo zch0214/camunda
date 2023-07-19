@@ -85,7 +85,7 @@ class DynamicClusterManagementWithRaftTest {
   @Test
   void shouldRun() {
 
-    // given
+    // should start with initial configuration
     Awaitility.await()
         .timeout(Duration.ofSeconds(60))
         .until(() -> node0.getConfigManager().isStarted());
@@ -94,7 +94,7 @@ class DynamicClusterManagementWithRaftTest {
     assertThat(node0.getCoordinator().get().getCluster().join().clusterState().members())
         .hasSize(3);
 
-    // when
+    // when new node is added
     final var node3 =
         new DynamicClusterAwareNode(
             MemberId.from("3"),
@@ -104,11 +104,30 @@ class DynamicClusterManagementWithRaftTest {
     Awaitility.await()
         .timeout(Duration.ofSeconds(30))
         .until(() -> node3.getConfigManager().isStarted());
-
     node0.getCoordinator().get().addMember(MemberId.from("3"));
+
+    // Should add new node to the configuration
     Awaitility.await()
         .timeout(Duration.ofMinutes(1))
         .untilAsserted(
             () -> assertThat(node0.getCluster().join().clusterState().members()).hasSize(4));
+
+    // when node 0 stops and restarts it should have the latest config
+    node0.stop();
+
+    // restart
+    node0 =
+        new DynamicClusterAwareNodeWithRaft(
+            MemberId.from("0"),
+            null,
+            tempDirectory.resolve("0/config"),
+            tempDirectory.resolve("0/system-raft/"),
+            createClusterNode(clusterNodes.get(0), clusterNodes));
+
+    Awaitility.await()
+        .timeout(Duration.ofMinutes(1))
+        .ignoreExceptions()
+        .untilAsserted(
+            () -> assertThat(node0.getLocalCluster().join().clusterState().members()).hasSize(4));
   }
 }

@@ -106,4 +106,18 @@ public class ClusterConfigManager implements ClusterMembershipEventListener {
   public boolean isStarted() {
     return started.isDone() && !started.isCompletedExceptionally();
   }
+
+  /**
+   * Can be called during broker startup, for example by PartitionManagerStep to find the partition
+   * distribution. Startup should be blocked until cluster configuration is available.
+   */
+  public CompletableFuture<Cluster> getCluster() {
+    final CompletableFuture<Cluster> result = new CompletableFuture<>();
+    executorService.execute(
+        () -> {
+          result.complete(persistedClusterState.getClusterState());
+        });
+
+    return result;
+  }
 }

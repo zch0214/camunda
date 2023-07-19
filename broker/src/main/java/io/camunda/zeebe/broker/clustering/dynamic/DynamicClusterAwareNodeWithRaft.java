@@ -132,4 +132,14 @@ public class DynamicClusterAwareNodeWithRaft {
   public CompletableFuture<Cluster> getCluster() {
     return raftBasedSSOTClusterState.getClusterState();
   }
+
+  public CompletableFuture<Cluster> getLocalCluster() {
+    return coordinator.getCluster();
+  }
+
+  public void stop() {
+    // TODO: properly close raft partition group
+    executorService.shutdown();
+    atomixCluster.stop().join();
+  }
 }
