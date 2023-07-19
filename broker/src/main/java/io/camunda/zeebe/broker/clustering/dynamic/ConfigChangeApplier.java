@@ -51,6 +51,9 @@ public class ConfigChangeApplier {
         clusterUpdater.accept(
             cluster -> updateConfigOnMemberLeft(cluster, localMemberId, nextChanges));
       }
+      default -> {
+        LOG.info("Unknown operation {}", nextStep.operation());
+      }
     }
   }
 

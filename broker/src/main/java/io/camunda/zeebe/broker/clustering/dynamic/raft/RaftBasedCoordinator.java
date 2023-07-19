@@ -107,6 +107,7 @@ public class RaftBasedCoordinator implements ConfigCoordinator, RaftRoleChangeLi
           switch (newRole) {
             case LEADER -> transitionToLeader();
             case FOLLOWER -> transitionToFollower();
+            default -> {}
           }
         });
   }

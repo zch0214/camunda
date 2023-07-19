@@ -21,11 +21,11 @@ import java.util.Map;
 
 public record Cluster(long version, ClusterState clusterState, ClusterChangePlan changes) {
 
-  private static final ObjectMapper objectMapper = new ObjectMapper();
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   public String encode() {
     try {
-      return objectMapper.writeValueAsString(this);
+      return OBJECT_MAPPER.writeValueAsString(this);
     } catch (final JsonProcessingException e) {
       throw new UncheckedIOException(e);
     }
@@ -33,7 +33,7 @@ public record Cluster(long version, ClusterState clusterState, ClusterChangePlan
 
   public byte[] encodeAsBytes() {
     try {
-      return objectMapper.writeValueAsBytes(this);
+      return OBJECT_MAPPER.writeValueAsBytes(this);
     } catch (final JsonProcessingException e) {
       throw new UncheckedIOException(e);
     }
@@ -48,7 +48,7 @@ public record Cluster(long version, ClusterState clusterState, ClusterChangePlan
 
   public static Cluster decode(final String encodedString) {
     try {
-      return objectMapper.readValue(encodedString, Cluster.class);
+      return OBJECT_MAPPER.readValue(encodedString, Cluster.class);
     } catch (final IOException e) {
       throw new UncheckedIOException(e);
     }
@@ -56,7 +56,7 @@ public record Cluster(long version, ClusterState clusterState, ClusterChangePlan
 
   public static Cluster decode(final byte[] encodedBytes) {
     try {
-      return objectMapper.readValue(encodedBytes, Cluster.class);
+      return OBJECT_MAPPER.readValue(encodedBytes, Cluster.class);
     } catch (final IOException e) {
       throw new UncheckedIOException(e);
     }
