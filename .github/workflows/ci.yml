@@ -26,7 +26,7 @@ jobs:
   integration-tests:
     name: "[IT] ${{ matrix.name }}"
     timeout-minutes: 20
-    runs-on: [ self-hosted, linux, amd64, "16" ]
+    runs-on: aws-core-32-default
     strategy:
       fail-fast: false
       matrix:
@@ -114,7 +114,7 @@ jobs:
           name: "[IT] ${{ matrix.name }}"
   unit-tests:
     name: Unit tests
-    runs-on: [ self-hosted, linux, amd64, "16" ]
+    runs-on: aws-core-32-default
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
@@ -166,9 +166,9 @@ jobs:
           - os: windows
             runner: windows-latest
           - os: linux
-            runner: [ self-hosted, linux, amd64 ]
+            runner: aws-core-4-default
           - os: linux
-            runner: "aws-arm-core-4-default"
+            runner: aws-arm-core-4-default
             arch: arm64
     steps:
       - uses: actions/checkout@v3
@@ -210,7 +210,7 @@ jobs:
           name: "[Smoke] ${{ matrix.os }} with ${{ matrix.arch }}"
   property-tests:
     name: Property Tests
-    runs-on: [ self-hosted, linux, amd64, "16" ]
+    runs-on: aws-core-16-default
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
@@ -245,7 +245,7 @@ jobs:
           name: Property Tests
   performance-tests:
     name: Performance Tests
-    runs-on: [ self-hosted, linux, amd64, "16" ]
+    runs-on: aws-core-16-default
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
@@ -300,7 +300,7 @@ jobs:
         run: go test -mod=vendor -v ./...
   codeql:
     name: CodeQL
-    runs-on: [ self-hosted, linux, amd64, "16" ]
+    runs-on: aws-core-32-default
     permissions:
       security-events: write
     steps:
@@ -382,7 +382,7 @@ jobs:
           base-ref:  origin/${{ env.GO_CLIENT_BASE_REF }}
   java-checks:
     name: Java checks
-    runs-on: ubuntu-latest
+    runs-on: aws-core-16-default
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/setup-zeebe
