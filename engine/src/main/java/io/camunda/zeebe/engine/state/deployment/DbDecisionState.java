@@ -7,6 +7,8 @@
  */
 package io.camunda.zeebe.engine.state.deployment;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import io.camunda.zeebe.db.ColumnFamily;
 import io.camunda.zeebe.db.TransactionContext;
 import io.camunda.zeebe.db.ZeebeDb;
@@ -30,6 +32,7 @@ import org.agrona.DirectBuffer;
 
 public final class DbDecisionState implements MutableDecisionState {
 
+  private static final int CACHE_SIZE = 10_000;
   private final DbLong dbDecisionKey;
   private final DbForeignKey<DbLong> fkDecision;
   private final PersistedDecision dbPersistedDecision;
@@ -60,6 +63,14 @@ public final class DbDecisionState implements MutableDecisionState {
   private final DbCompositeKey<DbString, DbInt> decisionRequirementsIdAndVersion;
   private final ColumnFamily<DbCompositeKey<DbString, DbInt>, DbForeignKey<DbLong>>
       decisionRequirementsKeyByIdAndVersion;
+
+  private final LoadingCache<DirectBuffer, DbForeignKey<DbLong>>
+      latestDecisionKeysByDecisionIdCache;
+  private final LoadingCache<Long, PersistedDecision> decisionsByKeyCache;
+  private final LoadingCache<DirectBuffer, DbForeignKey<DbLong>>
+      latestDecisionRequirementsKeysByIdCache;
+  private final LoadingCache<Long, PersistedDecisionRequirements> decisionRequirementsByKeyCache;
+  private final LoadingCache<Long, List<PersistedDecision>> decisionsByDecisionRequirementsKey;
 
   public DbDecisionState(
       final ZeebeDb<ZbColumnFamilies> zeebeDb, final TransactionContext transactionContext) {
@@ -125,28 +136,75 @@ public final class DbDecisionState implements MutableDecisionState {
             transactionContext,
             decisionRequirementsIdAndVersion,
             fkDecisionRequirements);
+
+    latestDecisionKeysByDecisionIdCache =
+        Caffeine.newBuilder()
+            .maximumSize(CACHE_SIZE)
+            .build(
+                decisionId -> {
+                  dbDecisionRequirementsId.wrapBuffer(decisionId);
+                  return latestDecisionKeysByDecisionId.get(dbDecisionRequirementsId);
+                });
+
+    decisionsByKeyCache =
+        Caffeine.newBuilder()
+            .maximumSize(CACHE_SIZE)
+            .build(
+                decisionKey -> {
+                  dbDecisionKey.wrapLong(decisionKey);
+                  return decisionsByKey.get(dbDecisionKey).copy();
+                });
+
+    latestDecisionRequirementsKeysByIdCache =
+        Caffeine.newBuilder()
+            .maximumSize(CACHE_SIZE)
+            .build(
+                decisionId -> {
+                  dbDecisionId.wrapBuffer(decisionId);
+                  return latestDecisionRequirementsKeysById.get(dbDecisionId);
+                });
+
+    decisionRequirementsByKeyCache =
+        Caffeine.newBuilder()
+            .maximumSize(CACHE_SIZE)
+            .build(
+                decisionKey -> {
+                  dbDecisionKey.wrapLong(decisionKey);
+                  return decisionRequirementsByKey.get(dbDecisionKey);
+                });
+
+    decisionsByDecisionRequirementsKey =
+        Caffeine.newBuilder()
+            .maximumSize(CACHE_SIZE)
+            .build(
+                decisionRequirementsKey -> {
+                  final List<PersistedDecision> decisions = new ArrayList<>();
+                  dbDecisionRequirementsKey.wrapLong(decisionRequirementsKey);
+                  decisionKeyByDecisionRequirementsKey.whileEqualPrefix(
+                      dbDecisionRequirementsKey,
+                      ((key, nil) -> {
+                        final var decisionKey = key.second();
+                        findDecisionByKey(decisionKey.inner().getValue()).ifPresent(decisions::add);
+                      }));
+                  return decisions;
+                });
   }
 
   @Override
   public Optional<PersistedDecision> findLatestDecisionById(final DirectBuffer decisionId) {
-    dbDecisionId.wrapBuffer(decisionId);
-
-    return Optional.ofNullable(latestDecisionKeysByDecisionId.get(dbDecisionId))
+    return Optional.ofNullable(latestDecisionKeysByDecisionIdCache.get(decisionId))
         .flatMap(decisionKey -> findDecisionByKey(decisionKey.inner().getValue()));
   }
 
   @Override
   public Optional<PersistedDecision> findDecisionByKey(final long decisionKey) {
-    dbDecisionKey.wrapLong(decisionKey);
-    return Optional.ofNullable(decisionsByKey.get(dbDecisionKey)).map(PersistedDecision::copy);
+    return Optional.ofNullable(decisionsByKeyCache.get(decisionKey));
   }
 
   @Override
   public Optional<PersistedDecisionRequirements> findLatestDecisionRequirementsById(
       final DirectBuffer decisionRequirementsId) {
-    dbDecisionRequirementsId.wrapBuffer(decisionRequirementsId);
-
-    return Optional.ofNullable(latestDecisionRequirementsKeysById.get(dbDecisionRequirementsId))
+    return Optional.ofNullable(latestDecisionRequirementsKeysByIdCache.get(decisionRequirementsId))
         .map((requirementsKey) -> requirementsKey.inner().getValue())
         .flatMap(this::findDecisionRequirementsByKey);
   }
@@ -154,26 +212,14 @@ public final class DbDecisionState implements MutableDecisionState {
   @Override
   public Optional<PersistedDecisionRequirements> findDecisionRequirementsByKey(
       final long decisionRequirementsKey) {
-    dbDecisionRequirementsKey.wrapLong(decisionRequirementsKey);
-
-    return Optional.ofNullable(decisionRequirementsByKey.get(dbDecisionRequirementsKey))
+    return Optional.ofNullable(decisionRequirementsByKeyCache.get(decisionRequirementsKey))
         .map(PersistedDecisionRequirements::copy);
   }
 
   @Override
   public List<PersistedDecision> findDecisionsByDecisionRequirementsKey(
       final long decisionRequirementsKey) {
-    final List<PersistedDecision> decisions = new ArrayList<>();
-
-    dbDecisionRequirementsKey.wrapLong(decisionRequirementsKey);
-    decisionKeyByDecisionRequirementsKey.whileEqualPrefix(
-        dbDecisionRequirementsKey,
-        ((key, nil) -> {
-          final var decisionKey = key.second();
-          findDecisionByKey(decisionKey.inner().getValue()).ifPresent(decisions::add);
-        }));
-
-    return decisions;
+    return decisionsByDecisionRequirementsKey.get(decisionRequirementsKey);
   }
 
   /**
