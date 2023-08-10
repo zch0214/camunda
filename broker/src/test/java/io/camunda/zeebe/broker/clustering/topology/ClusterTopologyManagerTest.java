@@ -19,10 +19,13 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class ClusterTopologyManagerTest {
+  private final ControllableGossipHandler gossipHandler = new ControllableGossipHandler();
 
   @Test
   void shouldInitializeClusterTopologyFromBrokerCfg(@TempDir final Path topologyFile) {
@@ -30,7 +33,8 @@ final class ClusterTopologyManagerTest {
     final ClusterTopologyManager clusterTopologyManager =
         new ClusterTopologyManager(
             new TestConcurrencyControl(),
-            new PersistedClusterTopology(topologyFile.resolve("topology.temp")));
+            new PersistedClusterTopology(topologyFile.resolve("topology.temp")),
+            gossipHandler);
     final BrokerCfg brokerCfg = new BrokerCfg();
     brokerCfg.getCluster().setClusterSize(3);
     brokerCfg.getCluster().setPartitionsCount(3);
@@ -48,6 +52,27 @@ final class ClusterTopologyManagerTest {
   }
 
   @Test
+  void shouldGossipInitialConfiguration(@TempDir final Path topologyFile) {
+    // given
+    final ClusterTopologyManager clusterTopologyManager =
+        new ClusterTopologyManager(
+            new TestConcurrencyControl(),
+            new PersistedClusterTopology(topologyFile.resolve("topology.temp")),
+            gossipHandler);
+    final BrokerCfg brokerCfg = new BrokerCfg();
+
+    // when
+    clusterTopologyManager.start(brokerCfg).join();
+
+    // then
+    Awaitility.await().until(() -> gossipHandler.topologyToGossip != null);
+
+    final ClusterTopology gossippedTopology = gossipHandler.topologyToGossip;
+    final ClusterTopology actualTopology = clusterTopologyManager.getClusterTopology().join();
+    assertThat(gossippedTopology).isEqualTo(actualTopology);
+  }
+
+  @Test
   void shouldInitializeClusterTopologyFromFile(@TempDir final Path topologyFile)
       throws IOException {
     // given
@@ -60,7 +85,9 @@ final class ClusterTopologyManagerTest {
     Files.write(existingTopologyFile, existingTopology.encode());
     final ClusterTopologyManager clusterTopologyManager =
         new ClusterTopologyManager(
-            new TestConcurrencyControl(), new PersistedClusterTopology(existingTopologyFile));
+            new TestConcurrencyControl(),
+            new PersistedClusterTopology(existingTopologyFile),
+            gossipHandler);
 
     // when
     clusterTopologyManager.start(new BrokerCfg()).join();
@@ -79,12 +106,56 @@ final class ClusterTopologyManagerTest {
     Files.write(existingTopologyFile, new byte[10]); // write random string
     final ClusterTopologyManager clusterTopologyManager =
         new ClusterTopologyManager(
-            new TestConcurrencyControl(), new PersistedClusterTopology(existingTopologyFile));
+            new TestConcurrencyControl(),
+            new PersistedClusterTopology(existingTopologyFile),
+            gossipHandler);
 
     // when - then
     assertThat(clusterTopologyManager.start(new BrokerCfg()))
         .failsWithin(Duration.ofMillis(100))
         .withThrowableThat()
         .withCauseInstanceOf(JsonParseException.class);
+  }
+
+  @Test
+  void shouldUpdateLocalTopologyOnGossipEvent(@TempDir final Path topologyFile) {
+    // given
+    final ClusterTopologyManager clusterTopologyManager =
+        new ClusterTopologyManager(
+            new TestConcurrencyControl(),
+            new PersistedClusterTopology(topologyFile.resolve("topology.temp")),
+            gossipHandler);
+    final BrokerCfg brokerCfg = new BrokerCfg();
+    clusterTopologyManager.start(brokerCfg).join();
+
+    // when
+    final ClusterTopology topologyFromOtherMember =
+        ClusterTopology.init()
+            .addMember(MemberId.from("1"), MemberState.initializeAsActive(Map.of()));
+    gossipHandler.pushClusterTopology(topologyFromOtherMember);
+
+    // then
+    final ClusterTopology clusterTopology = clusterTopologyManager.getClusterTopology().join();
+    ClusterTopologyAssert.assertThatClusterTopology(clusterTopology).hasOnlyMembers(Set.of(0, 1));
+  }
+
+  private static class ControllableGossipHandler implements ClusterTopologyGossipHandler {
+
+    ClusterTopology topologyToGossip;
+    private Consumer<ClusterTopology> clusterTopologyConsumer;
+
+    @Override
+    public void gossip(final ClusterTopology clusterTopology) {
+      topologyToGossip = clusterTopology;
+    }
+
+    @Override
+    public void registerListener(final Consumer<ClusterTopology> clusterTopologyConsumer) {
+      this.clusterTopologyConsumer = clusterTopologyConsumer;
+    }
+
+    void pushClusterTopology(final ClusterTopology topologyFromOtherMember) {
+      clusterTopologyConsumer.accept(topologyFromOtherMember);
+    }
   }
 }
