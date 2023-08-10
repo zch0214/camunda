@@ -25,11 +25,15 @@ final class ClusterTopologyManager {
 
   private final ConcurrencyControl executor;
   private final PersistedClusterTopology persistedClusterTopology;
+  private final ClusterTopologyGossipHandler gossipHandler;
 
   ClusterTopologyManager(
-      final ConcurrencyControl executor, final PersistedClusterTopology persistedClusterTopology) {
+      final ConcurrencyControl executor,
+      final PersistedClusterTopology persistedClusterTopology,
+      final ClusterTopologyGossipHandler gossipHandler) {
     this.executor = executor;
     this.persistedClusterTopology = persistedClusterTopology;
+    this.gossipHandler = gossipHandler;
   }
 
   ActorFuture<ClusterTopology> getClusterTopology() {
@@ -42,6 +46,10 @@ final class ClusterTopologyManager {
     executor.run(
         () -> {
           try {
+            gossipHandler.registerListener(
+                otherTopology ->
+                    executor.run(() -> handleClusterTopologyFromAnotherMember(otherTopology)));
+
             initialize(brokerCfg);
             startFuture.complete(null);
           } catch (final Exception e) {
@@ -51,6 +59,29 @@ final class ClusterTopologyManager {
         });
 
     return startFuture;
+  }
+
+  private void handleClusterTopologyFromAnotherMember(final ClusterTopology otherClusterTopology) {
+    final var currentTopology = persistedClusterTopology.getTopology();
+    if (otherClusterTopology.equals(currentTopology)) {
+      return;
+    }
+
+    final var newTopology = otherClusterTopology.merge(currentTopology);
+    if (newTopology.equals(currentTopology)) {
+      return;
+    }
+
+    try {
+      updateLocalTopology(newTopology);
+    } catch (final IOException e) {
+      LOG.warn(
+          "Expected to merge received {} with local topology {}, but failed to update local topology to {}. ",
+          otherClusterTopology,
+          currentTopology,
+          newTopology,
+          e);
+    }
   }
 
   private void initialize(final BrokerCfg brokerCfg) throws IOException {
@@ -99,5 +130,6 @@ final class ClusterTopologyManager {
 
   private void updateLocalTopology(final ClusterTopology topology) throws IOException {
     persistedClusterTopology.update(topology);
+    gossipHandler.gossip(topology);
   }
 }

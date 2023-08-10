@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.broker.clustering.topology;
 
+import io.atomix.cluster.ClusterMembershipService;
 import io.camunda.zeebe.broker.system.configuration.BrokerCfg;
 import io.camunda.zeebe.scheduler.Actor;
 import io.camunda.zeebe.scheduler.ActorSchedulingService;
@@ -15,12 +16,15 @@ import io.camunda.zeebe.scheduler.future.CompletableActorFuture;
 import java.nio.file.Path;
 
 public final class ClusterTopologyManagerService extends Actor {
-
   private final ClusterTopologyManager clusterTopologyManager;
 
-  public ClusterTopologyManagerService(final Path topologyFile) {
+  public ClusterTopologyManagerService(
+      final Path topologyFile, final ClusterMembershipService membershipService) {
     clusterTopologyManager =
-        new ClusterTopologyManager(this, new PersistedClusterTopology(topologyFile));
+        new ClusterTopologyManager(
+            this,
+            new PersistedClusterTopology(topologyFile),
+            new ClusterTopologyGossipHandlerImpl(membershipService));
   }
 
   /**

@@ -45,6 +45,15 @@ public record ClusterTopology(
     return new ObjectMapper().writeValueAsBytes(this);
   }
 
+  String encodeAsString() throws JsonProcessingException {
+    return new ObjectMapper().writeValueAsString(this);
+  }
+
+  static ClusterTopology decodeFromString(final String serializedTopology)
+      throws JsonProcessingException {
+    return new ObjectMapper().readValue(serializedTopology, ClusterTopology.class);
+  }
+
   ClusterTopology addMember(final MemberId memberId, final MemberState state) {
     if (members.containsKey(memberId)) {
       throw new IllegalStateException(
