@@ -266,16 +266,16 @@ class TransactionalColumnFamily<
       return;
     }
     for (final var key : keys) {
-      if (key instanceof ContainsForeignKeys containsForeignKey) {
+      if (key instanceof final ContainsForeignKeys containsForeignKey) {
         foreignKeyChecker.assertExists(transaction, containsForeignKey);
       }
     }
   }
 
   private void assertKeyDoesNotExist(final ZeebeTransaction transaction) throws Exception {
-    if (!consistencyChecksSettings.enablePreconditions()) {
-      return;
-    }
+//    if (!consistencyChecksSettings.enablePreconditions()) {
+//      return;
+//    }
     final var value =
         transaction.get(
             transactionDb.getDefaultNativeHandle(),

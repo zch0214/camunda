@@ -11,17 +11,21 @@ import io.camunda.zeebe.engine.processing.EngineProcessors;
 import io.camunda.zeebe.engine.processing.message.command.SubscriptionCommandSender;
 import io.camunda.zeebe.engine.processing.streamprocessor.JobStreamer;
 import io.camunda.zeebe.engine.state.DefaultZeebeDbFactory;
+import io.camunda.zeebe.engine.state.mutable.MutableProcessingState;
 import io.camunda.zeebe.engine.util.ProcessingExporterTransistor;
 import io.camunda.zeebe.engine.util.StreamProcessingComposite;
 import io.camunda.zeebe.engine.util.TestInterPartitionCommandSender;
 import io.camunda.zeebe.engine.util.TestStreams;
 import io.camunda.zeebe.engine.util.client.DeploymentClient;
 import io.camunda.zeebe.engine.util.client.ProcessInstanceClient;
+import io.camunda.zeebe.engine.util.client.PublishMessageClient;
 import io.camunda.zeebe.scheduler.ActorScheduler;
+import io.camunda.zeebe.scheduler.clock.DefaultActorClock;
 import io.camunda.zeebe.stream.impl.StreamProcessorMode;
 import io.camunda.zeebe.test.util.AutoCloseableRule;
 import io.camunda.zeebe.test.util.record.RecordingExporter;
 import io.camunda.zeebe.util.FeatureFlags;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Optional;
 import org.junit.rules.TemporaryFolder;
@@ -94,13 +98,43 @@ public final class TestEngine {
     return new ProcessInstanceClient(streamProcessingComposite);
   }
 
+  public PublishMessageClient createMessageClient() {
+    return new PublishMessageClient(streamProcessingComposite, partitionCount);
+  }
+
+  public static TestEngine createSinglePartitionEngine() throws IOException {
+    return createSinglePartitionEngine(defaultTestContext());
+  }
+
   public static TestEngine createSinglePartitionEngine(final TestContext testContext) {
     return new TestEngine(1, 1, testContext);
+  }
+
+  public static TestContext defaultTestContext() throws IOException {
+    final var autoCloseableRule = new AutoCloseableRule();
+    final var temporaryFolder = new TemporaryFolder();
+    temporaryFolder.create();
+
+    // scheduler
+    final var builder =
+        ActorScheduler.newActorScheduler()
+            .setCpuBoundActorThreadCount(1)
+            .setIoBoundActorThreadCount(1)
+            .setActorClock(new DefaultActorClock());
+
+    final var actorScheduler = builder.build();
+    autoCloseableRule.manage(actorScheduler);
+    actorScheduler.start();
+    return new TestContext(actorScheduler, temporaryFolder, autoCloseableRule);
   }
 
   public void reset() {
     RecordingExporter.reset();
     testStreams.resetLog();
+  }
+
+  public MutableProcessingState getProcessingState() {
+    return streamProcessingComposite.getProcessingState();
   }
 
   /**

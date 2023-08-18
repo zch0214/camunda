@@ -52,8 +52,8 @@ public final class PublishMessageClient {
       SUCCESSFUL_EXPECTATION_SUPPLIER;
   private int partitionId = DEFAULT_VALUE;
 
-  public PublishMessageClient(final CommandWriter environmentRule, final int partitionCount) {
-    writer = environmentRule;
+  public PublishMessageClient(final CommandWriter commandWriter, final int partitionCount) {
+    writer = commandWriter;
     this.partitionCount = partitionCount;
 
     messageRecord = new MessageRecord();
@@ -120,6 +120,11 @@ public final class PublishMessageClient {
         writer.writeCommandOnPartition(partitionId, MessageIntent.PUBLISH, messageRecord);
 
     return expectation.apply(new Message(partitionId, messageRecord.getCorrelationKey(), position));
+  }
+
+  public PublishMessageClient expectNothing() {
+    expectation = (message) -> null;
+    return this;
   }
 
   private class Message {

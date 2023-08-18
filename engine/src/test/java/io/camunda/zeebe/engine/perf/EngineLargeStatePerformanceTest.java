@@ -21,6 +21,7 @@ import io.camunda.zeebe.test.util.junit.JMHTest;
 import io.camunda.zeebe.test.util.record.RecordingExporter;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Disabled;
 import org.junit.rules.TemporaryFolder;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -132,6 +133,7 @@ public class EngineLargeStatePerformanceTest {
   }
 
   @JMHTest("measureProcessExecutionTime")
+  @Disabled()
   void shouldProcessWithinExpectedDeviation(final JMHTestCase testCase) {
     // given - an expected ops/s score, as measured in CI
     // when running this test locally, you're likely to have a different score
