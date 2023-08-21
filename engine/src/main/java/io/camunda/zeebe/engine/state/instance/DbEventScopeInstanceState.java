@@ -15,6 +15,7 @@ import io.camunda.zeebe.db.impl.DbLong;
 import io.camunda.zeebe.engine.state.mutable.MutableEventScopeInstanceState;
 import io.camunda.zeebe.protocol.ZbColumnFamilies;
 import java.util.Collection;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import org.agrona.DirectBuffer;
 
@@ -159,6 +160,33 @@ public final class DbEventScopeInstanceState implements MutableEventScopeInstanc
         });
 
     return next[0];
+  }
+
+  @Override
+  public EventTrigger getEventTriggerForProcessInstance(
+      final long eventScopeKey, final long processInstanceKey) {
+    final AtomicReference<EventTrigger> next = new AtomicReference<>(null);
+    final AtomicReference<EventTrigger> alternative = new AtomicReference<>(null);
+    eventTriggerScopeKey.wrapLong(eventScopeKey);
+    eventTriggerColumnFamily.whileEqualPrefix(
+        eventTriggerScopeKey,
+        (key, value) -> {
+          if (value.getProcessInstanceKey() == -1) {
+            // backward compatibility: old event triggers did not have a process instance key
+            // however, we favor the event trigger with a process instance key, so we continue
+            alternative.compareAndSet(null, new EventTrigger(value));
+            return true;
+          }
+          if (value.getProcessInstanceKey() != processInstanceKey) {
+            // not a match, continue
+            return true;
+          }
+          // found a matching event trigger
+          next.set(new EventTrigger(value));
+          return false;
+        });
+
+    return next.get() != null ? next.get() : alternative.get();
   }
 
   @Override

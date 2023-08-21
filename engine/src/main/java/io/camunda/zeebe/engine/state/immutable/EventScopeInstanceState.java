@@ -30,6 +30,8 @@ public interface EventScopeInstanceState {
    */
   EventTrigger peekEventTrigger(long eventScopeKey);
 
+  EventTrigger getEventTriggerForProcessInstance(long eventScopeKey, long eventKey);
+
   /**
    * Checks if the event scope can be triggered for the given event.
    *

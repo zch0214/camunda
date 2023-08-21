@@ -110,10 +110,29 @@ public final class BpmnEventSubscriptionBehavior {
     return Optional.ofNullable(eventTrigger);
   }
 
+  public Optional<EventTrigger> getEventTriggerForProcessInstance(
+      final long processDefinitionKey, final long processInstanceKey) {
+    final EventTrigger eventTrigger =
+        eventScopeInstanceState.getEventTriggerForProcessInstance(
+            processDefinitionKey, processInstanceKey);
+    return Optional.ofNullable(eventTrigger);
+  }
+
   public void activateTriggeredStartEvent(
       final BpmnElementContext context, final EventTrigger eventTrigger) {
 
-    activateTriggeredEvent(
-        context.getProcessDefinitionKey(), context.getProcessInstanceKey(), eventTrigger, context);
+    final var triggeredEvent =
+        processState.getFlowElement(
+            context.getProcessDefinitionKey(),
+            eventTrigger.getElementId(),
+            ExecutableFlowElement.class);
+
+    eventTriggerBehavior.activateTriggeredEvent(
+        eventTrigger.getEventKey(),
+        triggeredEvent,
+        context.getProcessDefinitionKey(),
+        context.getProcessInstanceKey(),
+        context.getRecordValue(),
+        eventTrigger.getVariables());
   }
 }

@@ -216,12 +216,17 @@ public class EventTriggerBehavior {
       return;
     }
 
-    processEventTriggered(
-        processEventKey,
-        elementRecord.getProcessDefinitionKey(),
-        elementRecord.getProcessInstanceKey(),
-        eventScopeKey,
-        triggeredEvent.getId());
+    final long processDefinitionKey = elementRecord.getProcessDefinitionKey();
+    final long processInstanceKey = elementRecord.getProcessInstanceKey();
+    final DirectBuffer catchEventId = triggeredEvent.getId();
+    processEventRecord.reset();
+    processEventRecord
+        .setScopeKey(eventScopeKey)
+        .setTargetElementIdBuffer(catchEventId)
+        .setProcessDefinitionKey(processDefinitionKey)
+        .setProcessInstanceKey(processInstanceKey);
+    stateWriter.appendFollowUpEvent(
+        processEventKey, ProcessEventIntent.TRIGGERED, processEventRecord);
 
     eventRecord
         .setBpmnElementType(triggeredEvent.getElementType())

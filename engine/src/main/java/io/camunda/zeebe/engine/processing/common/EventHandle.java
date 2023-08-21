@@ -192,11 +192,29 @@ public final class EventHandle {
         MessageStartEventSubscriptionIntent.CORRELATED,
         startEventSubscriptionRecord);
 
-    activateProcessInstanceForStartEvent(
-        subscription.getProcessDefinitionKey(),
+    final long processDefinitionKey = subscription.getProcessDefinitionKey();
+    final DirectBuffer targetElementId = startEventSubscriptionRecord.getStartEventIdBuffer();
+
+    /* The eventScope for the start event is the process definition key */
+    eventTriggerBehavior.triggeringProcessEvent(
+        processDefinitionKey,
         newProcessInstanceKey,
-        startEventSubscriptionRecord.getStartEventIdBuffer(),
+        processDefinitionKey,
+        targetElementId,
         message.getVariablesBuffer());
+
+    final var process = processState.getProcessByKey(processDefinitionKey);
+
+    recordForPICreation
+        .setBpmnProcessId(process.getBpmnProcessId())
+        .setProcessDefinitionKey(process.getKey())
+        .setVersion(process.getVersion())
+        .setProcessInstanceKey(newProcessInstanceKey)
+        .setElementId(process.getProcess().getId())
+        .setBpmnElementType(process.getProcess().getElementType());
+
+    commandWriter.appendFollowUpCommand(
+        newProcessInstanceKey, ProcessInstanceIntent.ACTIVATE_ELEMENT, recordForPICreation);
   }
 
   public void activateProcessInstanceForStartEvent(

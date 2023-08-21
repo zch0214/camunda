@@ -94,15 +94,22 @@ public final class ProcessProcessor
 
   private void activateStartEvent(
       final ExecutableFlowElementContainer element, final BpmnElementContext activated) {
+
+    /* Better logic would be:
+     * Find the event trigger, it should always exist and be unique*/
+
     if (element.hasMessageStartEvent()
         || element.hasTimerStartEvent()
         || element.hasSignalStartEvent()) {
       eventSubscriptionBehavior
-          .getEventTriggerForProcessDefinition(activated.getProcessDefinitionKey())
-          .filter(
-              eventTrigger ->
-                  eventTrigger.getProcessInstanceKey() == activated.getProcessInstanceKey()
-                      || eventTrigger.getProcessInstanceKey() == -1L)
+          //          .getEventTriggerForProcessDefinition(activated.getProcessDefinitionKey())
+          //          .filter(
+          //              eventTrigger ->
+          //                  eventTrigger.getProcessInstanceKey() ==
+          // activated.getProcessInstanceKey()
+          //                      || eventTrigger.getProcessInstanceKey() == -1L)
+          .getEventTriggerForProcessInstance(
+              activated.getProcessDefinitionKey(), activated.getProcessInstanceKey())
           .ifPresentOrElse(
               eventTrigger ->
                   eventSubscriptionBehavior.activateTriggeredStartEvent(activated, eventTrigger),

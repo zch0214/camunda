@@ -8,55 +8,58 @@
 package io.camunda.zeebe.engine.processing.processors;
 
 import io.camunda.zeebe.engine.perf.TestEngine;
-import io.camunda.zeebe.engine.state.mutable.MutableProcessingState;
 import io.camunda.zeebe.model.bpmn.Bpmn;
 import io.camunda.zeebe.protocol.impl.encoding.MsgPackConverter;
-import io.camunda.zeebe.protocol.record.Record;
-import io.camunda.zeebe.protocol.record.intent.JobIntent;
-import io.camunda.zeebe.protocol.record.value.DeploymentRecordValue;
+import io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent;
+import io.camunda.zeebe.protocol.record.value.BpmnElementType;
 import io.camunda.zeebe.test.util.record.RecordingExporter;
 import io.camunda.zeebe.util.buffer.BufferUtil;
 import java.io.IOException;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(RecordingExporterExtension.class)
 public class ProcessProcessorTest {
 
-  private MutableProcessingState state;
-  private TestEngine engine;
-
   @Test
-  void test() throws IOException {
-    engine = TestEngine.createSinglePartitionEngine();
+  @DisplayName("should find specific event trigger in ProcessProcessor")
+  void shouldFindSpecificEventTrigger() throws IOException {
+    final var engine = TestEngine.createSinglePartitionEngine();
+    final var state = engine.getProcessingState();
 
-    state = engine.getProcessingState();
-
-    final Record<DeploymentRecordValue> deploy =
+    // given a deployed process
+    final var deployedProcess =
         engine
             .createDeploymentClient()
             .withXmlResource(
-                Bpmn.createExecutableProcess("process")
-                    .startEvent("none")
-                    .serviceTask("task", t -> t.zeebeJobType("test"))
-                    .moveToProcess("process")
-                    .startEvent("message")
-                    .message("a")
-                    .done())
-            .deploy();
+                Bpmn.createExecutableProcess("process").startEvent("message").message("a").done())
+            .deploy()
+            .getValue()
+            .getProcessesMetadata()
+            .get(0);
 
-    final long processInstanceKey =
-        engine.createProcessInstanceClient().ofBpmnProcessId("process").create();
-
+    // and an addition irrelevant event trigger on that process
+    final long someOtherEventKey = 123L;
     state
         .getEventScopeInstanceState()
         .triggerStartEvent(
-            deploy.getValue().getProcessesMetadata().get(0).getProcessDefinitionKey(),
-            processInstanceKey,
+            deployedProcess.getProcessDefinitionKey(),
+            someOtherEventKey,
             BufferUtil.wrapString("start"),
             BufferUtil.wrapArray(MsgPackConverter.convertToMsgPack("{}")),
-            processInstanceKey);
+            someOtherEventKey);
 
+    // when publishing a message
     engine.createMessageClient().withName("a").withCorrelationKey("123").publish();
 
-    RecordingExporter.jobRecords(JobIntent.CREATED).await();
+    // then the process instance is executed
+    Assertions.assertThat(
+            RecordingExporter.processInstanceRecords(ProcessInstanceIntent.ELEMENT_COMPLETED)
+                .withElementType(BpmnElementType.PROCESS)
+                .limitToProcessInstanceCompleted())
+        .describedAs("Expect that a process instance is executed")
+        .hasSize(1);
   }
 }
