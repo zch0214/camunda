@@ -8,6 +8,8 @@
 package io.camunda.zeebe.gateway;
 
 import io.atomix.utils.net.Address;
+import io.camunda.zeebe.auth.api.JwtAuthorizationBuilder;
+import io.camunda.zeebe.auth.impl.Authorization;
 import io.camunda.zeebe.gateway.ResponseMapper.BrokerResponseMapper;
 import io.camunda.zeebe.gateway.grpc.ServerStreamObserver;
 import io.camunda.zeebe.gateway.impl.broker.BrokerClient;
@@ -17,6 +19,7 @@ import io.camunda.zeebe.gateway.impl.broker.cluster.BrokerTopologyManager;
 import io.camunda.zeebe.gateway.impl.broker.request.BrokerRequest;
 import io.camunda.zeebe.gateway.impl.job.ActivateJobsHandler;
 import io.camunda.zeebe.gateway.impl.stream.ClientStreamAdapter;
+import io.camunda.zeebe.gateway.interceptors.impl.IdentityInterceptor;
 import io.camunda.zeebe.gateway.protocol.GatewayOuterClass.ActivateJobsRequest;
 import io.camunda.zeebe.gateway.protocol.GatewayOuterClass.ActivateJobsResponse;
 import io.camunda.zeebe.gateway.protocol.GatewayOuterClass.ActivatedJob;
@@ -62,9 +65,11 @@ import io.camunda.zeebe.gateway.protocol.GatewayOuterClass.UpdateJobRetriesRespo
 import io.camunda.zeebe.protocol.impl.stream.job.JobActivationProperties;
 import io.camunda.zeebe.transport.stream.api.ClientStreamer;
 import io.camunda.zeebe.util.VersionUtil;
+import io.grpc.Context;
 import io.grpc.stub.ServerCallStreamObserver;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -385,6 +390,28 @@ public final class EndpointManager {
       streamObserver.onError(e);
       return;
     }
+
+    // Access the "tenantAccessList" value from the global key directly. This is how gRPC recommends
+    // to access data from the Context. @see IdentityInterceptorTest.addsTenantAccessListToContext
+    // todo: move the key to a special MultiTenancyContext class
+    // todo: only do this when multi-tenancy is enabled
+    // todo: retrieve the tenant access list from a general interface
+    // todo: encode tenant access list in authorization token here instead of in the interceptor
+    // todo: caching of the jwt
+    Context.current()
+        .run(
+            () -> {
+              final List<String> authorizedTenants =
+                  IdentityInterceptor.AUTHORIZED_TENANTS_KEY.get();
+              final String authorizationToken =
+                  Authorization.jwtEncoder()
+                      .withIssuer(JwtAuthorizationBuilder.DEFAULT_ISSUER)
+                      .withAudience(JwtAuthorizationBuilder.DEFAULT_AUDIENCE)
+                      .withSubject(JwtAuthorizationBuilder.DEFAULT_SUBJECT)
+                      .withClaim(Authorization.AUTHORIZED_TENANTS, authorizedTenants)
+                      .encode();
+              brokerRequest.setAuthorization(authorizationToken);
+            });
 
     brokerClient.sendRequestWithRetry(
         brokerRequest,

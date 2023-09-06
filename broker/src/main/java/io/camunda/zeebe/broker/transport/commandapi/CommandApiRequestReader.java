@@ -35,6 +35,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.function.Supplier;
 import org.agrona.DirectBuffer;
+import org.agrona.concurrent.UnsafeBuffer;
 
 public class CommandApiRequestReader implements RequestReader<ExecuteCommandRequestDecoder> {
   static final Map<ValueType, Supplier<UnifiedRecordValue>> RECORDS_BY_TYPE =
@@ -64,6 +65,7 @@ public class CommandApiRequestReader implements RequestReader<ExecuteCommandRequ
   private final MessageHeaderDecoder messageHeaderDecoder = new MessageHeaderDecoder();
   private final ExecuteCommandRequestDecoder commandRequestDecoder =
       new ExecuteCommandRequestDecoder();
+  private final UnsafeBuffer authInfoBuffer = new UnsafeBuffer();
 
   @Override
   public void reset() {
@@ -103,6 +105,9 @@ public class CommandApiRequestReader implements RequestReader<ExecuteCommandRequ
       value = recordSupplier.get();
       value.wrap(buffer, valueOffset, valueLength);
     }
+
+    commandRequestDecoder.wrapAuthorization(authInfoBuffer);
+    metadata.authorization(authInfoBuffer);
   }
 
   public UnifiedRecordValue value() {

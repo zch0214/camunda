@@ -10,20 +10,26 @@ package io.camunda.zeebe.gateway.interceptors.impl;
 import io.camunda.identity.sdk.Identity;
 import io.camunda.identity.sdk.IdentityConfiguration;
 import io.camunda.identity.sdk.authentication.exception.TokenVerificationException;
+import io.camunda.identity.sdk.tenants.dto.Tenant;
 import io.camunda.zeebe.gateway.impl.configuration.IdentityCfg;
+import io.grpc.Context;
+import io.grpc.Contexts;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class IdentityInterceptor implements ServerInterceptor {
+  public static final Context.Key<List<String>> AUTHORIZED_TENANTS_KEY =
+      Context.key("io.camunda.zeebe:authorized_tenants");
+
   private static final Logger LOGGER = LoggerFactory.getLogger(IdentityInterceptor.class);
   private static final Metadata.Key<String> AUTH_KEY =
       Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER);
-
   private final Identity identity;
 
   public IdentityInterceptor(final IdentityCfg config) {
@@ -50,8 +56,8 @@ public final class IdentityInterceptor implements ServerInterceptor {
       final ServerCallHandler<ReqT, RespT> next) {
     final var methodDescriptor = call.getMethodDescriptor();
 
-    final var token = headers.get(AUTH_KEY);
-    if (token == null) {
+    final var authorization = headers.get(AUTH_KEY);
+    if (authorization == null) {
       LOGGER.debug(
           "Denying call {} as no token was provided", methodDescriptor.getFullMethodName());
       return deny(
@@ -61,8 +67,9 @@ public final class IdentityInterceptor implements ServerInterceptor {
                   .formatted(AUTH_KEY.name())));
     }
 
+    final String token = authorization.replaceFirst("^Bearer ", "");
     try {
-      identity.authentication().verifyToken(token.replaceFirst("^Bearer ", ""));
+      identity.authentication().verifyToken(token);
     } catch (final TokenVerificationException e) {
       LOGGER.debug(
           "Denying call {} as the token could not be fully verified. Error message: {}",
@@ -76,7 +83,27 @@ public final class IdentityInterceptor implements ServerInterceptor {
               .withCause(e));
     }
 
-    return next.startCall(call, headers);
+    final List<String> authorizedTenants;
+    try {
+      authorizedTenants =
+          identity.tenants().forToken(token).stream().map(Tenant::getTenantId).toList();
+    } catch (final RuntimeException e) {
+      LOGGER.debug(
+          "Denying call {} as the tenant access list could not be retrieved from Identity. Error message: {}",
+          methodDescriptor.getFullMethodName(),
+          e.getMessage());
+      return deny(
+          call,
+          Status.UNAUTHENTICATED
+              .augmentDescription(
+                  "Expected Identity to provide tenant access list, see cause for details")
+              .withCause(e));
+    }
+
+    final Context contextWithAuthorization =
+        Context.current().withValue(AUTHORIZED_TENANTS_KEY, authorizedTenants);
+
+    return Contexts.interceptCall(contextWithAuthorization, call, headers, next);
   }
 
   private <ReqT> ServerCall.Listener<ReqT> deny(

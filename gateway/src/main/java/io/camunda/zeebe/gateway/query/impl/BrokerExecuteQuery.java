@@ -45,6 +45,11 @@ public final class BrokerExecuteQuery extends BrokerRequest<String> {
   }
 
   @Override
+  public void setAuthorization(final String authorizationToken) {
+    // not supported
+  }
+
+  @Override
   public boolean addressesSpecificPartition() {
     return true;
   }
