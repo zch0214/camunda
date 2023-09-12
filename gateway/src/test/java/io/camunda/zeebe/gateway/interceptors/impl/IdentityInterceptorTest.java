@@ -162,6 +162,34 @@ public class IdentityInterceptorTest {
         .isNull();
   }
 
+  @Test
+  public void doesNotAddAuthorizedTenantsToContextWhenMultiTenancyDisabled() {
+    // given
+    final Identity identity = mock(Identity.class, RETURNS_DEEP_STUBS);
+    final var capturingServerCall = new CloseStatusCapturingServerCall();
+
+    // when
+    final var interceptor = new IdentityInterceptor(identity, multiTenancy.setEnabled(false));
+    interceptor.interceptCall(
+        capturingServerCall,
+        createAuthHeader(),
+        (call, headers) -> {
+          // then
+          assertAuthorizedTenants()
+              .describedAs(
+                  "Expect that the authorized tenants is not available in the current Context")
+              .isNull();
+          call.close(Status.OK, headers);
+          return null;
+        });
+
+    // then
+    assertThat(capturingServerCall.closeStatus).hasValue(Status.OK);
+    assertAuthorizedTenants()
+        .describedAs("Expect that the authorized tenants is not available outside of a call")
+        .isNull();
+  }
+
   private Metadata createAuthHeader() {
     final Metadata requestMetaData = new Metadata();
     requestMetaData.put(Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER), "BAR");
