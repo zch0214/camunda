@@ -17,6 +17,7 @@ import io.camunda.zeebe.gateway.impl.broker.RequestRetryHandler;
 import io.camunda.zeebe.gateway.impl.broker.cluster.BrokerClusterState;
 import io.camunda.zeebe.gateway.impl.broker.cluster.BrokerTopologyManager;
 import io.camunda.zeebe.gateway.impl.broker.request.BrokerRequest;
+import io.camunda.zeebe.gateway.impl.configuration.MultiTenancyCfg;
 import io.camunda.zeebe.gateway.impl.job.ActivateJobsHandler;
 import io.camunda.zeebe.gateway.impl.stream.ClientStreamAdapter;
 import io.camunda.zeebe.gateway.interceptors.impl.IdentityInterceptor;
@@ -81,18 +82,21 @@ public final class EndpointManager {
   private final ActivateJobsHandler activateJobsHandler;
   private final RequestRetryHandler requestRetryHandler;
   private final ClientStreamAdapter clientStreamAdapter;
+  private final MultiTenancyCfg multiTenancy;
 
   public EndpointManager(
       final BrokerClient brokerClient,
       final ActivateJobsHandler activateJobsHandler,
       final ClientStreamer<JobActivationProperties> jobStreamer,
-      final Executor executor) {
+      final Executor executor,
+      final MultiTenancyCfg multiTenancy) {
     this.brokerClient = brokerClient;
     this.activateJobsHandler = activateJobsHandler;
 
     clientStreamAdapter = new ClientStreamAdapter(jobStreamer, executor);
     topologyManager = brokerClient.getTopologyManager();
     requestRetryHandler = new RequestRetryHandler(brokerClient, topologyManager);
+    this.multiTenancy = multiTenancy;
   }
 
   private void addBrokerInfo(
@@ -391,27 +395,25 @@ public final class EndpointManager {
       return;
     }
 
-    // Access the "tenantAccessList" value from the global key directly. This is how gRPC recommends
-    // to access data from the Context. @see IdentityInterceptorTest.addsTenantAccessListToContext
-    // todo: move the key to a special MultiTenancyContext class
-    // todo: only do this when multi-tenancy is enabled
-    // todo: retrieve the tenant access list from a general interface
-    // todo: encode tenant access list in authorization token here instead of in the interceptor
-    // todo: caching of the jwt
-    Context.current()
-        .run(
-            () -> {
-              final List<String> authorizedTenants =
-                  IdentityInterceptor.AUTHORIZED_TENANTS_KEY.get();
-              final String authorizationToken =
-                  Authorization.jwtEncoder()
-                      .withIssuer(JwtAuthorizationBuilder.DEFAULT_ISSUER)
-                      .withAudience(JwtAuthorizationBuilder.DEFAULT_AUDIENCE)
-                      .withSubject(JwtAuthorizationBuilder.DEFAULT_SUBJECT)
-                      .withClaim(Authorization.AUTHORIZED_TENANTS, authorizedTenants)
-                      .encode();
-              brokerRequest.setAuthorization(authorizationToken);
-            });
+    if (multiTenancy.isEnabled()) {
+      // Access the "authorized tenants" value from the global key directly. This is how gRPC
+      // recommends to access data from the Context.
+      // @see IdentityInterceptorTest.addsAuthorizedTenantsToContext
+      Context.current()
+          .run(
+              () -> {
+                final List<String> authorizedTenants =
+                    IdentityInterceptor.AUTHORIZED_TENANTS_KEY.get();
+                final String authorizationToken =
+                    Authorization.jwtEncoder()
+                        .withIssuer(JwtAuthorizationBuilder.DEFAULT_ISSUER)
+                        .withAudience(JwtAuthorizationBuilder.DEFAULT_AUDIENCE)
+                        .withSubject(JwtAuthorizationBuilder.DEFAULT_SUBJECT)
+                        .withClaim(Authorization.AUTHORIZED_TENANTS, authorizedTenants)
+                        .encode();
+                brokerRequest.setAuthorization(authorizationToken);
+              });
+    }
 
     brokerClient.sendRequestWithRetry(
         brokerRequest,
