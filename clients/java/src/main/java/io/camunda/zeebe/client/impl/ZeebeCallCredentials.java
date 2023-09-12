@@ -29,7 +29,7 @@ public final class ZeebeCallCredentials extends io.grpc.CallCredentials {
 
   private final CredentialsProvider credentialsProvider;
 
-  ZeebeCallCredentials(final CredentialsProvider credentialsProvider) {
+  public ZeebeCallCredentials(final CredentialsProvider credentialsProvider) {
     this.credentialsProvider = credentialsProvider;
   }
 

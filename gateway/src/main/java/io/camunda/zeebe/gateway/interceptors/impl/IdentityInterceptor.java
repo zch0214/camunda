@@ -38,7 +38,7 @@ public final class IdentityInterceptor implements ServerInterceptor {
     this(createIdentity(config), multiTenancy);
   }
 
-  IdentityInterceptor(final Identity identity, final MultiTenancyCfg multiTenancy) {
+  public IdentityInterceptor(final Identity identity, final MultiTenancyCfg multiTenancy) {
     this.identity = identity;
     this.multiTenancy = multiTenancy;
   }
