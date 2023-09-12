@@ -12,9 +12,12 @@ import static org.assertj.core.api.Assertions.fail;
 
 import io.camunda.zeebe.gateway.RequestMapper;
 import io.camunda.zeebe.gateway.cmd.InvalidTenantRequestException;
+import io.camunda.zeebe.gateway.interceptors.impl.IdentityInterceptor;
 import io.camunda.zeebe.util.logging.RecordingAppender;
+import io.grpc.Context;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.Level;
@@ -63,7 +66,9 @@ public class GrpcErrorMapperTenantTest {
       RequestMapper.ensureTenantIdSet(requestName, invalidTenantId);
       fail("Expected to throw exception");
     } catch (final RuntimeException exception) {
-      assertThat(exception).isInstanceOf(InvalidTenantRequestException.class);
+      assertThat(exception)
+          .isInstanceOf(InvalidTenantRequestException.class)
+          .hasMessageContaining(logMessage);
 
       // when
       log.setLevel(Level.DEBUG);
@@ -86,6 +91,11 @@ public class GrpcErrorMapperTenantTest {
       final String validTenantId, final boolean multiTenancyEnabled) {
     // given
     final String requestName = "DeployResource";
+    if (multiTenancyEnabled) {
+      Context.current()
+          .withValue(IdentityInterceptor.AUTHORIZED_TENANTS_KEY, List.of(validTenantId))
+          .attach();
+    }
 
     // when
     RequestMapper.setMultiTenancyEnabled(multiTenancyEnabled);
