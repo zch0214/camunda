@@ -59,6 +59,10 @@ public abstract class BrokerExecuteCommand<T> extends BrokerRequest<T> {
     request.setPartitionId(partitionId);
   }
 
+  public AuthInfo getAuthorization() {
+    return request.getAuthorization();
+  }
+
   @Override
   public void setAuthorization(final String authorizationToken) {
     request.setAuthorization(
