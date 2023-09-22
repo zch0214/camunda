@@ -81,21 +81,10 @@ public final class BpmnJobBehavior {
     this.jobActivationBehavior = jobActivationBehavior;
   }
 
-  public Either<Failure, ?> createNewJob(
-      final BpmnElementContext context, final ExecutableJobWorkerElement element) {
-    final var jobWorkerProperties = element.getJobWorkerProperties();
+  public Either<Failure, JobProperties> evaluateJobExpressions(
+      final ExecutableJobWorkerElement element, final BpmnElementContext context) {
+    final var jobWorkerProps = element.getJobWorkerProperties();
     final var scopeKey = context.getElementInstanceKey();
-    return evaluateJobExpressions(jobWorkerProperties, scopeKey)
-        .map(
-            jobProperties -> {
-              writeJobCreatedEvent(context, element, jobProperties);
-              jobMetrics.jobCreated(jobProperties.getType());
-              return null;
-            });
-  }
-
-  private Either<Failure, JobProperties> evaluateJobExpressions(
-      final JobWorkerProperties jobWorkerProps, final long scopeKey) {
     return Either.<Failure, JobProperties>right(new JobProperties())
         .flatMap(p -> evalTypeExp(jobWorkerProps, scopeKey).map(p::type))
         .flatMap(p -> evalRetriesExp(jobWorkerProps, scopeKey).map(p::retries))
@@ -104,6 +93,24 @@ public final class BpmnJobBehavior {
         .flatMap(p -> evalCandidateUsersExp(jobWorkerProps, scopeKey).map(p::candidateUsers))
         .flatMap(p -> evalDateExp(jobWorkerProps.getDueDate(), scopeKey).map(p::dueDate))
         .flatMap(p -> evalDateExp(jobWorkerProps.getFollowUpDate(), scopeKey).map(p::followUpDate));
+  }
+
+  public Either<Failure, ?> createNewJob(
+      final BpmnElementContext context, final ExecutableJobWorkerElement element) {
+    return evaluateJobExpressions(element, context)
+        .map(
+            jobProperties -> {
+              createNewJob(context, element, jobProperties);
+              return null;
+            });
+  }
+
+  public void createNewJob(
+      final BpmnElementContext context,
+      final ExecutableJobWorkerElement element,
+      final JobProperties jobProperties) {
+    writeJobCreatedEvent(context, element, jobProperties);
+    jobMetrics.jobCreated(jobProperties.getType());
   }
 
   private Either<Failure, String> evalTypeExp(
@@ -234,7 +241,7 @@ public final class BpmnJobBehavior {
     }
   }
 
-  private static final class JobProperties {
+  public static final class JobProperties {
     private String type;
     private Long retries;
     private String assignee;
