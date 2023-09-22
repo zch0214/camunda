@@ -9,6 +9,7 @@ package io.camunda.zeebe.engine.processing.incident;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
+import static org.assertj.core.api.Assumptions.assumeThat;
 
 import io.camunda.zeebe.engine.util.EngineRule;
 import io.camunda.zeebe.engine.util.JobWorkerElementBuilder;
@@ -340,6 +341,11 @@ public class JobWorkerElementIncidentTest {
 
   @Test
   public void shouldResolveIncidentWithMessageBoundaryEvent() {
+    assumeThat(elementBuilder.getElementType())
+        .describedAs(
+            "Only activities can have boundary events, this test is not relevant to job worker events")
+        .isIn(JobWorkerElementBuilderProvider.getSupportedActivities());
+
     // given
     ENGINE
         .deployment()
@@ -347,7 +353,8 @@ public class JobWorkerElementIncidentTest {
             elementBuilder
                 .build(
                     Bpmn.createExecutableProcess(PROCESS_ID).startEvent(),
-                    element -> element.zeebeJobType("test").zeebeJobTypeExpression("invalid_var"))
+                    element ->
+                        element.zeebeJobType("test").zeebeJobTypeExpression("invalid_job_type"))
                 .id("task")
                 .endEvent()
                 .moveToActivity("task")
@@ -361,7 +368,7 @@ public class JobWorkerElementIncidentTest {
         ENGINE
             .processInstance()
             .ofBpmnProcessId(PROCESS_ID)
-            .withVariable("invalid_var", Map.of("x", true))
+            .withVariable("invalid_job_type", Map.of("x", true))
             .create();
 
     final Record<IncidentRecordValue> incident =
@@ -373,7 +380,7 @@ public class JobWorkerElementIncidentTest {
     ENGINE
         .variables()
         .ofScope(incident.getValue().getProcessInstanceKey())
-        .withDocument(Maps.of(entry("missing_var", "test")))
+        .withDocument(Map.of("invalid_job_type", "task"))
         .update();
     ENGINE.incident().ofInstance(processInstanceKey).withKey(incident.getKey()).resolve();
 
