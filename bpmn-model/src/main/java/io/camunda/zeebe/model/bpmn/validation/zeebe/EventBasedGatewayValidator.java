@@ -21,6 +21,7 @@ import io.camunda.zeebe.model.bpmn.instance.FlowNode;
 import io.camunda.zeebe.model.bpmn.instance.IntermediateCatchEvent;
 import io.camunda.zeebe.model.bpmn.instance.MessageEventDefinition;
 import io.camunda.zeebe.model.bpmn.instance.SequenceFlow;
+import io.camunda.zeebe.model.bpmn.instance.SignalEventDefinition;
 import io.camunda.zeebe.model.bpmn.instance.TimerEventDefinition;
 import io.camunda.zeebe.model.bpmn.util.ModelUtil;
 import java.util.Arrays;
@@ -34,10 +35,11 @@ import org.camunda.bpm.model.xml.validation.ValidationResultCollector;
 public class EventBasedGatewayValidator implements ModelElementValidator<EventBasedGateway> {
 
   private static final List<Class<? extends EventDefinition>> SUPPORTED_EVENTS =
-      Arrays.asList(TimerEventDefinition.class, MessageEventDefinition.class);
+      Arrays.asList(
+          TimerEventDefinition.class, MessageEventDefinition.class, SignalEventDefinition.class);
 
   private static final String ERROR_UNSUPPORTED_TARGET_NODE =
-      "Event-based gateway must not have an outgoing sequence flow to other elements than message/timer intermediate catch events.";
+      "Event-based gateway must not have an outgoing sequence flow to other elements than message/timer/signal intermediate catch events.";
 
   @Override
   public Class<EventBasedGateway> getElementType() {

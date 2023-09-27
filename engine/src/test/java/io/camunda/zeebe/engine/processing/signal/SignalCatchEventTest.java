@@ -19,6 +19,7 @@ import io.camunda.zeebe.protocol.record.intent.SignalSubscriptionIntent;
 import io.camunda.zeebe.protocol.record.value.JobBatchRecordValue;
 import io.camunda.zeebe.test.util.record.RecordingExporter;
 import io.camunda.zeebe.test.util.record.RecordingExporterTestWatcher;
+import java.time.Duration;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -35,6 +36,48 @@ public class SignalCatchEventTest {
       new RecordingExporterTestWatcher();
 
   private final SignalClient signalClient = ENGINE.signal().withSignalName(SIGNAL_NAME);
+
+  @Test
+  public void shouldTriggerSignalCatchEventAttachedToEventBasedGateway() {
+    // given
+    final var process =
+        Bpmn.createExecutableProcess(PROCESS_ID)
+            .startEvent()
+            .eventBasedGateway("eventbased")
+            .intermediateCatchEvent(ELEMENT_ID)
+            .signal(SIGNAL_NAME)
+            .endEvent()
+            .moveToLastGateway()
+            .intermediateCatchEvent()
+            .timerWithDuration(Duration.ofMinutes(10))
+            .endEvent()
+            .done();
+
+    ENGINE.deployment().withXmlResource(process).deploy();
+
+    final var processInstanceKey = ENGINE.processInstance().ofBpmnProcessId(PROCESS_ID).create();
+
+    assertThat(
+            RecordingExporter.signalSubscriptionRecords(SignalSubscriptionIntent.CREATED)
+                .withSignalName(SIGNAL_NAME)
+                .exists())
+        .isTrue();
+
+    // when
+    signalClient.broadcast();
+
+    // then
+    assertThat(
+            RecordingExporter.processInstanceRecords()
+                .withProcessInstanceKey(processInstanceKey)
+                .limitToProcessInstanceCompleted())
+        .extracting(r -> r.getValue().getElementId(), Record::getIntent)
+        .containsSubsequence(
+            tuple(ELEMENT_ID, ProcessInstanceIntent.ELEMENT_COMPLETING),
+            tuple(ELEMENT_ID, ProcessInstanceIntent.ELEMENT_COMPLETED),
+            tuple(PROCESS_ID, ProcessInstanceIntent.ELEMENT_COMPLETING),
+            tuple(PROCESS_ID, ProcessInstanceIntent.ELEMENT_COMPLETED));
+  }
 
   @Test
   public void shouldTriggerIntermediateCatchEvent() {
