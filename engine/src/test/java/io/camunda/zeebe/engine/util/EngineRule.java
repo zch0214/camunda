@@ -131,6 +131,10 @@ public final class EngineRule extends ExternalResource {
     forEachPartition(environmentRule::closeStreamProcessor);
   }
 
+  public void snapshot() {
+    environmentRule.snapshot();
+  }
+
   public EngineRule withJobStreamer(final JobStreamer jobStreamer) {
     this.jobStreamer = jobStreamer;
     return this;

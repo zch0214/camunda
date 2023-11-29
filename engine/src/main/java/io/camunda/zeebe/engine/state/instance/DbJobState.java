@@ -241,8 +241,10 @@ public final class DbJobState implements JobState, MutableJobState {
     backoffColumnFamily.whileTrue(
         (key, value) -> {
           final var jobKey = key.second().inner();
+          LOG.debug("JobKey:" + jobKey);
           final var backoff = key.first().getValue();
           final var job = jobsColumnFamily.get(jobKey);
+          LOG.debug("Job backoff:" + job.getRecord().getRetryBackoff() + ", backoff: " + backoff);
           if (job == null || job.getRecord().getRetryBackoff() != backoff) {
             backoffColumnFamily.deleteExisting(key);
           }

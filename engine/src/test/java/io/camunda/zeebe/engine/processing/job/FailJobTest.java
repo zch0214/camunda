@@ -205,6 +205,46 @@ public final class FailJobTest {
   }
 
   @Test
+  public void shouldFailJobAndRetryWithBack() {
+    // given
+    final Record<JobRecordValue> job = ENGINE.createJob(jobType, PROCESS_ID);
+
+    final Record<JobBatchRecordValue> batchRecord = ENGINE.jobs().withType(jobType).activate();
+    final long jobKey = batchRecord.getValue().getJobKeys().get(0);
+
+    // when
+    final Duration backOff = Duration.ofDays(1);
+    final Record<JobRecordValue> failRecord =
+        ENGINE
+            .job()
+            .withKey(jobKey)
+            .ofInstance(job.getValue().getProcessInstanceKey())
+            .withRetries(3)
+            .withBackOff(backOff)
+            .fail();
+
+    // then
+    Assertions.assertThat(failRecord).hasRecordType(RecordType.EVENT).hasIntent(FAILED);
+
+    ENGINE.snapshot();
+    ENGINE.stop();
+    ENGINE.start();
+
+    // explicitly wait for polling
+    ENGINE.increaseTime(Duration.ofDays(2));
+
+    ENGINE.increaseTime(backOff.plus(Duration.ofMillis(JobBackoffChecker.BACKOFF_RESOLUTION)));
+
+    // verify that our job recurred after backoff
+    assertThat(jobRecords(JobIntent.RECURRED_AFTER_BACKOFF).withType(jobType).getFirst().getKey())
+        .isEqualTo(jobKey);
+
+    // verify that our job didn't recur after backoff
+    final var reactivatedJobs = ENGINE.jobs().withType(jobType).activate();
+    assertThat(reactivatedJobs.getValue().getJobs()).isNotEmpty();
+  }
+
+  @Test
   public void shouldFailIfJobCreated() {
     // given
     final Record<JobRecordValue> job = ENGINE.createJob(jobType, PROCESS_ID);

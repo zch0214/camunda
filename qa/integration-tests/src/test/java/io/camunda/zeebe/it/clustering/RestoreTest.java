@@ -53,6 +53,43 @@ public final class RestoreTest {
   @Rule public RuleChain ruleChain = RuleChain.outerRule(clusteringRule).around(clientRule);
 
   @Test
+  public void test() {
+    clientRule.createSingleJob("test");
+
+    final var job = clientRule
+        .getClient()
+        .newActivateJobsCommand()
+        .jobType("test")
+        .maxJobsToActivate(1)
+        .send()
+        .join();
+
+    final var jobKey = job.getJobs().get(0).getKey();
+
+    clientRule
+        .getClient()
+        .newFailCommand(jobKey)
+        .retries(1)
+        .retryBackoff(Duration.ofDays(30))
+        .send()
+        .join();
+
+    clusteringRule.triggerAndWaitForSnapshots();
+
+    clusteringRule.restartBroker(clusteringRule.getLeaderForPartition(1).getNodeId());
+
+    final var jobReactivated = clientRule
+        .getClient()
+        .newActivateJobsCommand()
+        .jobType("test")
+        .maxJobsToActivate(1)
+        .send()
+        .join();
+
+    assertThat(jobReactivated.getJobs()).isNotEmpty();
+  }
+
+  @Test
   public void shouldKeepPositionsConsistent() {
     // given
     writeManyEventsUntilAtomixLogIsCompactable();

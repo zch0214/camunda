@@ -95,6 +95,28 @@ public final class FailJobTest {
   }
 
   @Test
+  public void shouldFailJobWithRetryBack() {
+    // when
+    final Duration backoffTimeout = Duration.ofSeconds(30);
+    CLIENT_RULE
+        .getClient()
+        .newFailCommand(jobKey)
+        .retries(1)
+        .retryBackoff(backoffTimeout)
+        .send()
+        .join();
+
+
+
+    // then
+    final Record<JobRecordValue> beforeRecurRecord =
+        jobRecords(JobIntent.FAILED).withRecordKey(jobKey).getFirst();
+    Assertions.assertThat(beforeRecurRecord.getValue())
+        .hasRetries(1)
+        .hasRetryBackoff(backoffTimeout.toMillis());
+  }
+
+  @Test
   public void shouldRejectIfJobIsAlreadyCompleted() {
     // given
     CLIENT_RULE.getClient().newCompleteCommand(jobKey).send().join();
