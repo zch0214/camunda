@@ -106,11 +106,16 @@ public final class ProcessMessageSubscriptionCorrelateProcessor
             .setElementId(subscriptionRecord.getElementIdBuffer())
             .setInterrupting(subscriptionRecord.isInterrupting());
 
-        stateWriter.appendFollowUpEvent(
-            subscription.getKey(), ProcessMessageSubscriptionIntent.CORRELATED, record);
 
         final var catchEvent =
             getCatchEvent(elementInstance.getValue(), record.getElementIdBuffer());
+        if (catchEvent == null) {
+          rejectCommand(command, RejectionType.NOT_FOUND, NO_SUBSCRIPTION_FOUND_MESSAGE);
+          return;
+        }
+
+        stateWriter.appendFollowUpEvent(
+            subscription.getKey(), ProcessMessageSubscriptionIntent.CORRELATED, record);
         eventHandle.activateElement(
             catchEvent,
             elementInstanceKey,

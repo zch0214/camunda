@@ -135,19 +135,19 @@ public final class BpmnStreamProcessor implements TypedRecordProcessor<ProcessIn
       final TypedRecord<ProcessInstanceRecord> record,
       final ProcessInstanceIntent intent,
       final ProcessInstanceRecord recordValue) {
-    if (intent != ACTIVATE_ELEMENT) {
-      // updating an existing element instance, try using the data from the state
-      final var elementInstance = elementInstanceState.getInstance(record.getKey());
-      if (elementInstance != null) {
-        context.init(elementInstance.getKey(), elementInstance.getValue(), intent);
-        return;
-      }
-    }
-
     if (intent == ACTIVATE_ELEMENT && recordValue.getBpmnElementType() == BpmnElementType.PROCESS) {
       // creating a new process instance, trust the data in the command
       context.init(record.getKey(), recordValue, intent);
       return;
+    }
+
+    if (intent != ACTIVATE_ELEMENT) {
+      final var elementInstance = elementInstanceState.getInstance(record.getKey());
+      if (elementInstance != null) {
+        // updating an existing element instance, try using the data from the state
+        context.init(elementInstance.getKey(), elementInstance.getValue(), intent);
+        return;
+      }
     }
 
     if (elementInstanceState.isInstanceActiveForDefinition(

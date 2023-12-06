@@ -19,10 +19,10 @@ import io.camunda.zeebe.protocol.impl.record.value.processinstance.ProcessInstan
 import io.camunda.zeebe.protocol.record.Record;
 import io.camunda.zeebe.protocol.record.intent.MessageIntent;
 import io.camunda.zeebe.protocol.record.intent.MessageSubscriptionIntent;
+import io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent;
 import io.camunda.zeebe.protocol.record.intent.ProcessMessageSubscriptionIntent;
 import io.camunda.zeebe.protocol.record.intent.SignalSubscriptionIntent;
 import io.camunda.zeebe.protocol.record.intent.TimerIntent;
-import io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent;
 import io.camunda.zeebe.protocol.record.value.BpmnElementType;
 import io.camunda.zeebe.protocol.record.value.DeploymentRecordValue;
 import io.camunda.zeebe.protocol.record.value.ProcessInstanceRecordValue;
@@ -541,6 +541,11 @@ public class MigrateProcessInstanceEventSubscriptionsTest {
 
     final var processInstanceKey = ENGINE.processInstance().ofBpmnProcessId(processId1).create();
 
+    RecordingExporter.processInstanceRecords(ProcessInstanceIntent.ELEMENT_ACTIVATED)
+        .withProcessInstanceKey(processInstanceKey)
+        .withElementId("A")
+        .await();
+
     // when
     ENGINE
         .processInstance()
@@ -896,6 +901,106 @@ public class MigrateProcessInstanceEventSubscriptionsTest {
         .hasBpmnProcessId(processId2)
         .hasElementId("boundaryEvent2")
         .hasCorrelationKey("correlationKey2");
+  }
+
+  @Test
+  public void shouldCorrelateMessageAfterMigration() {
+    // given
+    final String processId1 = helper.getBpmnProcessId();
+    final String processId2 = helper.getBpmnProcessId() + "2";
+
+    final var deployment =
+        ENGINE
+            .deployment()
+            .withXmlResource(
+                Bpmn.createExecutableProcess(processId1)
+                    .startEvent()
+                    .serviceTask("A", a -> a.zeebeJobType("A"))
+                    .boundaryEvent(
+                        "boundaryEvent",
+                        e ->
+                            e.message(
+                                m ->
+                                    m.name("message")
+                                        .zeebeCorrelationKeyExpression("\"correlationKey\"")))
+                    .userTask()
+                    .endEvent()
+                    .moveToActivity("A")
+                    .endEvent()
+                    .done())
+            .withXmlResource(
+                Bpmn.createExecutableProcess(processId2)
+                    .startEvent()
+                    .serviceTask("B", a -> a.zeebeJobType("B"))
+                    .boundaryEvent(
+                        "boundaryEvent2",
+                        e ->
+                            e.message(
+                                m ->
+                                    m.name("message2")
+                                        .zeebeCorrelationKeyExpression("\"correlationKey2\"")))
+                    .userTask("C")
+                    .endEvent()
+                    .moveToActivity("B")
+                    .endEvent()
+                    .done())
+            .deploy();
+
+    final long otherProcessDefinitionKey =
+        extractProcessDefinitionKeyByProcessId(deployment, processId2);
+
+    final var processInstanceKey = ENGINE.processInstance().ofBpmnProcessId(processId1).create();
+
+    RecordingExporter.messageSubscriptionRecords(MessageSubscriptionIntent.CREATED)
+        .withProcessInstanceKey(processInstanceKey)
+        .withMessageName("message")
+        .withCorrelationKey("correlationKey")
+        .await();
+
+    // when
+    ENGINE.writeRecords(
+        RecordToWrite.command()
+            .message(
+                MessageIntent.PUBLISH,
+                new MessageRecord()
+                    .setName("message")
+                    .setCorrelationKey("correlationKey")
+                    .setTimeToLive(5000L)),
+        RecordToWrite.command()
+            .migration(
+                new ProcessInstanceMigrationRecord()
+                    .setProcessInstanceKey(processInstanceKey)
+                    .setTargetProcessDefinitionKey(otherProcessDefinitionKey)
+                    .addMappingInstruction(
+                        new ProcessInstanceMigrationMappingInstruction()
+                            .setSourceElementId("A")
+                            .setTargetElementId("B"))
+                    .addMappingInstruction(
+                        new ProcessInstanceMigrationMappingInstruction()
+                            .setSourceElementId("boundaryEvent")
+                            .setTargetElementId("boundaryEvent2"))),
+        RecordToWrite.command()
+            .message(
+                MessageIntent.PUBLISH,
+                new MessageRecord()
+                    .setName("message2")
+                    .setCorrelationKey("correlationKey2")
+                    .setTimeToLive(5000L)));
+
+    // then
+    assertThat(
+            RecordingExporter.processInstanceRecords(ProcessInstanceIntent.ELEMENT_ACTIVATED)
+                .withProcessInstanceKey(processInstanceKey)
+                .withElementId("C")
+                .withElementType(BpmnElementType.USER_TASK)
+                .findAny())
+        .isPresent()
+        .get()
+        .extracting(Record::getValue)
+        .extracting(ProcessInstanceRecordValue::getProcessDefinitionKey)
+        .isEqualTo(otherProcessDefinitionKey);
+
+    assert false;
   }
 
   private static long extractProcessDefinitionKeyByProcessId(
