@@ -239,6 +239,7 @@ public final class BpmnProcessors {
             processingState.getProcessState(),
             processingState.getJobState(),
             processingState.getVariableState(),
+            processingState.getEventScopeInstanceState(),
             bpmnBehaviors));
   }
 

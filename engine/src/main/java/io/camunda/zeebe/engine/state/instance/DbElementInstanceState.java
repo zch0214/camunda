@@ -396,6 +396,15 @@ public final class DbElementInstanceState implements MutableElementInstanceState
     return hasActiveInstances.get();
   }
 
+  @Override
+  public boolean isInstanceActiveForDefinition(
+      final long processInstanceKey, final long processDefinitionKey) {
+    this.processDefinitionKey.wrapLong(processDefinitionKey);
+    elementInstanceKey.wrapLong(processInstanceKey);
+    return processInstanceKeyByProcessDefinitionKeyColumnFamily.exists(
+        processInstanceKeyByProcessDefinitionKey);
+  }
+
   private ElementInstance copyElementInstance(final ElementInstance elementInstance) {
     if (elementInstance != null) {
       final byte[] bytes = new byte[elementInstance.getLength()];

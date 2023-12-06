@@ -270,6 +270,9 @@ public final class EventAppliers implements EventApplier {
     register(
         ProcessEventIntent.TRIGGERED,
         new ProcessEventTriggeredApplier(state.getEventScopeInstanceState()));
+    register(
+        ProcessEventIntent.MIGRATED,
+        new ProcessEventMigratedApplier(state.getEventScopeInstanceState()));
   }
 
   private void registerSignalSubscriptionAppliers(final MutableProcessingState state) {

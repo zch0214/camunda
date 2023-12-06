@@ -18,15 +18,19 @@ import io.camunda.zeebe.engine.processing.streamprocessor.writers.TypedResponseW
 import io.camunda.zeebe.engine.processing.streamprocessor.writers.Writers;
 import io.camunda.zeebe.engine.state.deployment.DeployedProcess;
 import io.camunda.zeebe.engine.state.immutable.ElementInstanceState;
+import io.camunda.zeebe.engine.state.immutable.EventScopeInstanceState;
 import io.camunda.zeebe.engine.state.immutable.JobState;
 import io.camunda.zeebe.engine.state.immutable.ProcessState;
 import io.camunda.zeebe.engine.state.immutable.VariableState;
 import io.camunda.zeebe.engine.state.instance.ElementInstance;
+import io.camunda.zeebe.engine.state.instance.EventTrigger;
 import io.camunda.zeebe.msgpack.spec.MsgPackHelper;
+import io.camunda.zeebe.protocol.impl.record.value.processinstance.ProcessEventRecord;
 import io.camunda.zeebe.protocol.impl.record.value.processinstance.ProcessInstanceMigrationRecord;
 import io.camunda.zeebe.protocol.impl.record.value.variable.VariableRecord;
 import io.camunda.zeebe.protocol.record.RejectionType;
 import io.camunda.zeebe.protocol.record.intent.JobIntent;
+import io.camunda.zeebe.protocol.record.intent.ProcessEventIntent;
 import io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent;
 import io.camunda.zeebe.protocol.record.intent.ProcessInstanceMigrationIntent;
 import io.camunda.zeebe.protocol.record.intent.VariableIntent;
@@ -66,6 +70,7 @@ public class ProcessInstanceMigrationMigrateProcessor
   private final JobState jobState;
   private final VariableState variableState;
   private final BpmnEventSubscriptionBehavior eventSubscriptionBehavior;
+  private final EventScopeInstanceState eventScopeInstanceState;
 
   public ProcessInstanceMigrationMigrateProcessor(
       final Writers writers,
@@ -73,6 +78,7 @@ public class ProcessInstanceMigrationMigrateProcessor
       final ProcessState processState,
       final JobState jobState,
       final VariableState variableState,
+      final EventScopeInstanceState eventScopeInstanceState,
       final BpmnBehaviors bpmnBehaviors) {
     stateWriter = writers.state();
     responseWriter = writers.response();
@@ -82,6 +88,7 @@ public class ProcessInstanceMigrationMigrateProcessor
     this.processState = processState;
     this.jobState = jobState;
     this.variableState = variableState;
+    this.eventScopeInstanceState = eventScopeInstanceState;
   }
 
   @Override
@@ -184,7 +191,9 @@ public class ProcessInstanceMigrationMigrateProcessor
           elementInstanceRecord.getProcessInstanceKey(), elementInstanceRecord.getElementId());
     }
 
-    eventSubscriptionBehavior.unsubscribeFromEvents(elementInstance.getKey());
+    final var context = new BpmnElementContextImpl();
+    context.init(elementInstance.getKey(), elementInstance.getValue(), elementInstance.getState());
+    eventSubscriptionBehavior.unsubscribeFromEvents(context);
 
     stateWriter.appendFollowUpEvent(
         elementInstance.getKey(),
@@ -223,14 +232,31 @@ public class ProcessInstanceMigrationMigrateProcessor
                         .setBpmnProcessId(processDefinition.getBpmnProcessId())
                         .setTenantId(elementInstance.getValue().getTenantId())));
 
-    final ExecutableCatchEventSupplier targetElement =
+    final EventTrigger eventTrigger =
+        eventScopeInstanceState.peekEventTrigger(elementInstance.getKey());
+    if (eventTrigger != null) {
+      final String eventTriggerTargetElementId =
+          sourceElementIdToTargetElementId.get(
+              BufferUtil.bufferAsString(eventTrigger.getElementId()));
+      if (eventTriggerTargetElementId == null) {
+        // todo: throw unmapped element exception
+      }
+      stateWriter.appendFollowUpEvent(
+          eventTrigger.getEventKey(),
+          ProcessEventIntent.MIGRATED,
+          new ProcessEventRecord()
+              .setProcessInstanceKey(elementInstance.getValue().getProcessInstanceKey())
+              .setProcessDefinitionKey(processDefinition.getKey())
+              .setScopeKey(elementInstance.getKey())
+              .setTenantId(elementInstance.getValue().getTenantId())
+              .setTargetElementIdBuffer(BufferUtil.wrapString(eventTriggerTargetElementId)));
+    }
+
+    final var targetElement =
         processDefinition
             .getProcess()
             .getElementById(targetElementId, ExecutableCatchEventSupplier.class);
-    final BpmnElementContextImpl bpmnElementContext = new BpmnElementContextImpl();
-    bpmnElementContext.init(
-        elementInstance.getKey(), elementInstance.getValue(), elementInstance.getState());
-    eventSubscriptionBehavior.subscribeToEvents(targetElement, bpmnElementContext);
+    eventSubscriptionBehavior.subscribeToEvents(targetElement, context);
   }
 
   /**

@@ -16,6 +16,7 @@ import io.camunda.zeebe.engine.state.mutable.MutableEventScopeInstanceState;
 import io.camunda.zeebe.protocol.ZbColumnFamilies;
 import java.util.Collection;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import org.agrona.DirectBuffer;
 
 public final class DbEventScopeInstanceState implements MutableEventScopeInstanceState {
@@ -131,6 +132,16 @@ public final class DbEventScopeInstanceState implements MutableEventScopeInstanc
       final DirectBuffer variables,
       final long processInstanceKey) {
     createTrigger(processDefinitionKey, eventKey, elementId, variables, processInstanceKey);
+  }
+
+  @Override
+  public void updateTrigger(
+      final long scopeKey, final long eventKey, final Consumer<EventTrigger> modifier) {
+    eventTriggerScopeKey.wrapLong(scopeKey);
+    eventTriggerEventKey.wrapLong(eventKey);
+    final EventTrigger eventTrigger = eventTriggerColumnFamily.get(eventTriggerKey);
+    modifier.accept(eventTrigger);
+    eventTriggerColumnFamily.update(eventTriggerKey, eventTrigger);
   }
 
   @Override

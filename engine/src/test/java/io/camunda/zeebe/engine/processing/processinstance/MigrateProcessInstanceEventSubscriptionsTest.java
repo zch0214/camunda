@@ -11,13 +11,21 @@ import static io.camunda.zeebe.protocol.record.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.zeebe.engine.util.EngineRule;
+import io.camunda.zeebe.engine.util.RecordToWrite;
 import io.camunda.zeebe.model.bpmn.Bpmn;
+import io.camunda.zeebe.protocol.impl.record.value.message.MessageRecord;
+import io.camunda.zeebe.protocol.impl.record.value.processinstance.ProcessInstanceMigrationMappingInstruction;
+import io.camunda.zeebe.protocol.impl.record.value.processinstance.ProcessInstanceMigrationRecord;
 import io.camunda.zeebe.protocol.record.Record;
+import io.camunda.zeebe.protocol.record.intent.MessageIntent;
 import io.camunda.zeebe.protocol.record.intent.MessageSubscriptionIntent;
 import io.camunda.zeebe.protocol.record.intent.ProcessMessageSubscriptionIntent;
 import io.camunda.zeebe.protocol.record.intent.SignalSubscriptionIntent;
 import io.camunda.zeebe.protocol.record.intent.TimerIntent;
+import io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent;
+import io.camunda.zeebe.protocol.record.value.BpmnElementType;
 import io.camunda.zeebe.protocol.record.value.DeploymentRecordValue;
+import io.camunda.zeebe.protocol.record.value.ProcessInstanceRecordValue;
 import io.camunda.zeebe.test.util.BrokerClassRuleHelper;
 import io.camunda.zeebe.test.util.record.RecordingExporter;
 import io.camunda.zeebe.test.util.record.RecordingExporterTestWatcher;
@@ -28,7 +36,8 @@ import org.junit.rules.TestWatcher;
 
 public class MigrateProcessInstanceEventSubscriptionsTest {
 
-  @ClassRule public static final EngineRule ENGINE = EngineRule.singlePartition();
+  @ClassRule
+  public static final EngineRule ENGINE = EngineRule.singlePartition().maxCommandsInBatch(2);
 
   @Rule public final TestWatcher watcher = new RecordingExporterTestWatcher();
   @Rule public final BrokerClassRuleHelper helper = new BrokerClassRuleHelper();

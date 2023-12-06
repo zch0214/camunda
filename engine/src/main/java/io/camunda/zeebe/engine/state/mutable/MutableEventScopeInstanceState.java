@@ -10,6 +10,7 @@ package io.camunda.zeebe.engine.state.mutable;
 import io.camunda.zeebe.engine.state.immutable.EventScopeInstanceState;
 import io.camunda.zeebe.engine.state.instance.EventTrigger;
 import java.util.Collection;
+import java.util.function.Consumer;
 import org.agrona.DirectBuffer;
 
 public interface MutableEventScopeInstanceState extends EventScopeInstanceState {
@@ -82,6 +83,9 @@ public interface MutableEventScopeInstanceState extends EventScopeInstanceState 
       DirectBuffer elementId,
       DirectBuffer variables,
       long processInstanceKey);
+
+  void updateTrigger(
+      final long scopeKey, final long eventKey, final Consumer<EventTrigger> modifier);
 
   /**
    * Deletes an event trigger by key and scope key. Does not fail if the trigger does not exist.

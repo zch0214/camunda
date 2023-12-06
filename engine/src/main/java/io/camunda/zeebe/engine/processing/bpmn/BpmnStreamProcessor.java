@@ -8,8 +8,6 @@
 package io.camunda.zeebe.engine.processing.bpmn;
 
 import static io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent.ACTIVATE_ELEMENT;
-import static io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent.COMPLETE_ELEMENT;
-import static io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent.TERMINATE_ELEMENT;
 
 import io.camunda.zeebe.engine.Loggers;
 import io.camunda.zeebe.engine.metrics.ProcessEngineMetrics;
@@ -22,6 +20,7 @@ import io.camunda.zeebe.engine.processing.streamprocessor.TypedRecordProcessor;
 import io.camunda.zeebe.engine.processing.streamprocessor.writers.TypedRejectionWriter;
 import io.camunda.zeebe.engine.processing.streamprocessor.writers.Writers;
 import io.camunda.zeebe.engine.state.immutable.ProcessState;
+import io.camunda.zeebe.engine.state.mutable.MutableElementInstanceState;
 import io.camunda.zeebe.engine.state.mutable.MutableProcessingState;
 import io.camunda.zeebe.protocol.impl.record.value.processinstance.ProcessInstanceRecord;
 import io.camunda.zeebe.protocol.record.RejectionType;
@@ -45,6 +44,7 @@ public final class BpmnStreamProcessor implements TypedRecordProcessor<ProcessIn
   private final BpmnStateTransitionBehavior stateTransitionBehavior;
   private final TypedRejectionWriter rejectionWriter;
   private final BpmnIncidentBehavior incidentBehavior;
+  private final MutableElementInstanceState elementInstanceState;
 
   public BpmnStreamProcessor(
       final BpmnBehaviors bpmnBehaviors,
@@ -52,6 +52,7 @@ public final class BpmnStreamProcessor implements TypedRecordProcessor<ProcessIn
       final Writers writers,
       final ProcessEngineMetrics processEngineMetrics) {
     processState = processingState.getProcessState();
+    elementInstanceState = processingState.getElementInstanceState();
 
     rejectionWriter = writers.rejection();
     incidentBehavior = bpmnBehaviors.incidentBehavior();
@@ -78,11 +79,11 @@ public final class BpmnStreamProcessor implements TypedRecordProcessor<ProcessIn
     final var intent = (ProcessInstanceIntent) record.getIntent();
     final var recordValue = record.getValue();
 
-    context.init(record.getKey(), recordValue, intent);
+    initContext(record, intent, recordValue);
 
     final var bpmnElementType = recordValue.getBpmnElementType();
     final var processor = processors.getProcessor(bpmnElementType);
-    final ExecutableFlowElement element = getElement(recordValue, processor);
+    final ExecutableFlowElement element = getElement(context.getRecordValue(), processor);
 
     stateTransitionGuard
         .isValidStateTransition(context, element)
@@ -128,6 +129,51 @@ public final class BpmnStreamProcessor implements TypedRecordProcessor<ProcessIn
       }
     }
     return ProcessingError.UNEXPECTED_ERROR;
+  }
+
+  private void initContext(
+      final TypedRecord<ProcessInstanceRecord> record,
+      final ProcessInstanceIntent intent,
+      final ProcessInstanceRecord recordValue) {
+    if (intent != ACTIVATE_ELEMENT) {
+      // updating an existing element instance, try using the data from the state
+      final var elementInstance = elementInstanceState.getInstance(record.getKey());
+      if (elementInstance != null) {
+        context.init(elementInstance.getKey(), elementInstance.getValue(), intent);
+        return;
+      }
+    }
+
+    if (intent == ACTIVATE_ELEMENT && recordValue.getBpmnElementType() == BpmnElementType.PROCESS) {
+      // creating a new process instance, trust the data in the command
+      context.init(record.getKey(), recordValue, intent);
+      return;
+    }
+
+    if (elementInstanceState.isInstanceActiveForDefinition(
+        record.getValue().getProcessInstanceKey(), record.getValue().getProcessDefinitionKey())) {
+      // process instance was not migrated, just trust the data in the command
+      context.init(record.getKey(), recordValue, intent);
+      return;
+    }
+
+    final var processInstance =
+        elementInstanceState.getInstance(record.getValue().getProcessInstanceKey());
+    if (processInstance == null) {
+      // process instance was already deleted, trust the data in the command, will be rejected later
+      context.init(record.getKey(), recordValue, intent);
+      return;
+    }
+
+    // process instance was migrated, we must update the process definition and related properties
+    context.init(
+        record.getKey(),
+        recordValue
+            .setBpmnProcessId(processInstance.getValue().getBpmnProcessIdBuffer())
+            .setVersion(processInstance.getValue().getVersion())
+            .setProcessDefinitionKey(processInstance.getValue().getProcessDefinitionKey())
+        /* if the element id changed, we can only know it by looking up the mapping from state */ ,
+        intent);
   }
 
   private void processEvent(

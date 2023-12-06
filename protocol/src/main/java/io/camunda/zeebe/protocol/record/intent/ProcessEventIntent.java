@@ -17,7 +17,8 @@ package io.camunda.zeebe.protocol.record.intent;
 
 public enum ProcessEventIntent implements ProcessInstanceRelatedIntent {
   TRIGGERING((short) 0),
-  TRIGGERED((short) 1);
+  TRIGGERED((short) 1),
+  MIGRATED((short) 2);
 
   private final short value;
 
@@ -36,6 +37,8 @@ public enum ProcessEventIntent implements ProcessInstanceRelatedIntent {
         return TRIGGERING;
       case 1:
         return TRIGGERED;
+      case 2:
+        return MIGRATED;
       default:
         return Intent.UNKNOWN;
     }
