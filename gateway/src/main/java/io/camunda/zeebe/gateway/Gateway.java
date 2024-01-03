@@ -7,6 +7,18 @@
  */
 package io.camunda.zeebe.gateway;
 
+import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.util.EventLoopGroups;
+import com.linecorp.armeria.server.Server;
+import com.linecorp.armeria.server.ServerBuilder;
+import com.linecorp.armeria.server.ServiceRequestContext;
+import com.linecorp.armeria.server.annotation.Consumes;
+import com.linecorp.armeria.server.annotation.Get;
+import com.linecorp.armeria.server.annotation.JacksonRequestConverterFunction;
+import com.linecorp.armeria.server.annotation.Post;
+import com.linecorp.armeria.server.annotation.Produces;
+import com.linecorp.armeria.server.annotation.RequestConverter;
+import com.linecorp.armeria.server.grpc.GrpcService;
 import io.camunda.identity.sdk.IdentityConfiguration;
 import io.camunda.zeebe.gateway.health.GatewayHealthManager;
 import io.camunda.zeebe.gateway.health.Status;
@@ -34,16 +46,10 @@ import io.camunda.zeebe.scheduler.future.ActorFuture;
 import io.camunda.zeebe.scheduler.future.CompletableActorFuture;
 import io.camunda.zeebe.transport.stream.api.ClientStreamer;
 import io.camunda.zeebe.util.CloseableSilently;
-import io.camunda.zeebe.util.error.FatalErrorHandler;
 import io.grpc.BindableService;
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
 import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
 import io.grpc.ServerServiceDefinition;
-import io.grpc.netty.NettyServerBuilder;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Collections;
@@ -52,8 +58,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory;
-import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import me.dinowernli.grpc.prometheus.Configuration;
@@ -116,23 +120,16 @@ public final class Gateway implements CloseableSilently {
 
     createAndStartActivateJobsHandler(brokerClient)
         .thenCombine(startClientStreamAdapter(), this::createServer)
-        .thenAccept(this::startServer)
+        .thenCompose(this::startServer)
         .thenApply(ok -> this)
         .whenComplete(resultFuture);
 
     return resultFuture;
   }
 
-  private void startServer(final Server server) {
+  private CompletionStage<Void> startServer(final Server server) {
     this.server = server;
-
-    try {
-      this.server.start();
-    } catch (final IOException e) {
-      throw new UncheckedIOException(e);
-    }
-
-    healthManager.setStatus(Status.RUNNING);
+    return this.server.start().thenAccept(ok -> healthManager.setStatus(Status.RUNNING));
   }
 
   private CompletionStage<StreamJobsHandler> startClientStreamAdapter() {
@@ -160,9 +157,14 @@ public final class Gateway implements CloseableSilently {
     final NetworkCfg network = gatewayCfg.getNetwork();
     final MultiTenancyCfg multiTenancy = gatewayCfg.getMultiTenancy();
 
-    final var serverBuilder = applyNetworkConfig(network);
-    applyExecutorConfiguration(serverBuilder);
+    final var serverBuilder = Server.builder();
     applySecurityConfiguration(serverBuilder);
+    if (gatewayCfg.getSecurity().isEnabled()) {
+      serverBuilder.https(new InetSocketAddress(network.getHost(), network.getPort()));
+    } else {
+      serverBuilder.http(new InetSocketAddress(network.getHost(), network.getPort()));
+    }
+    applyExecutorConfiguration(serverBuilder);
 
     final var endpointManager =
         new EndpointManager(brokerClient, activateJobsHandler, streamJobsHandler, multiTenancy);
@@ -170,31 +172,14 @@ public final class Gateway implements CloseableSilently {
     return buildServer(serverBuilder, gatewayGrpcService);
   }
 
-  private void applyExecutorConfiguration(final NettyServerBuilder builder) {
+  private void applyExecutorConfiguration(final ServerBuilder builder) {
     final var config = gatewayCfg.getThreads();
-
-    // the default boss and worker event loop groups defined by the library are good enough; they
-    // will appropriately select epoll or nio based on availability, and the boss loop gets 1
-    // thread, while the worker gets the number of cores
-
-    // by default will start 1 thread per core; however, fork join pools may start more threads when
-    // blocked on tasks, and here up to 2 threads per core.
-    grpcExecutor =
-        new ForkJoinPool(
-            config.getGrpcMinThreads(),
-            new NamedForkJoinPoolThreadFactory(),
-            FatalErrorHandler.uncaughtExceptionHandler(LOG),
-            true,
-            0,
-            config.getGrpcMaxThreads(),
-            1,
-            pool -> false,
-            1,
-            TimeUnit.MINUTES);
-    builder.executor(grpcExecutor);
+    final var workerGroup = EventLoopGroups.newEventLoopGroup(config.getGrpcMaxThreads());
+    grpcExecutor = workerGroup;
+    builder.workerGroup(workerGroup, false);
   }
 
-  private void applySecurityConfiguration(final ServerBuilder<?> serverBuilder) {
+  private void applySecurityConfiguration(final ServerBuilder serverBuilder) {
     final SecurityCfg securityCfg = gatewayCfg.getSecurity();
     if (securityCfg.isEnabled()) {
       setSecurityConfig(serverBuilder, securityCfg);
@@ -202,34 +187,42 @@ public final class Gateway implements CloseableSilently {
   }
 
   private Server buildServer(
-      final ServerBuilder<?> serverBuilder, final BindableService interceptorService) {
-    return serverBuilder
-        .addService(applyInterceptors(interceptorService))
-        .addService(
-            ServerInterceptors.intercept(
-                healthManager.getHealthService(), MONITORING_SERVER_INTERCEPTOR))
-        .build();
-  }
-
-  private NettyServerBuilder applyNetworkConfig(final NetworkCfg cfg) {
-    final Duration minKeepAliveInterval = cfg.getMinKeepAliveInterval();
-
-    if (minKeepAliveInterval.isNegative() || minKeepAliveInterval.isZero()) {
-      throw new IllegalArgumentException("Minimum keep alive interval must be positive.");
-    }
-
-    final var maxMessageSize = (int) cfg.getMaxMessageSize().toBytes();
+      final ServerBuilder serverBuilder, final BindableService interceptorService) {
+    final var network = gatewayCfg.getNetwork();
+    final var maxMessageSize = (int) network.getMaxMessageSize().toBytes();
     if (maxMessageSize <= 0) {
       throw new IllegalArgumentException("maxMessageSize must be positive");
     }
 
-    return NettyServerBuilder.forAddress(new InetSocketAddress(cfg.getHost(), cfg.getPort()))
-        .maxInboundMessageSize(maxMessageSize)
-        .permitKeepAliveTime(minKeepAliveInterval.toMillis(), TimeUnit.MILLISECONDS)
-        .permitKeepAliveWithoutCalls(false);
+    final Duration minKeepAliveInterval = network.getMinKeepAliveInterval();
+    if (minKeepAliveInterval.isNegative() || minKeepAliveInterval.isZero()) {
+      throw new IllegalArgumentException("Minimum keep alive interval must be positive.");
+    }
+
+    return serverBuilder
+        .service(
+            "/failure",
+            (ctx, req) -> {
+              ctx.setShouldReportUnhandledExceptions(false);
+              throw new RuntimeException("Hello Failure!");
+            })
+        .annotatedService(new HttpService())
+        .service(
+            GrpcService.builder()
+                .useBlockingTaskExecutor(true)
+                .addService(applyInterceptors(interceptorService))
+                .maxResponseMessageLength(maxMessageSize)
+                .build())
+        .service(
+            GrpcService.builder()
+                .addService(
+                    ServerInterceptors.intercept(
+                        healthManager.getHealthService(), MONITORING_SERVER_INTERCEPTOR))
+                .build())
+        .build();
   }
 
-  private void setSecurityConfig(final ServerBuilder<?> serverBuilder, final SecurityCfg security) {
+  private void setSecurityConfig(final ServerBuilder serverBuilder, final SecurityCfg security) {
     final var certificateChainPath = security.getCertificateChainPath();
     final var privateKeyPath = security.getPrivateKeyPath();
 
@@ -259,23 +252,15 @@ public final class Gateway implements CloseableSilently {
               privateKeyPath));
     }
 
-    serverBuilder.useTransportSecurity(certificateChainPath, privateKeyPath);
+    serverBuilder.tls(certificateChainPath, privateKeyPath);
   }
 
   @Override
   public void close() {
     healthManager.setStatus(Status.SHUTDOWN);
 
-    if (server != null && !server.isShutdown()) {
-      server.shutdownNow();
-      try {
-        server.awaitTermination();
-      } catch (final InterruptedException e) {
-        LOG.warn("Failed to await termination of gRPC server", e);
-        Thread.currentThread().interrupt();
-      } finally {
-        server = null;
-      }
+    if (server != null && !server.isClosed()) {
+      server.close();
     }
 
     if (grpcExecutor != null) {
@@ -353,12 +338,21 @@ public final class Gateway implements CloseableSilently {
     return identityCfg.getIssuerBackendUrl() != null || identityCfg.getBaseUrl() != null;
   }
 
-  private static final class NamedForkJoinPoolThreadFactory implements ForkJoinWorkerThreadFactory {
-    @Override
-    public ForkJoinWorkerThread newThread(final ForkJoinPool pool) {
-      final var worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
-      worker.setName("grpc-executor-" + worker.getPoolIndex());
-      return worker;
+  private static final class HttpService {
+    @Produces("application/text")
+    @Get("/get")
+    public HttpResponse get(final ServiceRequestContext ctx) {
+      return HttpResponse.of("Bar");
     }
+
+    @RequestConverter(JacksonRequestConverterFunction.class)
+    @Consumes("application/json")
+    @Produces("application/text")
+    @Post("/post")
+    public HttpResponse post(final ServiceRequestContext ctx, final PostRequest request) {
+      return HttpResponse.of("Received " + request.field);
+    }
+
+    private record PostRequest(int field) {}
   }
 }
