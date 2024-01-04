@@ -18,6 +18,7 @@
   <properties>
     <zbctl.force>false</zbctl.force>
     <zbctl.rootDir>${maven.multiModuleProjectDirectory}</zbctl.rootDir>
+    <openapi.dir>${maven.multiModuleProjectDirectory}/gateway-protocol/src/main/openapi</openapi.dir>
   </properties>
 
   <dependencies>
@@ -208,6 +209,12 @@
     </dependency>
 
     <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+    </dependency>
+
+
+    <dependency>
       <groupId>org.openapitools</groupId>
       <artifactId>jackson-databind-nullable</artifactId>
     </dependency>
@@ -220,6 +227,11 @@
     <dependency>
       <groupId>io.swagger.core.v3</groupId>
       <artifactId>swagger-annotations</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>io.swagger.core.v3</groupId>
+      <artifactId>swagger-core</artifactId>
     </dependency>
 
     <!--
@@ -454,6 +466,29 @@
             <configuration>
               <inputSpec>${project.basedir}/src/main/resources/api/cluster-api.yaml</inputSpec>
               <modelPackage>io.camunda.zeebe.management.cluster</modelPackage>
+            </configuration>
+          </execution>
+          <execution>
+            <id>rest</id>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+            <configuration>
+              <!-- https://github.com/OpenAPITools/openapi-generator/tree/master/modules/openapi-generator-maven-plugin -->
+              <!-- https://github.com/OpenAPITools/openapi-generator/blob/master/docs/generators/spring.md -->
+              <generatorName>spring</generatorName>
+              <inputSpec>${openapi.dir}/rest-api.yaml</inputSpec>
+              <modelPackage>io.camunda.zeebe.gateway.protocol.rest</modelPackage>
+              <generateApis>true</generateApis>
+              <generateApiTests>true</generateApiTests>
+              <generateSupportingFiles>true</generateSupportingFiles>
+              <generateModels>true</generateModels>
+              <configOptions>
+                <sourceFolder>src/main</sourceFolder>
+<!--                <interfaceOnly>true</interfaceOnly>-->
+                <additionalModelTypeAnnotations>@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)</additionalModelTypeAnnotations>
+                <useSpringBoot3>true</useSpringBoot3>
+              </configOptions>
             </configuration>
           </execution>
         </executions>
