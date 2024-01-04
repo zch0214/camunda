@@ -77,4 +77,3 @@ components:
       title: VariablesRequest
       description: Request body for providing a set of variables in a key-value format.
       type: object
-      additionalProperties: true
