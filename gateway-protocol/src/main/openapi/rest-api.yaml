@@ -53,7 +53,7 @@ components:
     NoUserTaskFoundError:
       description: Failed to accept request. No user task was found.
       content:
-        application.json:
+        application/json:
           schema:
             $ref: "#/components/schemas/Error"
 
