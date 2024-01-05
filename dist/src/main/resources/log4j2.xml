@@ -2,7 +2,6 @@
 <Configuration status="WARN" shutdownHook="disable">
 
   <Properties>
-    <Property name="log.path">${sys:app.home}/logs</Property>
     <Property name="log.pattern">%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{actor-scheduler}] [%t] [%X{actor-name}] %-5level
       %logger{36} - %msg%n
     </Property>
@@ -22,17 +21,6 @@
       <StackdriverLayout serviceName="${log.stackdriver.serviceName}"
         serviceVersion="${log.stackdriver.serviceVersion}"/>
     </Console>
-
-    <RollingFile name="RollingFile" fileName="${log.path}/zeebe.log"
-      filePattern="${log.path}/zeebe-%d{yyyy-MM-dd}-%i.log.gz">
-      <PatternLayout>
-        <Pattern>${log.pattern}</Pattern>
-      </PatternLayout>
-      <Policies>
-        <TimeBasedTriggeringPolicy/>
-        <SizeBasedTriggeringPolicy size="250 MB"/>
-      </Policies>
-    </RollingFile>
   </Appenders>
 
   <Loggers>
@@ -41,9 +29,6 @@
     <Logger name="com.linecorp.armeria" level="warn"/>
 
     <Root level="info">
-      <AppenderRef ref="RollingFile"/>
-
-      <!-- remove to disable console logging -->
       <AppenderRef ref="${env:ZEEBE_LOG_APPENDER:-Console}"/>
     </Root>
   </Loggers>

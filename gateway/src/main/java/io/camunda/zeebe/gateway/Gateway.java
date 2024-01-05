@@ -7,17 +7,9 @@
  */
 package io.camunda.zeebe.gateway;
 
-import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.util.EventLoopGroups;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
-import com.linecorp.armeria.server.ServiceRequestContext;
-import com.linecorp.armeria.server.annotation.Consumes;
-import com.linecorp.armeria.server.annotation.Get;
-import com.linecorp.armeria.server.annotation.JacksonRequestConverterFunction;
-import com.linecorp.armeria.server.annotation.Post;
-import com.linecorp.armeria.server.annotation.Produces;
-import com.linecorp.armeria.server.annotation.RequestConverter;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import io.camunda.identity.sdk.IdentityConfiguration;
 import io.camunda.zeebe.gateway.health.GatewayHealthManager;
@@ -39,6 +31,8 @@ import io.camunda.zeebe.gateway.interceptors.impl.DecoratedInterceptor;
 import io.camunda.zeebe.gateway.interceptors.impl.IdentityInterceptor;
 import io.camunda.zeebe.gateway.interceptors.impl.InterceptorRepository;
 import io.camunda.zeebe.gateway.query.impl.QueryApiImpl;
+import io.camunda.zeebe.gateway.rest.IdentityDecorator;
+import io.camunda.zeebe.gateway.rest.UserTaskApiImpl;
 import io.camunda.zeebe.protocol.impl.stream.job.JobActivationProperties;
 import io.camunda.zeebe.scheduler.Actor;
 import io.camunda.zeebe.scheduler.ActorSchedulingService;
@@ -200,13 +194,9 @@ public final class Gateway implements CloseableSilently {
     }
 
     return serverBuilder
-        .service(
-            "/failure",
-            (ctx, req) -> {
-              ctx.setShouldReportUnhandledExceptions(false);
-              throw new RuntimeException("Hello Failure!");
-            })
-        .annotatedService(new HttpService())
+        .annotatedService()
+        .decorator(new IdentityDecorator(identityCfg, gatewayCfg.getMultiTenancy()))
+        .build(new UserTaskApiImpl(brokerClient, gatewayCfg.getMultiTenancy()))
         .service(
             GrpcService.builder()
                 .useBlockingTaskExecutor(true)
@@ -336,23 +326,5 @@ public final class Gateway implements CloseableSilently {
 
   private boolean isZeebeIdentityConfigurationNotNull(final IdentityCfg identityCfg) {
     return identityCfg.getIssuerBackendUrl() != null || identityCfg.getBaseUrl() != null;
-  }
-
-  private static final class HttpService {
-    @Produces("application/text")
-    @Get("/get")
-    public HttpResponse get(final ServiceRequestContext ctx) {
-      return HttpResponse.of("Bar");
-    }
-
-    @RequestConverter(JacksonRequestConverterFunction.class)
-    @Consumes("application/json")
-    @Produces("application/text")
-    @Post("/post")
-    public HttpResponse post(final ServiceRequestContext ctx, final PostRequest request) {
-      return HttpResponse.of("Received " + request.field);
-    }
-
-    private record PostRequest(int field) {}
   }
 }
