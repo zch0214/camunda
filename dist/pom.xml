@@ -105,6 +105,11 @@
     </dependency>
 
     <dependency>
+      <groupId>io.projectreactor</groupId>
+      <artifactId>reactor-core</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>identity-sdk</artifactId>
     </dependency>
@@ -212,7 +217,6 @@
       <groupId>jakarta.servlet</groupId>
       <artifactId>jakarta.servlet-api</artifactId>
     </dependency>
-
 
     <dependency>
       <groupId>org.openapitools</groupId>
@@ -491,7 +495,9 @@
                 <!-- disable the generation of controller classes in spring boot -->
                 <!-- <interfaceOnly>true</interfaceOnly>-->
                 <!-- use async callable controllers -->
-                <async>true</async>
+                <reactive>true</reactive>
+                <skipDefaultInterface>true</skipDefaultInterface>
+                <useSwaggerUI>false</useSwaggerUI>
               </configOptions>
             </configuration>
           </execution>

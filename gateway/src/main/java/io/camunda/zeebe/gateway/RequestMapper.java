@@ -317,6 +317,19 @@ public final class RequestMapper {
   }
 
   public static String ensureTenantIdSet(final String commandName, final String tenantId) {
+    final List<String> authorizedTenants;
+    try {
+      authorizedTenants = Context.current().call(InterceptorUtil.getAuthorizedTenantsKey()::get);
+    } catch (final Exception e) {
+      throw new InvalidTenantRequestException(
+          commandName, tenantId, "tenant could not be retrieved from the request context", e);
+    }
+
+    return ensureTenantIdSet(commandName, tenantId, authorizedTenants);
+  }
+
+  public static String ensureTenantIdSet(
+      final String commandName, final String tenantId, final List<String> authorizedTenants) {
 
     final boolean hasTenantId = !StringUtils.isBlank(tenantId);
     if (!isMultiTenancyEnabled) {
@@ -343,13 +356,6 @@ public final class RequestMapper {
           commandName, tenantId, "tenant identifier contains illegal characters");
     }
 
-    final List<String> authorizedTenants;
-    try {
-      authorizedTenants = Context.current().call(InterceptorUtil.getAuthorizedTenantsKey()::get);
-    } catch (final Exception e) {
-      throw new InvalidTenantRequestException(
-          commandName, tenantId, "tenant could not be retrieved from the request context", e);
-    }
     if (authorizedTenants == null) {
       throw new InvalidTenantRequestException(
           commandName, tenantId, "tenant could not be retrieved from the request context");
