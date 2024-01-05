@@ -480,12 +480,12 @@
               <inputSpec>${openapi.dir}/rest-api.yaml</inputSpec>
               <modelPackage>io.camunda.zeebe.gateway.protocol.rest</modelPackage>
               <generateApis>true</generateApis>
-              <generateApiTests>true</generateApiTests>
-              <generateSupportingFiles>true</generateSupportingFiles>
+              <generateApiTests>false</generateApiTests>
+              <generateSupportingFiles>false</generateSupportingFiles>
               <generateModels>true</generateModels>
+              <generateModelTests>false</generateModelTests>
               <configOptions>
                 <sourceFolder>src/main</sourceFolder>
-<!--                <interfaceOnly>true</interfaceOnly>-->
                 <additionalModelTypeAnnotations>@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)</additionalModelTypeAnnotations>
                 <useSpringBoot3>true</useSpringBoot3>
               </configOptions>
