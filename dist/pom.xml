@@ -488,6 +488,10 @@
                 <sourceFolder>src/main</sourceFolder>
                 <additionalModelTypeAnnotations>@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)</additionalModelTypeAnnotations>
                 <useSpringBoot3>true</useSpringBoot3>
+                <!-- disable the generation of controller classes in spring boot -->
+                <!-- <interfaceOnly>true</interfaceOnly>-->
+                <!-- use async callable controllers -->
+                <async>true</async>
               </configOptions>
             </configuration>
           </execution>
