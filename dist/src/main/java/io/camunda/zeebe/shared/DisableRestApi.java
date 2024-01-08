@@ -7,4 +7,4 @@
  */
 package io.camunda.zeebe.shared;
 
-public class EmbeddedGatewayService {}
+public class DisableRestApi {}

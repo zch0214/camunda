@@ -7,7 +7,7 @@
  */
 package io.camunda.zeebe.broker;
 
-import io.camunda.zeebe.shared.EmbeddedGatewayService;
+import io.camunda.zeebe.shared.DisableRestApi;
 import java.nio.charset.StandardCharsets;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -27,10 +27,10 @@ public class EmbeddedGatewayConfig {
     this.properties = properties;
   }
 
-  @ConditionalOnProperty(name = "zeebe.broker.gateway.enable", havingValue = "true")
+  @ConditionalOnProperty(name = "zeebe.broker.gateway.enable", havingValue = "false")
   @Bean
-  public EmbeddedGatewayService embeddedGatewayService() {
-    return new EmbeddedGatewayService();
+  public DisableRestApi embeddedGatewayService() {
+    return new DisableRestApi();
   }
 
   @ConditionalOnProperty(name = "zeebe.broker.gateway.enable", havingValue = "false")

@@ -5,12 +5,14 @@
  * Licensed under the Zeebe Community License 1.1. You may not use this file
  * except in compliance with the Zeebe Community License 1.1.
  */
-package io.camunda.zeebe.broker.rest;
+package io.camunda.zeebe.shared.rest;
 
 import io.camunda.identity.sdk.Identity;
+import io.camunda.zeebe.shared.DisableRestApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -18,6 +20,7 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 @Component
+@ConditionalOnMissingBean(DisableRestApi.class)
 public class IdentityWebFilter implements WebFilter {
   private static final Logger LOGGER = LoggerFactory.getLogger(IdentityWebFilter.class);
 

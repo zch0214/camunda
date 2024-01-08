@@ -5,9 +5,11 @@
  * Licensed under the Zeebe Community License 1.1. You may not use this file
  * except in compliance with the Zeebe Community License 1.1.
  */
-package io.camunda.zeebe.broker.rest;
+package io.camunda.zeebe.shared.rest;
 
+import io.camunda.zeebe.shared.DisableRestApi;
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -15,6 +17,7 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 @Component
+@ConditionalOnMissingBean(DisableRestApi.class)
 public class TenantProviderFilter implements WebFilter {
 
   public static final String TENANT_CTX_KEY = "io.camunda.zeebe.broker.rest.tenandIds";
