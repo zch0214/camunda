@@ -11,8 +11,6 @@ import io.camunda.identity.sdk.Identity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -32,15 +30,15 @@ public class IdentityWebFilter implements WebFilter {
 
   @Override
   public Mono<Void> filter(final ServerWebExchange exchange, final WebFilterChain chain) {
-    final var request = exchange.getRequest();
-    final var authorization = request.getHeaders().get(HttpHeaders.AUTHORIZATION);
-    if (authorization == null) {
-      LOGGER.debug("Denying call {} as no token was provided", request.getPath());
-      exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-      return Mono.empty();
-    }
-
-    final String token = authorization.get(0).replaceFirst("^Bearer ", "");
+    //    final var request = exchange.getRequest();
+    //    final var authorization = request.getHeaders().get(HttpHeaders.AUTHORIZATION);
+    //    if (authorization == null) {
+    //      LOGGER.debug("Denying call {} as no token was provided", request.getPath());
+    //      exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+    //      return Mono.empty();
+    //    }
+    //
+    //    final String token = authorization.get(0).replaceFirst("^Bearer ", "");
     //    try {
     //      identity.authentication().verifyToken(token);
     //    } catch (final TokenVerificationException e) {
