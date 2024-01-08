@@ -14,6 +14,7 @@ import io.camunda.zeebe.gateway.impl.broker.BrokerClient;
 import io.camunda.zeebe.gateway.impl.broker.cluster.BrokerTopologyManager;
 import io.camunda.zeebe.gateway.impl.stream.JobStreamClient;
 import io.camunda.zeebe.scheduler.ActorScheduler;
+import io.camunda.zeebe.shared.EmbeddedGatewayService;
 import io.camunda.zeebe.shared.MainSupport;
 import io.camunda.zeebe.shared.Profile;
 import io.camunda.zeebe.util.CloseableSilently;
@@ -26,6 +27,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.context.ApplicationListener;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.ContextClosedEvent;
 
 /**
@@ -86,6 +88,11 @@ public class StandaloneGateway
             .build(args);
 
     application.run();
+  }
+
+  @Bean
+  public EmbeddedGatewayService embeddedGatewayService() {
+    return new EmbeddedGatewayService();
   }
 
   @Override
