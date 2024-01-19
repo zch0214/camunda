@@ -18,6 +18,7 @@ import static org.mockito.Mockito.verify;
 
 import io.camunda.zeebe.broker.exporter.repo.ExporterDescriptor;
 import io.camunda.zeebe.broker.exporter.util.ControlledTestExporter;
+import io.camunda.zeebe.broker.exporter.util.CustomExporter;
 import io.camunda.zeebe.broker.exporter.util.PojoConfigurationExporter;
 import io.camunda.zeebe.broker.exporter.util.PojoConfigurationExporter.PojoExporterConfiguration;
 import io.camunda.zeebe.engine.Loggers;
@@ -54,12 +55,14 @@ public final class ExporterDirectorTest {
 
   private static final String EXPORTER_ID_1 = "exporter-1";
   private static final String EXPORTER_ID_2 = "exporter-2";
+  private static final String EXPORTER_ID_3 = "exporter-3";
 
   private static final int TIMEOUT_MILLIS = 5_000;
   private static final VerificationWithTimeout TIMEOUT = timeout(TIMEOUT_MILLIS);
 
   @Rule public final ExporterRule rule = ExporterRule.activeExporter();
   private final List<ControlledTestExporter> exporters = new ArrayList<>();
+  private final List<CustomExporter> anotherExporter = new ArrayList<>();
   private final List<ExporterDescriptor> exporterDescriptors = new ArrayList<>();
 
   @Before
@@ -69,6 +72,7 @@ public final class ExporterDirectorTest {
 
     createExporter(EXPORTER_ID_1, Collections.singletonMap("x", 1));
     createExporter(EXPORTER_ID_2, Collections.singletonMap("y", 2));
+    createAnotherExporter(EXPORTER_ID_3, Collections.singletonMap("z", 3));
   }
 
   private void createExporter(final String exporterId, final Map<String, Object> arguments) {
@@ -82,8 +86,43 @@ public final class ExporterDirectorTest {
     exporterDescriptors.add(descriptor);
   }
 
+  private void createAnotherExporter(final String exporterId, final Map<String, Object> arguments) {
+    final CustomExporter exporter = spy(new CustomExporter());
+
+    final ExporterDescriptor descriptor =
+        spy(new ExporterDescriptor(exporterId, exporter.getClass(), arguments));
+    doAnswer(c -> exporter).when(descriptor).newInstance();
+
+    anotherExporter.add(exporter);
+    exporterDescriptors.add(descriptor);
+  }
+
   private void startExporterDirector(final List<ExporterDescriptor> exporterDescriptors) {
     rule.startExporterDirector(exporterDescriptors);
+  }
+
+  @Test
+  public void test() {
+    final CustomExporter customExporter = anotherExporter.getFirst();
+
+    startExporterDirector(exporterDescriptors);
+    final ExportersState state = rule.getExportersState();
+
+    rule.writeCommand(JobIntent.CREATED, new JobRecord());
+    rule.writeCommand(JobIntent.CREATED, new JobRecord());
+    rule.writeCommand(JobIntent.CREATED, new JobRecord());
+
+    int i = 0;
+    while (i < 100) {
+      rule.writeCommand(DeploymentIntent.CREATED, new DeploymentRecord());
+      i++;
+    }
+
+    // then
+    Awaitility.await("director has read all records until now")
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(() -> assertThat(customExporter.getExportedRecords()).hasSize(3));
+    assertThat(state.getPosition(EXPORTER_ID_3)).isEqualTo(100);
   }
 
   @Test
