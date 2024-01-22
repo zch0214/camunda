@@ -43,7 +43,6 @@ import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberLeaveOperat
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.ForcePartitionReconfigure;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionLeaveOperation;
-import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionOverwriteConfiguration;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionReconfigurePriorityOperation;
 import io.camunda.zeebe.util.Either;
 import java.net.ConnectException;
@@ -360,11 +359,10 @@ public class ClusterEndpoint {
               .partitionId(reconfigure.partitionId())
               .priority(reconfigure.priority());
       case final ForcePartitionReconfigure forcePartitionReconfigure ->
-          new Operation() // TODO: Define a new operation
-              .operation(OperationEnum.PARTITION_JOIN)
+          new Operation()
+              .operation(OperationEnum.FORCE_PARTITION_RECONFIGURE)
               .brokerId(Integer.parseInt(forcePartitionReconfigure.memberId().id()))
               .partitionId(forcePartitionReconfigure.partitionId());
-      case final PartitionOverwriteConfiguration partitionOverwriteConfiguration -> null;
     };
   }
 
@@ -500,12 +498,9 @@ public class ClusterEndpoint {
                   .priority(reconfigure.priority());
           case final ForcePartitionReconfigure forcePartitionReconfigure ->
               new TopologyChangeCompletedInner()
-                  .operation(
-                      TopologyChangeCompletedInner.OperationEnum
-                          .PARTITION_JOIN) // TODO: define new operation
+                  .operation(TopologyChangeCompletedInner.OperationEnum.FORCE_PARTITION_RECONFIGURE)
                   .brokerId(Integer.parseInt(forcePartitionReconfigure.memberId().id()))
                   .partitionId(forcePartitionReconfigure.partitionId());
-          case final PartitionOverwriteConfiguration partitionOverwriteConfiguration -> null;
         };
 
     mappedOperation.completedAt(mapInstantToDateTime(operation.completedAt()));

@@ -333,6 +333,8 @@ components:
             - PARTITION_JOIN
             - PARTITION_LEAVE
             - PARTITION_RECONFIGURE_PRIORITY
+            - PARTITION_OVERWRITE_CONFIGURATION
+            - FORCE_PARTITION_RECONFIGURE
         brokerId:
           $ref: "#/components/schemas/BrokerId"
         partitionId:

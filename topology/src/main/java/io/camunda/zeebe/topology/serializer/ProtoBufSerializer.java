@@ -36,6 +36,7 @@ import io.camunda.zeebe.topology.state.PartitionState;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberLeaveOperation;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.ForcePartitionReconfigure;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionLeaveOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionReconfigurePriorityOperation;
@@ -304,6 +305,10 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
                   .setPartitionId(reconfigurePriorityOperation.partitionId())
                   .setPriority(reconfigurePriorityOperation.priority())
                   .build());
+      case final ForcePartitionReconfigure forcePartitionReconfigure ->
+          builder.setForcePartitionReconfigure(
+              Topology.ForcePartitionReconfigure.newBuilder()
+                  .setPartitionId(forcePartitionReconfigure.partitionId()));
       default ->
           throw new IllegalArgumentException(
               "Unknown operation type: " + operation.getClass().getSimpleName());

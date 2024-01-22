@@ -53,6 +53,7 @@ message TopologyChangeOperation {
     MemberJoinOperation memberJoin = 4;
     MemberLeaveOperation memberLeave = 5;
     PartitionReconfigurePriorityOperation partitionReconfigurePriority = 6;
+    ForcePartitionReconfigure forcePartitionReconfigure = 7;
   }
 }
 
@@ -77,6 +78,10 @@ message PartitionReconfigurePriorityOperation {
 message MemberJoinOperation {}
 
 message MemberLeaveOperation {}
+
+message ForcePartitionReconfigure {
+  int32 partitionId = 1;
+}
 
 enum State {
   UNKNOWN = 0;

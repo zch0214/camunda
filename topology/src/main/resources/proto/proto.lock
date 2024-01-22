@@ -543,6 +543,16 @@
           },
           {
             "name": "MemberLeaveOperation"
+          },
+          {
+            "name": "ForcePartitionReconfigure",
+            "fields": [
+              {
+                "id": 1,
+                "name": "partitionId",
+                "type": "int32"
+              }
+            ]
           }
         ],
         "imports": [

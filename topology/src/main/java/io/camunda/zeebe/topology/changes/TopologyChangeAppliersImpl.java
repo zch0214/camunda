@@ -14,9 +14,9 @@ import io.camunda.zeebe.topology.state.MemberState;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberLeaveOperation;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.ForcePartitionReconfigure;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionLeaveOperation;
-import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionOverwriteConfiguration;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionReconfigurePriorityOperation;
 import io.camunda.zeebe.util.Either;
 import java.util.function.UnaryOperator;
@@ -35,37 +35,32 @@ public class TopologyChangeAppliersImpl implements TopologyChangeAppliers {
 
   @Override
   public OperationApplier getApplier(final TopologyChangeOperation operation) {
-    if (operation instanceof final PartitionJoinOperation joinOperation) {
-      return new PartitionJoinApplier(
-          joinOperation.partitionId(),
-          joinOperation.priority(),
-          joinOperation.memberId(),
-          partitionChangeExecutor);
-    } else if (operation instanceof final PartitionLeaveOperation leaveOperation) {
-      return new PartitionLeaveApplier(
-          leaveOperation.partitionId(), leaveOperation.memberId(), partitionChangeExecutor);
-    } else if (operation instanceof final MemberJoinOperation memberJoinOperation) {
-      return new MemberJoinApplier(
-          memberJoinOperation.memberId(), topologyMembershipChangeExecutor);
-    } else if (operation instanceof final MemberLeaveOperation memberLeaveOperation) {
-      return new MemberLeaveApplier(
-          memberLeaveOperation.memberId(), topologyMembershipChangeExecutor);
-    } else if (operation
-        instanceof final PartitionReconfigurePriorityOperation reconfigurePriorityOperation) {
-      return new PartitionReconfigurePriorityApplier(
-          reconfigurePriorityOperation.partitionId(),
-          reconfigurePriorityOperation.priority(),
-          reconfigurePriorityOperation.memberId(),
-          partitionChangeExecutor);
-    } else if (operation instanceof final PartitionOverwriteConfiguration overwriteConfiguration) {
-      return new PartitionOverwriteConfigurationApplier(
-          overwriteConfiguration.partitionId(),
-          overwriteConfiguration.newMembers(),
-          overwriteConfiguration.memberId(),
-          partitionChangeExecutor);
-    } else {
-      return new FailingApplier(operation);
-    }
+    return switch (operation) {
+      case final PartitionJoinOperation joinOperation ->
+          new PartitionJoinApplier(
+              joinOperation.partitionId(),
+              joinOperation.priority(),
+              joinOperation.memberId(),
+              partitionChangeExecutor);
+      case final PartitionLeaveOperation leaveOperation ->
+          new PartitionLeaveApplier(
+              leaveOperation.partitionId(), leaveOperation.memberId(), partitionChangeExecutor);
+      case final MemberJoinOperation memberJoinOperation ->
+          new MemberJoinApplier(memberJoinOperation.memberId(), topologyMembershipChangeExecutor);
+      case final MemberLeaveOperation memberLeaveOperation ->
+          new MemberLeaveApplier(memberLeaveOperation.memberId(), topologyMembershipChangeExecutor);
+      case final PartitionReconfigurePriorityOperation reconfigurePriorityOperation ->
+          new PartitionReconfigurePriorityApplier(
+              reconfigurePriorityOperation.partitionId(),
+              reconfigurePriorityOperation.priority(),
+              reconfigurePriorityOperation.memberId(),
+              partitionChangeExecutor);
+      case final ForcePartitionReconfigure forcePartitionReconfigure ->
+          new ForcePartitionReconfigureApplier(
+              forcePartitionReconfigure.partitionId(),
+              forcePartitionReconfigure.memberId(),
+              partitionChangeExecutor);
+    };
   }
 
   static class FailingApplier implements OperationApplier {
