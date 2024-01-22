@@ -202,7 +202,7 @@ public final class RaftRule extends ExternalResource {
       final var raftMember = members.get(i);
       final RaftServer server = createServer(raftMember.memberId(), configurator);
       server
-          .bootstrap(members.stream().map(RaftMember::memberId).collect(Collectors.toList()))
+          .bootstrap(members.stream().map(RaftMember::memberId).collect(Collectors.toList()), false)
           .thenAccept(this::addCommitListener)
           .thenRun(latch::countDown);
       servers.add(server);
@@ -226,7 +226,7 @@ public final class RaftRule extends ExternalResource {
   public void joinCluster(final String nodeId) throws Exception {
     final RaftMember member = getRaftMember(nodeId);
     createServer(member.memberId(), configurator)
-        .bootstrap(getMemberIds())
+        .bootstrap(getMemberIds(), false)
         .thenAccept(this::addCommitListener)
         .get(30, TimeUnit.SECONDS);
   }
@@ -238,7 +238,7 @@ public final class RaftRule extends ExternalResource {
   public void bootstrapNode(final String nodeId, final Configurator configurator) throws Exception {
     final RaftMember member = getRaftMember(nodeId);
     createServer(member.memberId(), configurator)
-        .bootstrap(getMemberIds())
+        .bootstrap(getMemberIds(), false)
         .thenAccept(this::addCommitListener)
         .get(30, TimeUnit.SECONDS);
   }
@@ -247,7 +247,7 @@ public final class RaftRule extends ExternalResource {
       throws Exception {
     final RaftMember member = getRaftMember(nodeId);
     createServer(member.memberId(), configurator)
-        .bootstrap(memberIds)
+        .bootstrap(memberIds, false)
         .thenAccept(this::addCommitListener)
         .get(30, TimeUnit.SECONDS);
   }

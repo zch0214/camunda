@@ -31,7 +31,10 @@ public final class RaftBootstrapStep implements StartupStep<PartitionStartupCont
     context.raftPartition(partition);
 
     partition
-        .bootstrap(context.partitionManagementService(), context.snapshotStore())
+        .bootstrap(
+            context.partitionManagementService(),
+            context.snapshotStore(),
+            context.overwriteExistingConfig())
         .whenComplete(
             (raftPartition, throwable) -> {
               if (throwable == null) {

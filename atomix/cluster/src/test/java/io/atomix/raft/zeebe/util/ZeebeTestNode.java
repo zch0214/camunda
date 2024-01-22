@@ -94,7 +94,8 @@ public class ZeebeTestNode {
                     partitions.stream()
                         .map(
                             partition ->
-                                partition.bootstrap(managementService, new NoopSnapshotStore()))
+                                partition.bootstrap(
+                                    managementService, new NoopSnapshotStore(), false))
                         .toArray(CompletableFuture[]::new)));
   }
 

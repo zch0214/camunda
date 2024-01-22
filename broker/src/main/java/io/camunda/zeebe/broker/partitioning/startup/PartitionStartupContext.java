@@ -37,6 +37,7 @@ public final class PartitionStartupContext {
   private FileBasedSnapshotStore snapshotStore;
   private RaftPartition raftPartition;
   private ZeebePartition zeebePartition;
+  private boolean overwriteExistingConfig;
 
   public PartitionStartupContext(
       final ActorSchedulingService schedulingService,
@@ -139,6 +140,15 @@ public final class PartitionStartupContext {
 
   public PartitionStartupContext partitionDirectory(final Path partitionDirectory) {
     this.partitionDirectory = partitionDirectory;
+    return this;
+  }
+
+  public boolean overwriteExistingConfig() {
+    return overwriteExistingConfig;
+  }
+
+  public PartitionStartupContext overwriteExistingConfig(final boolean overwriteExistingConfig) {
+    this.overwriteExistingConfig = overwriteExistingConfig;
     return this;
   }
 }

@@ -178,7 +178,9 @@ public final class RaftRolesTest {
       partitions.forEach(partitionConsumer);
       return CompletableFuture.allOf(
           partitions.stream()
-              .map(partition -> partition.bootstrap(managementService, new NoopSnapshotStore()))
+              .map(
+                  partition ->
+                      partition.bootstrap(managementService, new NoopSnapshotStore(), false))
               .toArray(CompletableFuture[]::new));
     } catch (final InterruptedException | ExecutionException e) {
       LangUtil.rethrowUnchecked(e);

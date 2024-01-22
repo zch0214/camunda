@@ -89,12 +89,13 @@ public final class RaftPartition implements Partition, HealthMonitorable {
   /** Bootstraps a partition. */
   public CompletableFuture<RaftPartition> bootstrap(
       final PartitionManagementService managementService,
-      final ReceivableSnapshotStore snapshotStore) {
+      final ReceivableSnapshotStore snapshotStore,
+      final boolean overwriteExistingConfig) {
     if (partitionMetadata
         .members()
         .contains(managementService.getMembershipService().getLocalMember().id())) {
       initServer(managementService, snapshotStore);
-      return server.bootstrap().thenApply(v -> this);
+      return server.bootstrap(overwriteExistingConfig).thenApply(v -> this);
     }
     return CompletableFuture.completedFuture(this);
   }

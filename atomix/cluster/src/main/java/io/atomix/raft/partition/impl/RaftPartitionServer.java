@@ -96,12 +96,12 @@ public class RaftPartitionServer implements HealthMonitorable {
     server = buildServer();
   }
 
-  public CompletableFuture<RaftPartitionServer> bootstrap() {
+  public CompletableFuture<RaftPartitionServer> bootstrap(final boolean overwriteExistingConfig) {
     final RaftStartupMetrics raftStartupMetrics = new RaftStartupMetrics(partition.name());
     log.info("Server bootstrapping partition {}", partition.id());
     final long bootstrapStartTime = System.currentTimeMillis();
     return server
-        .bootstrap(partition.members())
+        .bootstrap(partition.members(), overwriteExistingConfig)
         .whenComplete(
             (r, e) -> {
               if (e == null) {

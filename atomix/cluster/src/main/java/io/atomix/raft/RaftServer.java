@@ -221,7 +221,7 @@ public interface RaftServer {
    * @return A completable future to be completed once the cluster has been bootstrapped.
    */
   default CompletableFuture<RaftServer> bootstrap() {
-    return bootstrap(Collections.emptyList());
+    return bootstrap(Collections.emptyList(), false);
   }
 
   /**
@@ -250,9 +250,11 @@ public interface RaftServer {
    * server's client configurations.
    *
    * @param cluster The bootstrap cluster configuration.
+   * @param overwriteExistingConfig
    * @return A completable future to be completed once the cluster has been bootstrapped.
    */
-  CompletableFuture<RaftServer> bootstrap(Collection<MemberId> cluster);
+  CompletableFuture<RaftServer> bootstrap(
+      Collection<MemberId> cluster, final boolean overwriteExistingConfig);
 
   /**
    * Bootstraps the cluster using the provided cluster configuration.
@@ -283,7 +285,7 @@ public interface RaftServer {
    * @return A completable future to be completed once the cluster has been bootstrapped.
    */
   default CompletableFuture<RaftServer> bootstrap(final MemberId... members) {
-    return bootstrap(Arrays.asList(members));
+    return bootstrap(Arrays.asList(members), false);
   }
 
   /**

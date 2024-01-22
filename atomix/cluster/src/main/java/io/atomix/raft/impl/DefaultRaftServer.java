@@ -96,8 +96,9 @@ public class DefaultRaftServer implements RaftServer {
   }
 
   @Override
-  public CompletableFuture<RaftServer> bootstrap(final Collection<MemberId> cluster) {
-    return start(() -> cluster().bootstrap(cluster));
+  public CompletableFuture<RaftServer> bootstrap(
+      final Collection<MemberId> cluster, final boolean overwriteExistingConfig) {
+    return start(() -> cluster().bootstrap(cluster, overwriteExistingConfig));
   }
 
   @Override

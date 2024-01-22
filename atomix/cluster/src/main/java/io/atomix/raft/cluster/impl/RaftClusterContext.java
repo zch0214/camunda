@@ -68,7 +68,8 @@ public final class RaftClusterContext implements RaftCluster, AutoCloseable {
   }
 
   @Override
-  public CompletableFuture<Void> bootstrap(final Collection<MemberId> cluster) {
+  public CompletableFuture<Void> bootstrap(
+      final Collection<MemberId> cluster, final boolean overwriteExistingConfig) {
     final var bootstrapFuture = new CompletableFuture<Void>();
     raft.getThreadContext()
         .execute(
@@ -77,7 +78,7 @@ public final class RaftClusterContext implements RaftCluster, AutoCloseable {
               // server
               // with the user provided configuration.
               final var storedConfiguration = raft.getMetaStore().loadConfiguration();
-              if (storedConfiguration != null) {
+              if (!overwriteExistingConfig && storedConfiguration != null) {
                 updateConfiguration(storedConfiguration);
               } else {
                 createInitialConfig(cluster);

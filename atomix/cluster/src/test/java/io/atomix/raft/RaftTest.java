@@ -134,7 +134,8 @@ public class RaftTest extends ConcurrentTestCase {
       final RaftServer server = createServer(members.get(i).memberId());
       if (members.get(i).getType() == RaftMember.Type.ACTIVE) {
         server
-            .bootstrap(members.stream().map(RaftMember::memberId).collect(Collectors.toList()))
+            .bootstrap(
+                members.stream().map(RaftMember::memberId).collect(Collectors.toList()), false)
             .thenRun(latch::countDown);
       }
       servers.add(server);
@@ -276,7 +277,8 @@ public class RaftTest extends ConcurrentTestCase {
       final RaftServer server = createServer(members.get(i).memberId());
       if (members.get(i).getType() == RaftMember.Type.ACTIVE) {
         server
-            .bootstrap(members.stream().map(RaftMember::memberId).collect(Collectors.toList()))
+            .bootstrap(
+                members.stream().map(RaftMember::memberId).collect(Collectors.toList()), false)
             .thenRun(this::resume);
       }
       servers.add(server);
@@ -310,7 +312,7 @@ public class RaftTest extends ConcurrentTestCase {
     for (int i = 0; i < 3; i++) {
       final RaftServer server = createServer(members.get(i).memberId());
       server
-          .bootstrap(members.stream().map(RaftMember::memberId).collect(Collectors.toList()))
+          .bootstrap(members.stream().map(RaftMember::memberId).collect(Collectors.toList()), false)
           .thenRun(this::resume);
       Thread.sleep(500);
     }

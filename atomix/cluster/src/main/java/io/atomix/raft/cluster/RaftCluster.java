@@ -102,7 +102,7 @@ public interface RaftCluster {
    * @return A completable future to be completed once the cluster has been bootstrapped.
    */
   default CompletableFuture<Void> bootstrap(final MemberId... cluster) {
-    return bootstrap(Arrays.asList(cluster));
+    return bootstrap(Arrays.asList(cluster), false);
   }
 
   /**
@@ -113,7 +113,8 @@ public interface RaftCluster {
    * prevent split brain. If the provided configuration is empty, the local server will form a
    * single-node cluster.
    *
-   * <p>Only {@link RaftMember.Type#ACTIVE} members can be included in a bootstrap configuration. If
+   * <p>Only {@link RaftMember.Type#ACTIVE} members can be included in a bootstrap configuration.
+   * If
    * the local server is not initialized as an active member, it cannot be part of the bootstrap
    * configuration for the cluster.
    *
@@ -126,14 +127,15 @@ public interface RaftCluster {
    * set of members. Bootstrapping multiple servers with different configurations may result in
    * split brain.
    *
-   * <p>The {@link CompletableFuture} returned by this method will be completed once the cluster has
+   * <p>The {@link CompletableFuture} returned by this method will be completed once the cluster
+   * has
    * been bootstrapped, a leader has been elected, and the leader has been notified of the local
    * server's client configurations.
    *
    * @param cluster The bootstrap cluster configuration.
    * @return A completable future to be completed once the cluster has been bootstrapped.
    */
-  CompletableFuture<Void> bootstrap(Collection<MemberId> cluster);
+  CompletableFuture<Void> bootstrap(Collection<MemberId> cluster, boolean overwriteExistingConfig);
 
   CompletableFuture<Void> join(Collection<MemberId> cluster);
 

@@ -78,7 +78,7 @@ final class RaftClusterContextTest {
         raftWithStoredConfiguration(
             new Configuration(1, 1, Instant.now().toEpochMilli(), List.of(localMember)));
     final var context = new RaftClusterContext(localMember.memberId(), raft);
-    context.bootstrap(List.of()).join();
+    context.bootstrap(List.of(), false).join();
 
     // when -- reconfigure with a new configuration that contains all members
     context.configure(new Configuration(2, 1, Instant.now().toEpochMilli(), members));
@@ -114,7 +114,7 @@ final class RaftClusterContextTest {
     final var raft =
         raftWithStoredConfiguration(new Configuration(1, 1, Instant.now().toEpochMilli(), members));
     final var context = new RaftClusterContext(localMember.memberId(), raft);
-    context.bootstrap(List.of()).join();
+    context.bootstrap(List.of(), false).join();
 
     // when -- reconfigure with a new configuration only contains the local member
     context.configure(new Configuration(2, 1, Instant.now().toEpochMilli(), List.of(localMember)));
@@ -147,7 +147,7 @@ final class RaftClusterContextTest {
         raftWithStoredConfiguration(
             new Configuration(1, 1, Instant.now().toEpochMilli(), oldMembers));
     final var context = new RaftClusterContext(localMember.memberId(), raft);
-    context.bootstrap(List.of()).join();
+    context.bootstrap(List.of(), false).join();
 
     // when -- reconfigure with a new configuration only contains the local member
     final var newLocalMember = new DefaultRaftMember(new MemberId("1"), Type.ACTIVE, Instant.now());
@@ -185,7 +185,7 @@ final class RaftClusterContextTest {
     final var raft =
         raftWithStoredConfiguration(new Configuration(1, 1, Instant.now().toEpochMilli(), members));
     final var context = new RaftClusterContext(localMember.memberId(), raft);
-    context.bootstrap(List.of()).join();
+    context.bootstrap(List.of(), false).join();
 
     // when
     final Consumer<Boolean> callback = mock();
@@ -218,7 +218,7 @@ final class RaftClusterContextTest {
         raftWithStoredConfiguration(
             new Configuration(1, 1, Instant.now().toEpochMilli(), newMembers, oldMembers));
     final var context = new RaftClusterContext(localMember.memberId(), raft);
-    context.bootstrap(List.of()).join();
+    context.bootstrap(List.of(), false).join();
 
     // when
     final Consumer<Boolean> callback = mock();
@@ -247,7 +247,7 @@ final class RaftClusterContextTest {
     final var raft =
         raftWithStoredConfiguration(new Configuration(1, 1, Instant.now().toEpochMilli(), members));
     final var context = new RaftClusterContext(localMember.memberId(), raft);
-    context.bootstrap(List.of()).join();
+    context.bootstrap(List.of(), false).join();
 
     // when
     context.getMemberContext(new MemberId("2")).setMatchIndex(2);
@@ -272,7 +272,7 @@ final class RaftClusterContextTest {
         raftWithStoredConfiguration(
             new Configuration(1, 1, Instant.now().toEpochMilli(), remoteMembers));
     final var context = new RaftClusterContext(localMember.memberId(), raft);
-    context.bootstrap(List.of()).join();
+    context.bootstrap(List.of(), false).join();
 
     // when
     context.getMemberContext(new MemberId("2")).setMatchIndex(2);
@@ -303,7 +303,7 @@ final class RaftClusterContextTest {
         raftWithStoredConfiguration(
             new Configuration(1, 1, Instant.now().toEpochMilli(), newMembers, oldMembers));
     final var context = new RaftClusterContext(localMember.memberId(), raft);
-    context.bootstrap(List.of()).join();
+    context.bootstrap(List.of(), false).join();
 
     // when
     for (final var member : newRemoteMembers) {
@@ -339,7 +339,7 @@ final class RaftClusterContextTest {
         raftWithStoredConfiguration(
             new Configuration(1, 1, Instant.now().toEpochMilli(), newMembers, oldMembers));
     final var context = new RaftClusterContext(localMember.memberId(), raft);
-    context.bootstrap(List.of()).join();
+    context.bootstrap(List.of(), false).join();
 
     // when
     for (final var member : newRemoteMembers) {
@@ -370,7 +370,7 @@ final class RaftClusterContextTest {
         raftWithStoredConfiguration(
             new Configuration(1, 1, Instant.now().toEpochMilli(), newMembers, oldMembers));
     final var context = new RaftClusterContext(localMember.memberId(), raft);
-    context.bootstrap(List.of()).join();
+    context.bootstrap(List.of(), false).join();
 
     // when
 
@@ -398,7 +398,7 @@ final class RaftClusterContextTest {
         raftWithStoredConfiguration(
             new Configuration(1, 1, Instant.now().toEpochMilli(), newMembers, oldMembers));
     final var context = new RaftClusterContext(localMember.memberId(), raft);
-    context.bootstrap(List.of()).join();
+    context.bootstrap(List.of(), false).join();
 
     // when
 
@@ -426,7 +426,7 @@ final class RaftClusterContextTest {
                 new DefaultRaftMember(new MemberId("3"), Type.ACTIVE, Instant.now())));
     final var raft = raftWithStoredConfiguration(initialConfiguration);
     final var context = new RaftClusterContext(localMember.memberId(), raft);
-    context.bootstrap(List.of()).join();
+    context.bootstrap(List.of(), false).join();
 
     // when -- demote member 3 to passive
     final var newConfiguration =
@@ -462,7 +462,7 @@ final class RaftClusterContextTest {
                 new DefaultRaftMember(new MemberId("3"), Type.ACTIVE, Instant.now())));
     final var raft = raftWithStoredConfiguration(initialConfiguration);
     final var context = new RaftClusterContext(localMember.memberId(), raft);
-    context.bootstrap(List.of()).join();
+    context.bootstrap(List.of(), false).join();
 
     // when -- enter joint consensus with member 3 being passive
     final var newConfiguration =

@@ -147,7 +147,8 @@ public final class ControllableRaftContexts {
         servers.get(MemberId.from(String.valueOf(0))).getElectionTimeout().toMillis();
     Collections.sort(serverIds);
     servers.forEach(
-        (memberId, raftContext) -> futures.add(raftContext.getCluster().bootstrap(serverIds)));
+        (memberId, raftContext) ->
+            futures.add(raftContext.getCluster().bootstrap(serverIds, false)));
 
     runUntilDone(0);
     // trigger election on 0 so that 0 is initially the leader
@@ -371,7 +372,7 @@ public final class ControllableRaftContexts {
             memberId,
             random,
             createStorage(memberId, cfg -> cfg.withSnapshotStore(snapshotStores.get(memberId))));
-    newContext.getCluster().bootstrap(raftServers.keySet());
+    newContext.getCluster().bootstrap(raftServers.keySet(), false);
 
     raftServers.put(memberId, newContext);
   }
@@ -400,7 +401,7 @@ public final class ControllableRaftContexts {
       throw new UncheckedIOException(e);
     }
     final var newContext = createRaftContextForMember(random, Integer.parseInt(memberId.id()));
-    newContext.getCluster().bootstrap(raftServers.keySet());
+    newContext.getCluster().bootstrap(raftServers.keySet(), false);
 
     raftServers.put(memberId, newContext);
 
