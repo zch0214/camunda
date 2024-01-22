@@ -8,7 +8,7 @@
 package io.camunda.zeebe.shared.management;
 
 import io.atomix.cluster.MemberId;
-import io.atomix.cluster.messaging.MessagingException;
+import io.atomix.cluster.messaging.MessagingException.NoSuchMemberException;
 import io.camunda.zeebe.management.cluster.BrokerState;
 import io.camunda.zeebe.management.cluster.BrokerStateCode;
 import io.camunda.zeebe.management.cluster.Error;
@@ -40,8 +40,10 @@ import io.camunda.zeebe.topology.state.PartitionState.State;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberLeaveOperation;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.ForcePartitionReconfigure;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionLeaveOperation;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionOverwriteConfiguration;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionReconfigurePriorityOperation;
 import io.camunda.zeebe.util.Either;
 import java.net.ConnectException;
@@ -95,7 +97,7 @@ public class ClusterEndpoint {
     final int status =
         switch (error) {
           case final ConnectException ignore -> 502;
-          case final MessagingException.NoSuchMemberException ignore -> 502;
+          case final NoSuchMemberException ignore -> 502;
           case final TimeoutException ignore -> 504;
           default -> 500;
         };
@@ -357,6 +359,12 @@ public class ClusterEndpoint {
               .brokerId(Integer.parseInt(reconfigure.memberId().id()))
               .partitionId(reconfigure.partitionId())
               .priority(reconfigure.priority());
+      case final ForcePartitionReconfigure forcePartitionReconfigure ->
+          new Operation() // TODO: Define a new operation
+              .operation(OperationEnum.PARTITION_JOIN)
+              .brokerId(Integer.parseInt(forcePartitionReconfigure.memberId().id()))
+              .partitionId(forcePartitionReconfigure.partitionId());
+      case final PartitionOverwriteConfiguration partitionOverwriteConfiguration -> null;
     };
   }
 
@@ -490,6 +498,14 @@ public class ClusterEndpoint {
                   .brokerId(Integer.parseInt(reconfigure.memberId().id()))
                   .partitionId(reconfigure.partitionId())
                   .priority(reconfigure.priority());
+          case final ForcePartitionReconfigure forcePartitionReconfigure ->
+              new TopologyChangeCompletedInner()
+                  .operation(
+                      TopologyChangeCompletedInner.OperationEnum
+                          .PARTITION_JOIN) // TODO: define new operation
+                  .brokerId(Integer.parseInt(forcePartitionReconfigure.memberId().id()))
+                  .partitionId(forcePartitionReconfigure.partitionId());
+          case final PartitionOverwriteConfiguration partitionOverwriteConfiguration -> null;
         };
 
     mappedOperation.completedAt(mapInstantToDateTime(operation.completedAt()));

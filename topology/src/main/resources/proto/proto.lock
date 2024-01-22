@@ -136,6 +136,22 @@
             ]
           },
           {
+            "name": "ForceOverwriteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "memberIdsToRemove",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "dryRun",
+                "type": "bool"
+              }
+            ]
+          },
+          {
             "name": "CancelTopologyChangeRequest",
             "fields": [
               {
