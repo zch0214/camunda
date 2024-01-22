@@ -7,8 +7,8 @@
  */
 package io.camunda.zeebe.topology.changes;
 
-import io.atomix.cluster.MemberId;
 import io.camunda.zeebe.scheduler.future.ActorFuture;
+import io.camunda.zeebe.topology.api.TopologyManagementRequest.ForceOverwriteTopologyRequest;
 import io.camunda.zeebe.topology.state.ClusterTopology;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation;
 import io.camunda.zeebe.util.Either;
@@ -52,7 +52,7 @@ public interface TopologyChangeCoordinator {
    */
   ActorFuture<ClusterTopology> cancelChange(long changeId);
 
-  ActorFuture<ClusterTopology> forceOverwriteTopology(List<MemberId> memberIdsToRemove);
+  ActorFuture<TopologyChangeResult> forceOverwriteTopology(ForceOverwriteTopologyRequest request);
 
   record TopologyChangeResult(
       // The current topology before applying the operations.

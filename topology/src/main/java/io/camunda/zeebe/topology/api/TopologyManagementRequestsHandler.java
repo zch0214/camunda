@@ -104,10 +104,31 @@ public final class TopologyManagementRequestsHandler implements TopologyManageme
   }
 
   @Override
-  public ActorFuture<ClusterTopology> forceOverwriteTopology(
+  public ActorFuture<TopologyChangeResponse> forceOverwriteTopology(
       final ForceOverwriteTopologyRequest forceRequest) {
 
-    return coordinator.forceOverwriteTopology(forceRequest.memberIdsToRemove());
+    final ActorFuture<TopologyChangeResponse> responseFuture = executor.createFuture();
+    final Function<TopologyChangeRequest, ActorFuture<TopologyChangeResult>> handler;
+
+    executor.run(
+        () ->
+            coordinator
+                .forceOverwriteTopology(forceRequest)
+                .onComplete(
+                    (result, error) -> {
+                      if (error == null) {
+                        final var changeStatus =
+                            new TopologyChangeResponse(
+                                result.changeId(),
+                                result.currentTopology().members(),
+                                result.finalTopology().members(),
+                                result.operations());
+                        responseFuture.complete(changeStatus);
+                      } else {
+                        responseFuture.completeExceptionally(error);
+                      }
+                    }));
+    return responseFuture;
   }
 
   @Override

@@ -126,13 +126,13 @@ public final class TopologyManagementRequestSender {
         TIMEOUT);
   }
 
-  public CompletableFuture<Either<ErrorResponse, ClusterTopology>> forceOverwriteTopology(
+  public CompletableFuture<Either<ErrorResponse, TopologyChangeResponse>> forceOverwriteTopology(
       final ForceOverwriteTopologyRequest forceRequest) {
     return communicationService.send(
         TopologyRequestTopics.FORCE_OVERWRITE_TOPOLOGY.topic(),
         forceRequest,
         serializer::encodeForceOverwriteTopologyRequest,
-        serializer::decodeClusterTopologyResponse,
+        serializer::decodeTopologyChangeResponse,
         coordinator,
         TIMEOUT);
   }

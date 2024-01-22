@@ -36,7 +36,8 @@ public interface TopologyManagementApi {
   ActorFuture<ClusterTopology> cancelTopologyChange(
       TopologyManagementRequest.CancelChangeRequest cancelChangeRequest);
 
-  ActorFuture<ClusterTopology> forceOverwriteTopology(ForceOverwriteTopologyRequest forceRequest);
+  ActorFuture<TopologyChangeResponse> forceOverwriteTopology(
+      ForceOverwriteTopologyRequest forceRequest);
 
   ActorFuture<ClusterTopology> getTopology();
 }

@@ -11,6 +11,7 @@ import io.atomix.cluster.MemberId;
 import io.camunda.zeebe.scheduler.ConcurrencyControl;
 import io.camunda.zeebe.scheduler.future.ActorFuture;
 import io.camunda.zeebe.topology.ClusterTopologyManager;
+import io.camunda.zeebe.topology.api.TopologyManagementRequest.ForceOverwriteTopologyRequest;
 import io.camunda.zeebe.topology.api.TopologyRequestFailedException;
 import io.camunda.zeebe.topology.api.TopologyRequestFailedException.ConcurrentModificationException;
 import io.camunda.zeebe.topology.api.TopologyRequestFailedException.InvalidRequest;
@@ -85,15 +86,15 @@ public class TopologyChangeCoordinatorImpl implements TopologyChangeCoordinator 
   }
 
   @Override
-  public ActorFuture<ClusterTopology> forceOverwriteTopology(
-      final List<MemberId> memberIdsToRemove) {
-    final ActorFuture<ClusterTopology> future = executor.createFuture();
-    executor.run(() -> forcerOverwriteTopologyInternal(memberIdsToRemove, future));
+  public ActorFuture<TopologyChangeResult> forceOverwriteTopology(
+      final ForceOverwriteTopologyRequest request) {
+    final ActorFuture<TopologyChangeResult> future = executor.createFuture();
+    executor.run(() -> forcerOverwriteTopologyInternal(request.memberIdsToRemove(), future));
     return future;
   }
 
   private void forcerOverwriteTopologyInternal(
-      final List<MemberId> memberIdsToRemove, final ActorFuture<ClusterTopology> future) {
+      final List<MemberId> memberIdsToRemove, final ActorFuture<TopologyChangeResult> future) {
     clusterTopologyManager
         .getClusterTopology()
         .onComplete(
@@ -141,7 +142,12 @@ public class TopologyChangeCoordinatorImpl implements TopologyChangeCoordinator 
                           failFuture(future, errorOnUpdatingTopology);
                         } else {
                           LOG.info("Overwritten topology. The new topology is {}", updatedTopology);
-                          future.complete(updatedTopology);
+                          future.complete(
+                              new TopologyChangeResult(
+                                  updatedTopology,
+                                  updatedTopology,
+                                  0,
+                                  updatedTopology.pendingChanges().get().pendingOperations()));
                         }
                       });
             });
