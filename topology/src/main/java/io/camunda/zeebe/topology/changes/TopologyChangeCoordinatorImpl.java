@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.topology.changes;
 
+import io.atomix.cluster.MemberId;
 import io.camunda.zeebe.scheduler.ConcurrencyControl;
 import io.camunda.zeebe.scheduler.future.ActorFuture;
 import io.camunda.zeebe.topology.ClusterTopologyManager;
@@ -19,6 +20,8 @@ import io.camunda.zeebe.topology.state.ClusterChangePlan;
 import io.camunda.zeebe.topology.state.ClusterTopology;
 import io.camunda.zeebe.topology.state.CompletedChange;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.ForcePartitionReconfigure;
+import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,6 +82,69 @@ public class TopologyChangeCoordinatorImpl implements TopologyChangeCoordinator 
                   return cancelledTopology;
                 }));
     return future;
+  }
+
+  @Override
+  public ActorFuture<ClusterTopology> forceOverwriteTopology(
+      final List<MemberId> memberIdsToRemove) {
+    final ActorFuture<ClusterTopology> future = executor.createFuture();
+    executor.run(() -> forcerOverwriteTopologyInternal(memberIdsToRemove, future));
+    return future;
+  }
+
+  private void forcerOverwriteTopologyInternal(
+      final List<MemberId> memberIdsToRemove, final ActorFuture<ClusterTopology> future) {
+    clusterTopologyManager
+        .getClusterTopology()
+        .onComplete(
+            (currentClusterTopology, errorOnGettingTopology) -> {
+              if (errorOnGettingTopology != null) {
+                LOG.error("Failed to overwrite topology", errorOnGettingTopology);
+                failFuture(future, errorOnGettingTopology);
+                return;
+              }
+              if (currentClusterTopology.isUninitialized()) {
+                LOG.error("Cannot overwrite topology. The topology is not initialized.");
+                failFuture(future, new RuntimeException("Uninitialized topology"));
+                return;
+              }
+              if (currentClusterTopology.hasPendingChanges()) {
+                LOG.error(
+                    "Cannot overwrite topology. Another topology change [{}] is in progress.",
+                    currentClusterTopology);
+                failFuture(future, new ConcurrentModificationException("fail"));
+                return;
+              }
+              var newTopology = currentClusterTopology;
+              for (final MemberId idToRemove : memberIdsToRemove) {
+                newTopology = newTopology.updateMember(idToRemove, member -> null);
+              }
+
+              final List<TopologyChangeOperation> operations = new ArrayList<>();
+
+              for (final var member : newTopology.members().entrySet()) {
+                for (final int partitionId : member.getValue().partitions().keySet()) {
+                  operations.add(new ForcePartitionReconfigure(member.getKey(), partitionId));
+                }
+              }
+
+              final var newTopologyWithChanges = newTopology.startTopologyChange(operations);
+
+              clusterTopologyManager
+                  .updateClusterTopology(
+                      clusterTopology ->
+                          newTopologyWithChanges) // TODO: verify no concurrent update
+                  .onComplete(
+                      (updatedTopology, errorOnUpdatingTopology) -> {
+                        if (errorOnUpdatingTopology != null) {
+                          LOG.error("Failed to overwrite topology", errorOnUpdatingTopology);
+                          failFuture(future, errorOnUpdatingTopology);
+                        } else {
+                          LOG.info("Overwritten topology. The new topology is {}", updatedTopology);
+                          future.complete(updatedTopology);
+                        }
+                      });
+            });
   }
 
   private ActorFuture<TopologyChangeResult> applyOrDryRun(

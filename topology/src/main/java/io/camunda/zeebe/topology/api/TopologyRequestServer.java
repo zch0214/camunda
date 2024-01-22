@@ -47,6 +47,17 @@ public final class TopologyRequestServer implements AutoCloseable {
     registerScaleRequestHandler();
     registerGetTopologyQueryHandler();
     registerTopologyCancelHandler();
+
+    registerForceOverwriteTopologyHandler();
+  }
+
+  private void registerForceOverwriteTopologyHandler() {
+    communicationService.replyTo(
+        TopologyRequestTopics.FORCE_OVERWRITE_TOPOLOGY.topic(),
+        serializer::decodeForceOverwriteTopologyRequest,
+        request ->
+            mapClusterTopologyResponse(topologyManagementApi.forceOverwriteTopology(request)),
+        this::encodeClusterTopologyResponse);
   }
 
   @Override

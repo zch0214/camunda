@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.topology.changes;
 
+import io.atomix.cluster.MemberId;
 import io.camunda.zeebe.scheduler.future.ActorFuture;
 import io.camunda.zeebe.topology.state.ClusterTopology;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation;
@@ -50,6 +51,8 @@ public interface TopologyChangeCoordinator {
    * @return a future which is completed when the change has been cancelled successfully.
    */
   ActorFuture<ClusterTopology> cancelChange(long changeId);
+
+  ActorFuture<ClusterTopology> forceOverwriteTopology(List<MemberId> memberIdsToRemove);
 
   record TopologyChangeResult(
       // The current topology before applying the operations.

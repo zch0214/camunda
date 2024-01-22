@@ -14,6 +14,7 @@ import io.camunda.zeebe.topology.api.ErrorResponse;
 import io.camunda.zeebe.topology.api.TopologyChangeResponse;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.AddMembersRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.CancelChangeRequest;
+import io.camunda.zeebe.topology.api.TopologyManagementRequest.ForceOverwriteTopologyRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.JoinPartitionRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.LeavePartitionRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.ReassignPartitionsRequest;
@@ -284,28 +285,25 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
     final var builder =
         Topology.TopologyChangeOperation.newBuilder().setMemberId(operation.memberId().id());
     switch (operation) {
-      case final PartitionJoinOperation joinOperation ->
-          builder.setPartitionJoin(
-              Topology.PartitionJoinOperation.newBuilder()
-                  .setPartitionId(joinOperation.partitionId())
-                  .setPriority(joinOperation.priority()));
-      case final PartitionLeaveOperation leaveOperation ->
-          builder.setPartitionLeave(
-              Topology.PartitionLeaveOperation.newBuilder()
-                  .setPartitionId(leaveOperation.partitionId()));
-      case final MemberJoinOperation memberJoinOperation ->
-          builder.setMemberJoin(Topology.MemberJoinOperation.newBuilder().build());
-      case final MemberLeaveOperation memberLeaveOperation ->
-          builder.setMemberLeave(Topology.MemberLeaveOperation.newBuilder().build());
-      case final PartitionReconfigurePriorityOperation reconfigurePriorityOperation ->
-          builder.setPartitionReconfigurePriority(
+      case final PartitionJoinOperation joinOperation -> builder.setPartitionJoin(
+          Topology.PartitionJoinOperation.newBuilder()
+              .setPartitionId(joinOperation.partitionId())
+              .setPriority(joinOperation.priority()));
+      case final PartitionLeaveOperation leaveOperation -> builder.setPartitionLeave(
+          Topology.PartitionLeaveOperation.newBuilder()
+              .setPartitionId(leaveOperation.partitionId()));
+      case final MemberJoinOperation memberJoinOperation -> builder.setMemberJoin(
+          Topology.MemberJoinOperation.newBuilder().build());
+      case final MemberLeaveOperation memberLeaveOperation -> builder.setMemberLeave(
+          Topology.MemberLeaveOperation.newBuilder().build());
+      case final PartitionReconfigurePriorityOperation reconfigurePriorityOperation -> builder
+          .setPartitionReconfigurePriority(
               Topology.PartitionReconfigurePriorityOperation.newBuilder()
                   .setPartitionId(reconfigurePriorityOperation.partitionId())
                   .setPriority(reconfigurePriorityOperation.priority())
                   .build());
-      default ->
-          throw new IllegalArgumentException(
-              "Unknown operation type: " + operation.getClass().getSimpleName());
+      default -> throw new IllegalArgumentException(
+          "Unknown operation type: " + operation.getClass().getSimpleName());
     }
     return builder.build();
   }
@@ -619,6 +617,32 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
     } catch (final InvalidProtocolBufferException e) {
       throw new DecodingFailed(e);
     }
+  }
+
+  @Override
+  public ForceOverwriteTopologyRequest decodeForceOverwriteTopologyRequest(
+      final byte[] encodedRequest) {
+    try {
+      final var request = Requests.ForceOverwriteRequest.parseFrom(encodedRequest);
+      return new ForceOverwriteTopologyRequest(
+          request.getMemberIdsToRemoveList().stream()
+              .map(MemberId::from)
+              .collect(Collectors.toList()));
+    } catch (final InvalidProtocolBufferException e) {
+      throw new DecodingFailed(e);
+    }
+  }
+
+  @Override
+  public byte[] encodeForceOverwriteTopologyRequest(
+      final ForceOverwriteTopologyRequest forceOverwriteTopologyRequest) {
+    return Requests.ForceOverwriteRequest.newBuilder()
+        .addAllMemberIdsToRemove(
+            forceOverwriteTopologyRequest.memberIdsToRemove().stream()
+                .map(MemberId::id)
+                .collect(Collectors.toList()))
+        .build()
+        .toByteArray();
   }
 
   public Builder encodeTopologyChangeResponse(final TopologyChangeResponse topologyChangeResponse) {

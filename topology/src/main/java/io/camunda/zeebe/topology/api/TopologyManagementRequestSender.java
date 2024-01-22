@@ -10,6 +10,7 @@ package io.camunda.zeebe.topology.api;
 import io.atomix.cluster.MemberId;
 import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.AddMembersRequest;
+import io.camunda.zeebe.topology.api.TopologyManagementRequest.ForceOverwriteTopologyRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.JoinPartitionRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.LeavePartitionRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.ReassignPartitionsRequest;
@@ -120,6 +121,17 @@ public final class TopologyManagementRequestSender {
         TopologyRequestTopics.CANCEL_CHANGE.topic(),
         request,
         serializer::encodeCancelChangeRequest,
+        serializer::decodeClusterTopologyResponse,
+        coordinator,
+        TIMEOUT);
+  }
+
+  public CompletableFuture<Either<ErrorResponse, ClusterTopology>> forceOverwriteTopology(
+      final ForceOverwriteTopologyRequest forceRequest) {
+    return communicationService.send(
+        TopologyRequestTopics.FORCE_OVERWRITE_TOPOLOGY.topic(),
+        forceRequest,
+        serializer::encodeForceOverwriteTopologyRequest,
         serializer::decodeClusterTopologyResponse,
         coordinator,
         TIMEOUT);

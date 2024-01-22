@@ -15,7 +15,8 @@ public enum TopologyRequestTopics {
   REASSIGN_PARTITIONS("topology-partition-reassign"),
   SCALE_MEMBERS("topology-member-scale"),
   QUERY_TOPOLOGY("topology-query"),
-  CANCEL_CHANGE("topology-change-cancel");
+  CANCEL_CHANGE("topology-change-cancel"),
+  FORCE_OVERWRITE_TOPOLOGY("topology-force-overwrite");
 
   private final String topic;
 

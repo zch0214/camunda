@@ -8,6 +8,7 @@
 package io.camunda.zeebe.topology.api;
 
 import io.atomix.cluster.MemberId;
+import java.util.List;
 import java.util.Set;
 
 /** Defines the supported requests for the topology management. */
@@ -37,6 +38,15 @@ public sealed interface TopologyManagementRequest {
   record ScaleRequest(Set<MemberId> members, boolean dryRun) implements TopologyManagementRequest {}
 
   record CancelChangeRequest(long changeId) implements TopologyManagementRequest {
+
+    @Override
+    public boolean dryRun() {
+      return false;
+    }
+  }
+
+  record ForceOverwriteTopologyRequest(List<MemberId> memberIdsToRemove)
+      implements TopologyManagementRequest {
 
     @Override
     public boolean dryRun() {

@@ -9,6 +9,7 @@ package io.camunda.zeebe.topology.api;
 
 import io.camunda.zeebe.scheduler.future.ActorFuture;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.AddMembersRequest;
+import io.camunda.zeebe.topology.api.TopologyManagementRequest.ForceOverwriteTopologyRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.JoinPartitionRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.LeavePartitionRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.ReassignPartitionsRequest;
@@ -34,6 +35,8 @@ public interface TopologyManagementApi {
 
   ActorFuture<ClusterTopology> cancelTopologyChange(
       TopologyManagementRequest.CancelChangeRequest cancelChangeRequest);
+
+  ActorFuture<ClusterTopology> forceOverwriteTopology(ForceOverwriteTopologyRequest forceRequest);
 
   ActorFuture<ClusterTopology> getTopology();
 }
