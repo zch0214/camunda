@@ -113,8 +113,7 @@ public interface RaftCluster {
    * prevent split brain. If the provided configuration is empty, the local server will form a
    * single-node cluster.
    *
-   * <p>Only {@link RaftMember.Type#ACTIVE} members can be included in a bootstrap configuration.
-   * If
+   * <p>Only {@link RaftMember.Type#ACTIVE} members can be included in a bootstrap configuration. If
    * the local server is not initialized as an active member, it cannot be part of the bootstrap
    * configuration for the cluster.
    *
@@ -127,8 +126,7 @@ public interface RaftCluster {
    * set of members. Bootstrapping multiple servers with different configurations may result in
    * split brain.
    *
-   * <p>The {@link CompletableFuture} returned by this method will be completed once the cluster
-   * has
+   * <p>The {@link CompletableFuture} returned by this method will be completed once the cluster has
    * been bootstrapped, a leader has been elected, and the leader has been notified of the local
    * server's client configurations.
    *

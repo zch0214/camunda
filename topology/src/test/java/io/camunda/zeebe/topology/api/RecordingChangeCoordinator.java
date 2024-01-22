@@ -7,9 +7,9 @@
  */
 package io.camunda.zeebe.topology.api;
 
-import io.atomix.cluster.MemberId;
 import io.camunda.zeebe.scheduler.future.ActorFuture;
 import io.camunda.zeebe.scheduler.testing.TestActorFuture;
+import io.camunda.zeebe.topology.api.TopologyManagementRequest.ForceOverwriteTopologyRequest;
 import io.camunda.zeebe.topology.changes.TopologyChangeCoordinator;
 import io.camunda.zeebe.topology.state.ClusterChangePlan;
 import io.camunda.zeebe.topology.state.ClusterTopology;
@@ -64,8 +64,8 @@ final class RecordingChangeCoordinator implements TopologyChangeCoordinator {
   }
 
   @Override
-  public ActorFuture<ClusterTopology> forceOverwriteTopology(
-      final List<MemberId> memberIdsToRemove) {
+  public ActorFuture<TopologyChangeResult> forceOverwriteTopology(
+      final ForceOverwriteTopologyRequest request) {
     return TestActorFuture.failedFuture(new UnsupportedOperationException());
   }
 

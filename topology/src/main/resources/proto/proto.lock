@@ -480,6 +480,11 @@
                 "id": 6,
                 "name": "partitionReconfigurePriority",
                 "type": "PartitionReconfigurePriorityOperation"
+              },
+              {
+                "id": 7,
+                "name": "forcePartitionReconfigure",
+                "type": "ForcePartitionReconfigure"
               }
             ]
           },
