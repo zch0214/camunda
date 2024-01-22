@@ -123,11 +123,12 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
 
     healthCheckService.registerBootstrapPartitions(memberPartitions);
     for (final var partitionMetadata : memberPartitions) {
-      bootstrapPartition(partitionMetadata);
+      bootstrapPartition(partitionMetadata, false);
     }
   }
 
-  private ActorFuture<Void> bootstrapPartition(final PartitionMetadata partitionMetadata) {
+  private ActorFuture<Void> bootstrapPartition(
+      final PartitionMetadata partitionMetadata, final boolean overwriteExistingConfiguration) {
     final var result = concurrencyControl.<Void>createFuture();
     final var id = partitionMetadata.id().id();
     final var context =
@@ -141,7 +142,8 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
             partitionMetadata,
             raftPartitionFactory,
             zeebePartitionFactory,
-            brokerCfg);
+            brokerCfg,
+            overwriteExistingConfiguration);
     final var partition = Partition.bootstrapping(context);
     partitions.put(id, partition);
 
@@ -164,7 +166,8 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
             partitionMetadata,
             raftPartitionFactory,
             zeebePartitionFactory,
-            brokerCfg);
+            brokerCfg,
+            false);
     final var partition = Partition.joining(context);
     final var previousPartition = partitions.putIfAbsent(id, partition);
     if (previousPartition != null) {
@@ -256,27 +259,7 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
   @Override
   public ActorFuture<Void> join(
       final int partitionId, final Map<MemberId, Integer> membersWithPriority) {
-    final int targetPriority = Collections.max(membersWithPriority.values());
-
-    final var members = membersWithPriority.keySet();
-    final var primaries =
-        membersWithPriority.entrySet().stream()
-            .filter(entry -> entry.getValue() == targetPriority)
-            .map(Entry::getKey)
-            .toList();
-
-    MemberId primary = null;
-    if (primaries.size() == 1) {
-      primary = primaries.get(0);
-    }
-
-    final var partitionMetadata =
-        new PartitionMetadata(
-            PartitionId.from(GROUP_NAME, partitionId),
-            members,
-            membersWithPriority,
-            targetPriority,
-            primary);
+    final var partitionMetadata = getPartitionMetadata(partitionId, membersWithPriority);
 
     return joinPartition(partitionMetadata);
   }
@@ -336,5 +319,56 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
         });
 
     return result;
+  }
+
+  @Override
+  public ActorFuture<Void> reconfigurePartition(
+      final int partitionId, final Map<MemberId, Integer> membersWithPriority) {
+    final var result = concurrencyControl.<Void>createFuture();
+    // Stop partition, replace it with new boostrapping & overwriting one, start it.
+    concurrencyControl.run(
+        () -> {
+          concurrencyControl.runOnCompletion(
+              partitions.get(partitionId).stop(),
+              (stoppedPartition, stopError) -> {
+                if (stopError != null) {
+                  result.completeExceptionally(stopError);
+                } else {
+                  concurrencyControl.runOnCompletion(
+                      bootstrapPartition(
+                          getPartitionMetadata(partitionId, membersWithPriority), true),
+                      (ok, bootstrapError) -> {
+                        if (bootstrapError != null) {
+                          result.complete(ok);
+                        }
+                      });
+                }
+              });
+        });
+    return result;
+  }
+
+  private static PartitionMetadata getPartitionMetadata(
+      final int partitionId, final Map<MemberId, Integer> membersWithPriority) {
+    final int targetPriority = Collections.max(membersWithPriority.values());
+
+    final var members = membersWithPriority.keySet();
+    final var primaries =
+        membersWithPriority.entrySet().stream()
+            .filter(entry -> entry.getValue() == targetPriority)
+            .map(Entry::getKey)
+            .toList();
+
+    MemberId primary = null;
+    if (primaries.size() == 1) {
+      primary = primaries.getFirst();
+    }
+
+    return new PartitionMetadata(
+        PartitionId.from(GROUP_NAME, partitionId),
+        members,
+        membersWithPriority,
+        targetPriority,
+        primary);
   }
 }

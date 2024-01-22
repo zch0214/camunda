@@ -29,4 +29,10 @@ public final class NoopPartitionChangeExecutor implements PartitionChangeExecuto
   public ActorFuture<Void> reconfigurePriority(final int partitionId, final int newPriority) {
     return CompletableActorFuture.completed(null);
   }
+
+  @Override
+  public ActorFuture<Void> reconfigurePartition(
+      final int partitionId, final Map<MemberId, Integer> membersWithPriority) {
+    return CompletableActorFuture.completed(null);
+  }
 }

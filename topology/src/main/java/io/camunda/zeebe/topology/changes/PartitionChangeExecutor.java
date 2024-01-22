@@ -49,4 +49,7 @@ public interface PartitionChangeExecutor {
    * @return a future that completes when the priority is updated
    */
   ActorFuture<Void> reconfigurePriority(int partitionId, int newPriority);
+
+  ActorFuture<Void> reconfigurePartition(
+      int partitionId, Map<MemberId, Integer> membersWithPriority);
 }

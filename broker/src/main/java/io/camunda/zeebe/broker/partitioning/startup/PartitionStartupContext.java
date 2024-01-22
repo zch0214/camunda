@@ -37,7 +37,7 @@ public final class PartitionStartupContext {
   private FileBasedSnapshotStore snapshotStore;
   private RaftPartition raftPartition;
   private ZeebePartition zeebePartition;
-  private boolean overwriteExistingConfig;
+  private final boolean overwriteExistingConfig;
 
   public PartitionStartupContext(
       final ActorSchedulingService schedulingService,
@@ -49,7 +49,8 @@ public final class PartitionStartupContext {
       final PartitionMetadata partitionMetadata,
       final RaftPartitionFactory raftPartitionFactory,
       final ZeebePartitionFactory zeebePartitionFactory,
-      final BrokerCfg brokerConfig) {
+      final BrokerCfg brokerConfig,
+      final boolean overwriteExistingConfig) {
     this.schedulingService = schedulingService;
     this.topologyManager = topologyManager;
     this.concurrencyControl = concurrencyControl;
@@ -60,6 +61,7 @@ public final class PartitionStartupContext {
     this.raftPartitionFactory = raftPartitionFactory;
     this.zeebePartitionFactory = zeebePartitionFactory;
     this.brokerConfig = brokerConfig;
+    this.overwriteExistingConfig = overwriteExistingConfig;
   }
 
   @Override
@@ -145,10 +147,5 @@ public final class PartitionStartupContext {
 
   public boolean overwriteExistingConfig() {
     return overwriteExistingConfig;
-  }
-
-  public PartitionStartupContext overwriteExistingConfig(final boolean overwriteExistingConfig) {
-    this.overwriteExistingConfig = overwriteExistingConfig;
-    return this;
   }
 }
