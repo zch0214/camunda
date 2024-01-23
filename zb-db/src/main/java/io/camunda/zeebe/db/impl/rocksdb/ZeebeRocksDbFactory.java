@@ -235,7 +235,7 @@ public final class ZeebeRocksDbFactory<ColumnFamilyType extends Enum<ColumnFamil
         // compression algo. compressed blocks are stored in the OS page cache, and uncompressed in
         // the LRUCache created above. note L0 is always uncompressed
         .setNumLevels(4)
-        .setMaxBytesForLevelBase(32 * 1024 * 1024L)
+        .setMaxBytesForLevelBase(memtableMemory * 2)
         .setMaxBytesForLevelMultiplier(10)
         .setCompressionPerLevel(
             List.of(

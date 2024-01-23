@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.engine.state.mutable;
 
+import io.camunda.zeebe.db.TransactionContext;
 import io.camunda.zeebe.engine.state.immutable.MigrationState;
 import io.camunda.zeebe.engine.state.immutable.PendingMessageSubscriptionState;
 import io.camunda.zeebe.engine.state.immutable.PendingProcessMessageSubscriptionState;
@@ -31,7 +32,7 @@ public interface MutableMigrationState extends MigrationState {
 
   void migrateElementInstancePopulateProcessInstanceByDefinitionKey();
 
-  void migrateProcessStateForMultiTenancy();
+  void migrateProcessStateForMultiTenancy(final TransactionContext txnContext);
 
   void migrateDecisionStateForMultiTenancy();
 

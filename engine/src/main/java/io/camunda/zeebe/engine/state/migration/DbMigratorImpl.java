@@ -91,14 +91,11 @@ public class DbMigratorImpl implements DbMigrator {
       // one based index looks nicer in logs
 
       final var migration = migrationTasks.get(index - 1);
-      final int finalIndex = index;
-      zeebeDbContext.runInTransaction(
-          () -> {
-            final var executed = handleMigrationTask(migration, finalIndex, migrationTasks.size());
-            if (executed) {
-              executedMigrations.add(migration);
-            }
-          });
+      final var executed = handleMigrationTask(migration, index, migrationTasks.size());
+      if (executed) {
+        executedMigrations.add(migration);
+      }
+      LOG.debug("Transaction finished");
       zeebeDb.flush();
       LOG.debug("iterator count: {}", XIterator.counter.get());
       LOG.debug("rocksdb.block-cache-usage: {}", zeebeDb.getProperty("rocksdb.block-cache-usage"));
@@ -177,7 +174,7 @@ public class DbMigratorImpl implements DbMigrator {
     LOGGER.info(
         "Starting " + migrationTask.getIdentifier() + " migration (" + index + "/" + total + ")");
     final var startTime = System.currentTimeMillis();
-    migrationTask.runMigration(processingState);
+    migrationTask.runMigration(processingState, zeebeDbContext);
     final var duration = System.currentTimeMillis() - startTime;
 
     LOGGER.debug(migrationTask.getIdentifier() + " migration completed in " + duration + " ms.");

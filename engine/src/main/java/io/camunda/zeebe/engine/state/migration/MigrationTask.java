@@ -7,6 +7,7 @@
  */
 package io.camunda.zeebe.engine.state.migration;
 
+import io.camunda.zeebe.db.TransactionContext;
 import io.camunda.zeebe.engine.state.immutable.ProcessingState;
 import io.camunda.zeebe.engine.state.mutable.MutableProcessingState;
 
@@ -64,5 +65,10 @@ public interface MigrationTask {
    *
    * @param processingState the mutable Zeebe state
    */
-  void runMigration(final MutableProcessingState processingState);
+  default void runMigration(final MutableProcessingState processingState) {}
+
+  default void runMigration(
+      final MutableProcessingState processingState, final TransactionContext txnContext) {
+    txnContext.runInTransaction(() -> runMigration(processingState));
+  }
 }

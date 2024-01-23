@@ -420,11 +420,6 @@ public class DbMigrationState implements MutableMigrationState {
   }
 
   @Override
-  public void migrateProcessStateForMultiTenancy() {
-    processMigrationState.migrateProcessStateForMultiTenancy();
-  }
-
-  @Override
   public void migrateDecisionStateForMultiTenancy() {
     decisionMigrationState.migrateDecisionStateForMultiTenancy();
   }
@@ -458,6 +453,11 @@ public class DbMigrationState implements MutableMigrationState {
   @Override
   public void migrateSignalSubscriptionStateForMultiTenancy() {
     signalSubscriptionMigrationState.migrateSignalSubscriptionStateForMultiTenancy();
+  }
+
+  @Override
+  public void migrateProcessStateForMultiTenancy(final TransactionContext txnContext) {
+    processMigrationState.migrateProcessStateForMultiTenancy();
   }
 
   @Override
