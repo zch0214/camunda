@@ -19,6 +19,7 @@ package io.atomix.raft.roles;
 import io.atomix.raft.RaftError;
 import io.atomix.raft.RaftError.Type;
 import io.atomix.raft.RaftServer;
+import io.atomix.raft.RaftServer.Role;
 import io.atomix.raft.impl.RaftContext;
 import io.atomix.raft.protocol.AppendResponse;
 import io.atomix.raft.protocol.ConfigureRequest;
@@ -71,6 +72,7 @@ public class InactiveRole extends AbstractRole {
           logResponse(
               ConfigureResponse.builder()
                   .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .withStatus(Status.ERROR)
                   .build()));
     }
 
@@ -131,6 +133,10 @@ public class InactiveRole extends AbstractRole {
     final var currentConfiguration = raft.getCluster().getConfiguration();
 
     if (!currentConfiguration.forceReconfigure()) {
+
+      if (raft.isLeader()) {
+        raft.transition(Role.FOLLOWER);
+      }
       // No need to overwrite
       // TODO: sanity check if the newMemberIds are the same as the current configuration
       raft.getCluster()
@@ -138,7 +144,7 @@ public class InactiveRole extends AbstractRole {
               new Configuration(
                   request.index(),
                   request.term(),
-                  request.term(),
+                  request.timestamp(),
                   request.newMembers(),
                   List.of(), // Skip joint consensus
                   true));

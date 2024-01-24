@@ -145,7 +145,7 @@ public class ForceConfigureRequest extends AbstractRaftRequest {
      * @throws IllegalArgumentException if the {@code term} is not positive
      */
     public Builder withTerm(final long term) {
-      checkArgument(term > 0, "term must be positive");
+      checkArgument(term >= 0, "term must be positive");
       this.term = term;
       return this;
     }
@@ -198,7 +198,7 @@ public class ForceConfigureRequest extends AbstractRaftRequest {
     @Override
     protected void validate() {
       super.validate();
-      checkArgument(term > 0, "term must be positive");
+      checkArgument(term >= 0, "term must be positive");
       checkArgument(index >= 0, "index must be positive");
       checkArgument(timestamp > 0, "timestamp must be positive");
       checkNotNull(newMembers, "newMembers cannot be null");

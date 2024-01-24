@@ -320,6 +320,8 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
   /** Registers server handlers on the configured protocol. */
   private void registerHandlers(final RaftServerProtocol protocol) {
     protocol.registerConfigureHandler(request -> runOnContext(() -> role.onConfigure(request)));
+    protocol.registerForceConfigureHandler(
+        request -> runOnContext(() -> role.onForceConfigure(request)));
     protocol.registerInstallHandler(request -> runOnContext(() -> role.onInstall(request)));
     protocol.registerReconfigureHandler(request -> runOnContext(() -> role.onReconfigure(request)));
     protocol.registerJoinHandler(request -> runOnContext(() -> role.onJoin(request)));
@@ -949,6 +951,7 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
   /** Unregisters server handlers on the configured protocol. */
   private void unregisterHandlers(final RaftServerProtocol protocol) {
     protocol.unregisterConfigureHandler();
+    protocol.unregisterForceConfigureHandler();
     protocol.unregisterInstallHandler();
     protocol.unregisterReconfigureHandler();
     protocol.unregisterJoinHandler();
@@ -1355,6 +1358,10 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
                   .toList();
 
           if (!currentConfiguration.forceReconfigure()) {
+            if (isLeader()) {
+              transition(Role.FOLLOWER);
+            }
+
             // No need to overwrite
             // TODO: sanity check if the newMemberIds are the same as the current configuration
             getCluster()

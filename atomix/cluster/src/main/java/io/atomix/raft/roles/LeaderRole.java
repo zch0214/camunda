@@ -106,6 +106,15 @@ public final class LeaderRole extends ActiveRole implements ZeebeLogAppender {
               });
     }
 
+    if (forceConfigureInProgress()) {
+      raft.getThreadContext()
+          .execute(
+              () -> {
+                final var currentMembers = raft.getCluster().getConfiguration().newMembers();
+                configure(currentMembers, List.of());
+              });
+    }
+
     return super.start().thenRun(this::startTimers).thenApply(v -> this);
   }
 
@@ -424,6 +433,10 @@ public final class LeaderRole extends ActiveRole implements ZeebeLogAppender {
     return raft.getCluster().inJointConsensus();
   }
 
+  private boolean forceConfigureInProgress() {
+    return raft.getCluster().getConfiguration().forceReconfigure();
+  }
+
   /** Commits the given configuration. */
   private CompletableFuture<Long> configure(
       final Collection<RaftMember> newMembers, final Collection<RaftMember> oldMembers) {
@@ -467,6 +480,7 @@ public final class LeaderRole extends ActiveRole implements ZeebeLogAppender {
           logResponse(
               ConfigureResponse.builder()
                   .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .withStatus(Status.ERROR)
                   .build()));
     }
 
@@ -549,6 +563,7 @@ public final class LeaderRole extends ActiveRole implements ZeebeLogAppender {
           logResponse(
               AppendResponse.builder()
                   .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .withStatus(Status.ERROR)
                   .build()));
     }
 
@@ -605,6 +620,7 @@ public final class LeaderRole extends ActiveRole implements ZeebeLogAppender {
           logResponse(
               VoteResponse.builder()
                   .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .withStatus(Status.ERROR)
                   .build()));
     }
 

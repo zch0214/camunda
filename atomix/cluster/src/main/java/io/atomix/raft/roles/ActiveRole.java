@@ -25,6 +25,7 @@ import io.atomix.raft.protocol.PollRequest;
 import io.atomix.raft.protocol.PollResponse;
 import io.atomix.raft.protocol.RaftRequest;
 import io.atomix.raft.protocol.RaftResponse;
+import io.atomix.raft.protocol.RaftResponse.Status;
 import io.atomix.raft.protocol.VoteRequest;
 import io.atomix.raft.protocol.VoteResponse;
 import io.atomix.raft.storage.log.IndexedRaftLogEntry;
@@ -50,6 +51,7 @@ public abstract class ActiveRole extends PassiveRole {
           logResponse(
               AppendResponse.builder()
                   .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .withStatus(Status.ERROR)
                   .build()));
     }
     // If the request indicates a term that is greater than the current term then
@@ -80,6 +82,7 @@ public abstract class ActiveRole extends PassiveRole {
           logResponse(
               PollResponse.builder()
                   .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .withStatus(Status.ERROR)
                   .build()));
     }
 
@@ -100,6 +103,7 @@ public abstract class ActiveRole extends PassiveRole {
           logResponse(
               VoteResponse.builder()
                   .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .withStatus(Status.ERROR)
                   .build()));
     }
 

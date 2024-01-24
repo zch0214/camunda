@@ -14,6 +14,7 @@ import io.atomix.cluster.ClusterMembershipService;
 import io.atomix.cluster.Member;
 import io.atomix.cluster.MemberId;
 import io.atomix.raft.RaftServer.CancelledBootstrapException;
+import io.atomix.raft.cluster.RaftMember;
 import io.atomix.raft.cluster.RaftMember.Type;
 import io.atomix.raft.cluster.impl.DefaultRaftMember;
 import io.atomix.raft.impl.RaftContext;
@@ -583,6 +584,67 @@ final class ReconfigurationTest {
       // then -- remaining three can elect a leader and commit entries
       final var leader = awaitLeader(m1, m2);
       assertThat(appendEntry(leader).commit()).succeedsWithin(Duration.ofSeconds(1));
+    }
+  }
+
+  @Nested
+  final class Forcing {
+    @Test
+    void canForceReconfigureFrom4To2(@TempDir final Path tmp) {
+      // given - a cluster with 3 members
+      final var id1 = MemberId.from("1");
+      final var id2 = MemberId.from("2");
+      final var id3 = MemberId.from("3");
+      final var id4 = MemberId.from("4");
+
+      final var m1 = createServer(tmp, createMembershipService(id1, id2, id3, id4));
+      final var m2 = createServer(tmp, createMembershipService(id2, id1, id3, id4));
+      final var m3 = createServer(tmp, createMembershipService(id3, id1, id2, id4));
+      final var m4 = createServer(tmp, createMembershipService(id4, id1, id2, id3));
+
+      CompletableFuture.allOf(
+              m1.bootstrap(id1, id2, id3, id4),
+              m2.bootstrap(id1, id2, id3, id4),
+              m3.bootstrap(id1, id2, id3, id4),
+              m4.bootstrap(id1, id2, id3, id4))
+          .join();
+
+      awaitLeader(m1, m2, m3, m4);
+
+      Awaitility.await("All members have configuration with 4 active members")
+          .untilAsserted(
+              () ->
+                  assertThat(List.of(m1, m2, m3, m4))
+                      .allSatisfy(
+                          member ->
+                              assertThat(
+                                      member.cluster().getMembers().stream()
+                                          .map(RaftMember::memberId)
+                                          .toList())
+                                  .containsExactlyInAnyOrderElementsOf(
+                                      List.of(id1, id2, id3, id4))));
+
+      // Have to shutdown because we do not currently handle if the m1 is the leader.
+      // m3.shutdown().join();
+      // m4.shutdown().join();
+
+      // when - force reconfigure to use only 1 and 2
+      m1.forceReconfigure(List.of(id1, id2)).join();
+
+      awaitLeader(m1, m2);
+
+      // then - all members show a configuration with 2 active members
+      Awaitility.await("All members have configuration with 2 active members")
+          .untilAsserted(
+              () ->
+                  assertThat(List.of(m1, m2))
+                      .allSatisfy(
+                          member ->
+                              assertThat(
+                                      member.cluster().getMembers().stream()
+                                          .map(RaftMember::memberId)
+                                          .toList())
+                                  .containsExactlyInAnyOrderElementsOf(List.of(id1, id2))));
     }
   }
 }

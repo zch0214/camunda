@@ -25,6 +25,7 @@ import io.atomix.raft.impl.RaftContext;
 import io.atomix.raft.protocol.AppendResponse;
 import io.atomix.raft.protocol.InternalAppendRequest;
 import io.atomix.raft.protocol.RaftResponse;
+import io.atomix.raft.protocol.RaftResponse.Status;
 import io.atomix.raft.protocol.VoteRequest;
 import io.atomix.raft.protocol.VoteResponse;
 import io.atomix.raft.storage.log.IndexedRaftLogEntry;
@@ -284,6 +285,7 @@ public final class CandidateRole extends ActiveRole {
           logResponse(
               VoteResponse.builder()
                   .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .withStatus(Status.ERROR)
                   .build()));
     }
     // If the request indicates a term that is greater than the current term then

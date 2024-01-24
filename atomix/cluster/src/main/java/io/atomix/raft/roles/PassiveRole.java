@@ -117,6 +117,7 @@ public class PassiveRole extends InactiveRole {
           logResponse(
               InstallResponse.builder()
                   .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .withStatus(Status.ERROR)
                   .build()));
     }
 
@@ -378,6 +379,7 @@ public class PassiveRole extends InactiveRole {
           logResponse(
               AppendResponse.builder()
                   .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .withStatus(Status.ERROR)
                   .build()));
     }
 
@@ -411,6 +413,7 @@ public class PassiveRole extends InactiveRole {
           logResponse(
               VoteResponse.builder()
                   .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .withStatus(Status.ERROR)
                   .build()));
     }
 

@@ -90,6 +90,12 @@ public class RaftServerCommunicator implements RaftServerProtocol {
   }
 
   @Override
+  public CompletableFuture<ForceConfigureResponse> forceConfigure(
+      final MemberId newMemberId, final ForceConfigureRequest request) {
+    return sendAndReceive(context.forceConfigureSubject, request, newMemberId);
+  }
+
+  @Override
   public CompletableFuture<JoinResponse> join(final MemberId memberId, final JoinRequest request) {
     return sendAndReceive(context.joinSubject, request, memberId, configurationChangeTimeout);
   }
@@ -177,6 +183,21 @@ public class RaftServerCommunicator implements RaftServerProtocol {
   @Override
   public void unregisterReconfigureHandler() {
     clusterCommunicator.unsubscribe(context.reconfigureSubject);
+  }
+
+  @Override
+  public void registerForceConfigureHandler(
+      final Function<ForceConfigureRequest, CompletableFuture<ForceConfigureResponse>> handler) {
+    clusterCommunicator.replyTo(
+        context.forceConfigureSubject,
+        serializer::decode,
+        handler.<ForceConfigureRequest>compose(this::recordReceivedMetrics),
+        serializer::encode);
+  }
+
+  @Override
+  public void unregisterForceConfigureHandler() {
+    clusterCommunicator.unsubscribe(context.forceConfigureSubject);
   }
 
   @Override
@@ -278,12 +299,6 @@ public class RaftServerCommunicator implements RaftServerProtocol {
   public void unregisterAppendHandler() {
     clusterCommunicator.unsubscribe(context.appendV1subject);
     clusterCommunicator.unsubscribe(context.appendV2subject);
-  }
-
-  @Override
-  public CompletableFuture<ForceConfigureResponse> forceConfigure(
-      final MemberId newMemberId, final ForceConfigureRequest request) {
-    return sendAndReceive(context.forceConfigureSubject, request, newMemberId);
   }
 
   private <T, U> CompletableFuture<U> sendAndReceive(

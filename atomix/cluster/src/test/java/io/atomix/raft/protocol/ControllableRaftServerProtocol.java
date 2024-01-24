@@ -174,6 +174,12 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
   }
 
   @Override
+  public CompletableFuture<ForceConfigureResponse> forceConfigure(
+      final MemberId newMemberId, final ForceConfigureRequest build) {
+    throw new UnsupportedOperationException("Not implemented yet.");
+  }
+
+  @Override
   public CompletableFuture<JoinResponse> join(final MemberId memberId, final JoinRequest request) {
     final var responseFuture = new CompletableFuture<JoinResponse>();
     send(
@@ -312,6 +318,17 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
   @Override
   public void unregisterReconfigureHandler() {
     reconfigureHandler = null;
+  }
+
+  @Override
+  public void registerForceConfigureHandler(
+      final Function<ForceConfigureRequest, CompletableFuture<ForceConfigureResponse>> handler) {
+    // not implemented
+  }
+
+  @Override
+  public void unregisterForceConfigureHandler() {
+    // not implemented
   }
 
   @Override

@@ -41,6 +41,9 @@ public interface RaftServerProtocol {
    */
   CompletableFuture<ReconfigureResponse> reconfigure(MemberId memberId, ReconfigureRequest request);
 
+  CompletableFuture<ForceConfigureResponse> forceConfigure(
+      MemberId newMemberId, ForceConfigureRequest build);
+
   /**
    * Sends a join request to the given node.
    *
@@ -139,6 +142,12 @@ public interface RaftServerProtocol {
   /** Unregisters the reconfigure request handler. */
   void unregisterReconfigureHandler();
 
+  void registerForceConfigureHandler(
+      Function<ForceConfigureRequest, CompletableFuture<ForceConfigureResponse>> handler);
+
+  /** Unregisters the reconfigure request handler. */
+  void unregisterForceConfigureHandler();
+
   void registerJoinHandler(Function<JoinRequest, CompletableFuture<JoinResponse>> handler);
 
   void unregisterJoinHandler();
@@ -189,7 +198,4 @@ public interface RaftServerProtocol {
 
   /** Unregisters the append request handler. */
   void unregisterAppendHandler();
-
-  CompletableFuture<ForceConfigureResponse> forceConfigure(
-      MemberId newMemberId, ForceConfigureRequest build);
 }
