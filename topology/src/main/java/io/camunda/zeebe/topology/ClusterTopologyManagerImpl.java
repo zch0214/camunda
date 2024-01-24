@@ -21,6 +21,7 @@ import io.camunda.zeebe.util.ExponentialBackoffRetryDelay;
 import io.camunda.zeebe.util.VisibleForTesting;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 import org.slf4j.Logger;
@@ -186,10 +187,20 @@ public final class ClusterTopologyManagerImpl implements ClusterTopologyManager 
               // If receivedTopology is an older version, the merged topology will be same as the
               // local one. In that case, we can skip the next steps.
               if (!mergedTopology.equals(persistedClusterTopology.getTopology())) {
+
                 LOG.debug(
                     "Received new topology {}. Updating local topology to {}",
                     receivedTopology,
                     mergedTopology);
+
+                if (!Objects.equals(
+                    mergedTopology.getMember(localMemberId),
+                    persistedClusterTopology.getTopology().getMember(localMemberId))) {
+                  LOG.warn("Cluster topology was force overwritten. Shutting down the broker.");
+                  persistedClusterTopology.update(mergedTopology);
+                  System.exit(-1); // TODO: Should shutdown the broker gracefully.
+                }
+
                 persistedClusterTopology.update(mergedTopology);
                 topologyGossiper.accept(mergedTopology);
                 applyTopologyChangeOperation(mergedTopology);
