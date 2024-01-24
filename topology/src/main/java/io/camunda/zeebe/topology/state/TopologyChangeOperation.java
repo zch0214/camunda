@@ -33,7 +33,7 @@ public sealed interface TopologyChangeOperation {
     record PartitionReconfigurePriorityOperation(MemberId memberId, int partitionId, int priority)
         implements PartitionChangeOperation {}
 
-    record ForcePartitionReconfigure(MemberId memberId, int partitionId)
+    record ForcePartitionReconfigure(MemberId memberId, int partitionId, boolean awaitReadiness)
         implements PartitionChangeOperation {}
   }
 }

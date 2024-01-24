@@ -24,6 +24,8 @@ import io.camunda.zeebe.topology.state.TopologyChangeOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.ForcePartitionReconfigure;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -123,10 +125,22 @@ public class TopologyChangeCoordinatorImpl implements TopologyChangeCoordinator 
 
               final List<TopologyChangeOperation> operations = new ArrayList<>();
 
-              for (final var member : newTopology.members().entrySet()) {
-                for (final int partitionId : member.getValue().partitions().keySet()) {
-                  operations.add(new ForcePartitionReconfigure(member.getKey(), partitionId));
+              final var partitions =
+                  newTopology.members().values().stream()
+                      .flatMap(memberState -> memberState.partitions().keySet().stream())
+                      .collect(Collectors.toSet());
+              for (final var partition : partitions) {
+                final var members =
+                    newTopology.members().entrySet().stream()
+                        .filter(member -> member.getValue().hasPartition(partition))
+                        .map(Entry::getKey)
+                        .collect(Collectors.toSet())
+                        .stream()
+                        .toList();
+                for (int i = 0; i < members.size() - 1; i++) {
+                  operations.add(new ForcePartitionReconfigure(members.get(i), partition, false));
                 }
+                operations.add(new ForcePartitionReconfigure(members.getLast(), partition, true));
               }
 
               final var newTopologyWithChanges = newTopology.startTopologyChange(operations);

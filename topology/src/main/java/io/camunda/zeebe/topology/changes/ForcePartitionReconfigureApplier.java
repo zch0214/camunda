@@ -23,15 +23,18 @@ public class ForcePartitionReconfigureApplier implements OperationApplier {
   private final int partitionId;
   private final MemberId localMemberId;
   private final PartitionChangeExecutor partitionChangeExecutor;
+  private final boolean awaitReadiness;
   private Map<MemberId, Integer> partitionMembersWithPriority;
 
   public ForcePartitionReconfigureApplier(
       final int partitionId,
       final MemberId localMemberId,
+      final boolean awaitReadiness,
       final PartitionChangeExecutor partitionChangeExecutor) {
     this.partitionId = partitionId;
     this.localMemberId = localMemberId;
     this.partitionChangeExecutor = partitionChangeExecutor;
+    this.awaitReadiness = awaitReadiness;
   }
 
   @Override
@@ -47,7 +50,7 @@ public class ForcePartitionReconfigureApplier implements OperationApplier {
         new CompletableActorFuture<>();
 
     partitionChangeExecutor
-        .reconfigurePartition(partitionId, partitionMembersWithPriority)
+        .reconfigurePartition(partitionId, partitionMembersWithPriority, awaitReadiness)
         .onComplete(
             (ignore, error) -> {
               if (error == null) {

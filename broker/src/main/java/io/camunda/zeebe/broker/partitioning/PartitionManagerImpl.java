@@ -323,7 +323,9 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
 
   @Override
   public ActorFuture<Void> reconfigurePartition(
-      final int partitionId, final Map<MemberId, Integer> membersWithPriority) {
+      final int partitionId,
+      final Map<MemberId, Integer> membersWithPriority,
+      final boolean awaitReadiness) {
     final var result = concurrencyControl.<Void>createFuture();
     // Stop partition, replace it with new boostrapping & overwriting one, start it.
     concurrencyControl.run(
@@ -333,6 +335,8 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
               (stoppedPartition, stopError) -> {
                 if (stopError != null) {
                   result.completeExceptionally(stopError);
+                } else if (!awaitReadiness) {
+                  result.complete(null);
                 } else {
                   concurrencyControl.runOnCompletion(
                       bootstrapPartition(

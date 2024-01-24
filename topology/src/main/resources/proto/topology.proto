@@ -81,6 +81,7 @@ message MemberLeaveOperation {}
 
 message ForcePartitionReconfigure {
   int32 partitionId = 1;
+  bool awaitReadiness = 2;
 }
 
 enum State {

@@ -59,6 +59,7 @@ public class TopologyChangeAppliersImpl implements TopologyChangeAppliers {
           new ForcePartitionReconfigureApplier(
               forcePartitionReconfigure.partitionId(),
               forcePartitionReconfigure.memberId(),
+              forcePartitionReconfigure.awaitReadiness(),
               partitionChangeExecutor);
     };
   }

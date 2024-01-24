@@ -286,29 +286,32 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
     final var builder =
         Topology.TopologyChangeOperation.newBuilder().setMemberId(operation.memberId().id());
     switch (operation) {
-      case final PartitionJoinOperation joinOperation -> builder.setPartitionJoin(
-          Topology.PartitionJoinOperation.newBuilder()
-              .setPartitionId(joinOperation.partitionId())
-              .setPriority(joinOperation.priority()));
-      case final PartitionLeaveOperation leaveOperation -> builder.setPartitionLeave(
-          Topology.PartitionLeaveOperation.newBuilder()
-              .setPartitionId(leaveOperation.partitionId()));
-      case final MemberJoinOperation memberJoinOperation -> builder.setMemberJoin(
-          Topology.MemberJoinOperation.newBuilder().build());
-      case final MemberLeaveOperation memberLeaveOperation -> builder.setMemberLeave(
-          Topology.MemberLeaveOperation.newBuilder().build());
-      case final PartitionReconfigurePriorityOperation reconfigurePriorityOperation -> builder
-          .setPartitionReconfigurePriority(
+      case final PartitionJoinOperation joinOperation ->
+          builder.setPartitionJoin(
+              Topology.PartitionJoinOperation.newBuilder()
+                  .setPartitionId(joinOperation.partitionId())
+                  .setPriority(joinOperation.priority()));
+      case final PartitionLeaveOperation leaveOperation ->
+          builder.setPartitionLeave(
+              Topology.PartitionLeaveOperation.newBuilder()
+                  .setPartitionId(leaveOperation.partitionId()));
+      case final MemberJoinOperation memberJoinOperation ->
+          builder.setMemberJoin(Topology.MemberJoinOperation.newBuilder().build());
+      case final MemberLeaveOperation memberLeaveOperation ->
+          builder.setMemberLeave(Topology.MemberLeaveOperation.newBuilder().build());
+      case final PartitionReconfigurePriorityOperation reconfigurePriorityOperation ->
+          builder.setPartitionReconfigurePriority(
               Topology.PartitionReconfigurePriorityOperation.newBuilder()
                   .setPartitionId(reconfigurePriorityOperation.partitionId())
                   .setPriority(reconfigurePriorityOperation.priority())
                   .build());
-      case final ForcePartitionReconfigure forcePartitionReconfigure -> builder
-          .setForcePartitionReconfigure(
+      case final ForcePartitionReconfigure forcePartitionReconfigure ->
+          builder.setForcePartitionReconfigure(
               Topology.ForcePartitionReconfigure.newBuilder()
                   .setPartitionId(forcePartitionReconfigure.partitionId()));
-      default -> throw new IllegalArgumentException(
-          "Unknown operation type: " + operation.getClass().getSimpleName());
+      default ->
+          throw new IllegalArgumentException(
+              "Unknown operation type: " + operation.getClass().getSimpleName());
     }
     return builder.build();
   }
@@ -383,7 +386,8 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
     } else if (topologyChangeOperation.hasForcePartitionReconfigure()) {
       return new ForcePartitionReconfigure(
           MemberId.from(topologyChangeOperation.getMemberId()),
-          topologyChangeOperation.getForcePartitionReconfigure().getPartitionId());
+          topologyChangeOperation.getForcePartitionReconfigure().getPartitionId(),
+          topologyChangeOperation.getForcePartitionReconfigure().getAwaitReadiness());
 
     } else {
       // If the node does not know of a type, the exception thrown will prevent

@@ -51,5 +51,5 @@ public interface PartitionChangeExecutor {
   ActorFuture<Void> reconfigurePriority(int partitionId, int newPriority);
 
   ActorFuture<Void> reconfigurePartition(
-      int partitionId, Map<MemberId, Integer> membersWithPriority);
+      int partitionId, Map<MemberId, Integer> membersWithPriority, boolean awaitReadiness);
 }
