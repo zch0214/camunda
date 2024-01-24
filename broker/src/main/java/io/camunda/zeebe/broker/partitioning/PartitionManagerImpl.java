@@ -339,6 +339,8 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
                           getPartitionMetadata(partitionId, membersWithPriority), true),
                       (ok, bootstrapError) -> {
                         if (bootstrapError != null) {
+                          result.completeExceptionally(bootstrapError);
+                        } else {
                           result.complete(ok);
                         }
                       });
