@@ -16,6 +16,7 @@
  */
 package io.atomix.raft.roles;
 
+import io.atomix.raft.RaftError.Type;
 import io.atomix.raft.RaftServer;
 import io.atomix.raft.impl.RaftContext;
 import io.atomix.raft.protocol.AppendResponse;
@@ -41,6 +42,16 @@ public abstract class ActiveRole extends PassiveRole {
     raft.checkThread();
     logRequest(request);
 
+    if (raft.getCluster().getConfiguration().forceReconfigure()
+        && !raft.getCluster().getConfiguration().hasMember(request.leader())) {
+      // reject request because leader is not part of the new configuration which is being applied
+      // forcefully
+      return CompletableFuture.completedFuture(
+          logResponse(
+              AppendResponse.builder()
+                  .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .build()));
+    }
     // If the request indicates a term that is greater than the current term then
     // assign that term and leader to the current context and transition to follower.
     final boolean transition = updateTermAndLeader(request.term(), request.leader());
@@ -60,6 +71,18 @@ public abstract class ActiveRole extends PassiveRole {
   public CompletableFuture<PollResponse> onPoll(final PollRequest request) {
     raft.checkThread();
     logRequest(request);
+
+    if (raft.getCluster().getConfiguration().forceReconfigure()
+        && !raft.getCluster().getConfiguration().hasMember(request.candidate())) {
+      // reject request because leader is not part of the new configuration which is being applied
+      // forcefully
+      return CompletableFuture.completedFuture(
+          logResponse(
+              PollResponse.builder()
+                  .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .build()));
+    }
+
     updateTermAndLeader(request.term(), null);
     return CompletableFuture.completedFuture(logResponse(handlePoll(request)));
   }
@@ -68,6 +91,17 @@ public abstract class ActiveRole extends PassiveRole {
   public CompletableFuture<VoteResponse> onVote(final VoteRequest request) {
     raft.checkThread();
     logRequest(request);
+
+    if (raft.getCluster().getConfiguration().forceReconfigure()
+        && !raft.getCluster().getConfiguration().hasMember(request.candidate())) {
+      // reject request because candidate is not part of the new configuration which is being
+      // applied forcefully
+      return CompletableFuture.completedFuture(
+          logResponse(
+              VoteResponse.builder()
+                  .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .build()));
+    }
 
     // If the request indicates a term that is greater than the current term then
     // assign that term and leader to the current context.

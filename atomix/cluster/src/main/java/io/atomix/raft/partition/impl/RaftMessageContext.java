@@ -38,6 +38,8 @@ class RaftMessageContext {
   final String appendV2subject;
   final String leaderHeartbeatSubject;
 
+  final String forceConfigureSubject;
+
   RaftMessageContext(final String prefix) {
     heartbeatSubject = getSubject(prefix, "heartbeat");
     openSessionSubject = getSubject(prefix, "open");
@@ -57,6 +59,7 @@ class RaftMessageContext {
     appendV1subject = getSubject(prefix, "append");
     appendV2subject = getSubject(prefix, "append-versioned");
     leaderHeartbeatSubject = getSubject(prefix, "leaderHeartbeat");
+    forceConfigureSubject = getSubject(prefix, "force-configure");
   }
 
   private static String getSubject(final String prefix, final String type) {

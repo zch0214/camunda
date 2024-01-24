@@ -317,6 +317,8 @@ public interface RaftServer {
    */
   CompletableFuture<RaftServer> leave();
 
+  CompletableFuture<RaftServer> forceReconfigure(Collection<MemberId> newMembers);
+
   /**
    * Promotes the server to leader if possible.
    *

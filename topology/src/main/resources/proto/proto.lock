@@ -556,6 +556,11 @@
                 "id": 1,
                 "name": "partitionId",
                 "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "awaitReadiness",
+                "type": "bool"
               }
             ]
           }

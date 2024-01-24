@@ -24,6 +24,8 @@ import io.atomix.raft.protocol.AppendRequest;
 import io.atomix.raft.protocol.AppendResponse;
 import io.atomix.raft.protocol.ConfigureRequest;
 import io.atomix.raft.protocol.ConfigureResponse;
+import io.atomix.raft.protocol.ForceConfigureRequest;
+import io.atomix.raft.protocol.ForceConfigureResponse;
 import io.atomix.raft.protocol.InstallRequest;
 import io.atomix.raft.protocol.InstallResponse;
 import io.atomix.raft.protocol.JoinRequest;
@@ -276,6 +278,12 @@ public class RaftServerCommunicator implements RaftServerProtocol {
   public void unregisterAppendHandler() {
     clusterCommunicator.unsubscribe(context.appendV1subject);
     clusterCommunicator.unsubscribe(context.appendV2subject);
+  }
+
+  @Override
+  public CompletableFuture<ForceConfigureResponse> forceConfigure(
+      final MemberId newMemberId, final ForceConfigureRequest request) {
+    return sendAndReceive(context.forceConfigureSubject, request, newMemberId);
   }
 
   private <T, U> CompletableFuture<U> sendAndReceive(

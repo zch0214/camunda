@@ -112,6 +112,11 @@ public class DefaultRaftServer implements RaftServer {
   }
 
   @Override
+  public CompletableFuture<RaftServer> forceReconfigure(final Collection<MemberId> newMembers) {
+    return context.forceReconfigure(newMembers).thenApply(v -> this);
+  }
+
+  @Override
   public CompletableFuture<RaftServer> promote() {
     return context.anoint().thenApply(v -> this);
   }

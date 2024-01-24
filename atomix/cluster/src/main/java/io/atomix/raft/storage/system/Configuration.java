@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
+import io.atomix.cluster.MemberId;
 import io.atomix.raft.cluster.RaftMember;
 import io.atomix.raft.cluster.impl.DefaultRaftMember;
 import java.util.Collection;
@@ -49,14 +50,16 @@ public record Configuration(
     long term,
     long time,
     Collection<RaftMember> newMembers,
-    Collection<RaftMember> oldMembers) {
+    Collection<RaftMember> oldMembers,
+    boolean forceReconfigure) {
 
   public Configuration(
       final long index,
       final long term,
       final long time,
       final Collection<RaftMember> newMembers,
-      final Collection<RaftMember> oldMembers) {
+      final Collection<RaftMember> oldMembers,
+      final boolean forceReconfigure) {
     checkArgument(time > 0, "time must be positive");
     checkNotNull(newMembers, "newMembers cannot be null");
     checkNotNull(oldMembers, "oldMembers cannot be null");
@@ -66,6 +69,16 @@ public record Configuration(
     this.time = time;
     this.newMembers = copyMembers(newMembers);
     this.oldMembers = copyMembers(oldMembers);
+    this.forceReconfigure = forceReconfigure;
+  }
+
+  public Configuration(
+      final long index,
+      final long term,
+      final long time,
+      final Collection<RaftMember> newMembers,
+      final Collection<RaftMember> oldMembers) {
+    this(index, term, time, newMembers, oldMembers, false);
   }
 
   public Configuration(
@@ -100,5 +113,9 @@ public record Configuration(
           new DefaultRaftMember(member.memberId(), member.getType(), member.getLastUpdated()));
     }
     return copied.build();
+  }
+
+  public boolean hasMember(final MemberId memberId) {
+    return allMembers().stream().anyMatch(m -> m.memberId().equals(memberId));
   }
 }

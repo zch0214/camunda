@@ -109,6 +109,17 @@ public class PassiveRole extends InactiveRole {
   public CompletableFuture<InstallResponse> onInstall(final InstallRequest request) {
     raft.checkThread();
     logRequest(request);
+    if (raft.getCluster().getConfiguration().forceReconfigure()
+        && !raft.getCluster().getConfiguration().hasMember(request.leader())) {
+      // reject request because leader is not part of the new configuration which is being applied
+      // forcefully
+      return CompletableFuture.completedFuture(
+          logResponse(
+              InstallResponse.builder()
+                  .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .build()));
+    }
+
     updateTermAndLeader(request.currentTerm(), request.leader());
 
     log.debug("Received snapshot {} chunk from {}", request.index(), request.leader());
@@ -359,6 +370,17 @@ public class PassiveRole extends InactiveRole {
   public CompletableFuture<AppendResponse> onAppend(final InternalAppendRequest request) {
     raft.checkThread();
     logRequest(request);
+    if (raft.getCluster().getConfiguration().forceReconfigure()
+        && !raft.getCluster().getConfiguration().hasMember(request.leader())) {
+      // reject request because leader is not part of the new configuration which is being applied
+      // forcefully
+      return CompletableFuture.completedFuture(
+          logResponse(
+              AppendResponse.builder()
+                  .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .build()));
+    }
+
     updateTermAndLeader(request.term(), request.leader());
     return handleAppend(request);
   }
@@ -380,6 +402,18 @@ public class PassiveRole extends InactiveRole {
   public CompletableFuture<VoteResponse> onVote(final VoteRequest request) {
     raft.checkThread();
     logRequest(request);
+
+    if (raft.getCluster().getConfiguration().forceReconfigure()
+        && !raft.getCluster().getConfiguration().hasMember(request.candidate())) {
+      // reject request because leader is not part of the new configuration which is being applied
+      // forcefully
+      return CompletableFuture.completedFuture(
+          logResponse(
+              VoteResponse.builder()
+                  .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .build()));
+    }
+
     updateTermAndLeader(request.term(), null);
 
     return CompletableFuture.completedFuture(

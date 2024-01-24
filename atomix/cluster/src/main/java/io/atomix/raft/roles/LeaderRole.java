@@ -459,6 +459,17 @@ public final class LeaderRole extends ActiveRole implements ZeebeLogAppender {
 
   @Override
   public CompletableFuture<ConfigureResponse> onConfigure(final ConfigureRequest request) {
+    if (raft.getCluster().getConfiguration().forceReconfigure()
+        && !raft.getCluster().getConfiguration().hasMember(request.leader())) {
+      // reject request because leader is not part of the new configuration which is being applied
+      // forcefully
+      return CompletableFuture.completedFuture(
+          logResponse(
+              ConfigureResponse.builder()
+                  .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .build()));
+    }
+
     if (updateTermAndLeader(request.term(), request.leader())) {
       raft.transition(Role.FOLLOWER);
     }
@@ -529,6 +540,18 @@ public final class LeaderRole extends ActiveRole implements ZeebeLogAppender {
   @Override
   public CompletableFuture<AppendResponse> onAppend(final InternalAppendRequest request) {
     raft.checkThread();
+
+    if (raft.getCluster().getConfiguration().forceReconfigure()
+        && !raft.getCluster().getConfiguration().hasMember(request.leader())) {
+      // reject request because leader is not part of the new configuration which is being applied
+      // forcefully
+      return CompletableFuture.completedFuture(
+          logResponse(
+              AppendResponse.builder()
+                  .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .build()));
+    }
+
     if (updateTermAndLeader(request.term(), request.leader())) {
       final CompletableFuture<AppendResponse> future = super.onAppend(request);
       raft.transition(RaftServer.Role.FOLLOWER);
@@ -574,6 +597,17 @@ public final class LeaderRole extends ActiveRole implements ZeebeLogAppender {
 
   @Override
   public CompletableFuture<VoteResponse> onVote(final VoteRequest request) {
+    if (raft.getCluster().getConfiguration().forceReconfigure()
+        && !raft.getCluster().getConfiguration().hasMember(request.candidate())) {
+      // reject request because leader is not part of the new configuration which is being applied
+      // forcefully
+      return CompletableFuture.completedFuture(
+          logResponse(
+              VoteResponse.builder()
+                  .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .build()));
+    }
+
     if (updateTermAndLeader(request.term(), null)) {
       log.info("Received greater term from {}", request.candidate());
       raft.transition(RaftServer.Role.FOLLOWER);

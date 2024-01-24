@@ -44,6 +44,7 @@ import io.atomix.raft.metrics.RaftRoleMetrics;
 import io.atomix.raft.metrics.RaftServiceMetrics;
 import io.atomix.raft.partition.RaftElectionConfig;
 import io.atomix.raft.partition.RaftPartitionConfig;
+import io.atomix.raft.protocol.ForceConfigureRequest;
 import io.atomix.raft.protocol.JoinRequest;
 import io.atomix.raft.protocol.LeaveRequest;
 import io.atomix.raft.protocol.ProtocolVersionHandler;
@@ -62,6 +63,7 @@ import io.atomix.raft.roles.RaftRole;
 import io.atomix.raft.storage.RaftStorage;
 import io.atomix.raft.storage.StorageException;
 import io.atomix.raft.storage.log.RaftLog;
+import io.atomix.raft.storage.system.Configuration;
 import io.atomix.raft.storage.system.MetaStore;
 import io.atomix.raft.utils.StateUtil;
 import io.atomix.raft.zeebe.EntryValidator;
@@ -79,6 +81,7 @@ import java.net.ConnectException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
@@ -1337,6 +1340,86 @@ public class RaftContext implements AutoCloseable, HealthMonitorable {
       state = newState;
       stateChangeListeners.forEach(l -> l.accept(state));
     }
+  }
+
+  public CompletableFuture<Void> forceReconfigure(final Collection<MemberId> newMemberIds) {
+    final CompletableFuture<Void> future = new CompletableFuture<>();
+
+    // May be move this implementation to a role
+    threadContext.execute(
+        () -> {
+          final var currentConfiguration = cluster.getConfiguration();
+          final var newMembers =
+              currentConfiguration.allMembers().stream()
+                  .filter(m -> newMemberIds.contains(m.memberId()))
+                  .toList();
+
+          if (!currentConfiguration.forceReconfigure()) {
+            // No need to overwrite
+            // TODO: sanity check if the newMemberIds are the same as the current configuration
+            getCluster()
+                .configure(
+                    new Configuration(
+                        currentConfiguration.index() + 1, // This may be a hack
+                        currentConfiguration.term(),
+                        currentConfiguration.time(),
+                        newMembers,
+                        List.of(), // Skip joint consensus
+                        true));
+            getCluster().commitCurrentConfiguration();
+          }
+
+          // TODO:
+          // Send forcereconfigure request to all members in newMembers
+          // Wait until response. If response is not received within a timeout, retry.
+          // Retry for specific time period. If it still fails, then fail the request.
+          // ClusterTopologyManager will retry the operation.
+
+          // Once all members have responded, then complete the future.
+
+          final Configuration updatedConfiguration = getCluster().getConfiguration();
+          final var futures =
+              newMemberIds.stream()
+                  .filter(memberId -> !memberId.equals(getCluster().getLocalMember().memberId()))
+                  .map(
+                      memberId -> {
+                        final CompletableFuture<Void> memberResponded = new CompletableFuture<>();
+                        protocol
+                            .forceConfigure(
+                                memberId,
+                                ForceConfigureRequest.builder()
+                                    .withNewMembers(updatedConfiguration.newMembers())
+                                    .withIndex(updatedConfiguration.index())
+                                    .withTerm(currentConfiguration.term())
+                                    .withTime(currentConfiguration.time())
+                                    .build())
+                            .whenComplete(
+                                (response, error) -> {
+                                  if (error != null) {
+                                    memberResponded.completeExceptionally(error);
+                                  } else if (response.status() == Status.OK) {
+                                    memberResponded.complete(null);
+                                  } else {
+                                    memberResponded.completeExceptionally(
+                                        response.error().createException());
+                                  }
+                                });
+                        return memberResponded;
+                      })
+                  .toList();
+
+          CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
+              .whenComplete(
+                  (response, error) -> {
+                    if (error != null) {
+                      future.completeExceptionally(error);
+                    } else {
+                      future.complete(null);
+                    }
+                  });
+        });
+
+    return future;
   }
 
   /** Raft server state. */

@@ -23,6 +23,8 @@ import io.atomix.raft.impl.RaftContext;
 import io.atomix.raft.protocol.AppendResponse;
 import io.atomix.raft.protocol.ConfigureRequest;
 import io.atomix.raft.protocol.ConfigureResponse;
+import io.atomix.raft.protocol.ForceConfigureRequest;
+import io.atomix.raft.protocol.ForceConfigureResponse;
 import io.atomix.raft.protocol.InstallRequest;
 import io.atomix.raft.protocol.InstallResponse;
 import io.atomix.raft.protocol.InternalAppendRequest;
@@ -60,6 +62,18 @@ public class InactiveRole extends AbstractRole {
   public CompletableFuture<ConfigureResponse> onConfigure(final ConfigureRequest request) {
     raft.checkThread();
     logRequest(request);
+
+    if (raft.getCluster().getConfiguration().forceReconfigure()
+        && !raft.getCluster().getConfiguration().hasMember(request.leader())) {
+      // reject request because leader is not part of the new configuration which is being applied
+      // forcefully
+      return CompletableFuture.completedFuture(
+          logResponse(
+              ConfigureResponse.builder()
+                  .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .build()));
+    }
+
     updateTermAndLeader(request.term(), request.leader());
 
     final Configuration configuration =
@@ -106,6 +120,32 @@ public class InactiveRole extends AbstractRole {
                 .withStatus(Status.ERROR)
                 .withError(RaftError.Type.UNAVAILABLE)
                 .build());
+    return CompletableFuture.completedFuture(result);
+  }
+
+  @Override
+  public CompletableFuture<ForceConfigureResponse> onForceConfigure(
+      final ForceConfigureRequest request) {
+    logRequest(request);
+
+    final var currentConfiguration = raft.getCluster().getConfiguration();
+
+    if (!currentConfiguration.forceReconfigure()) {
+      // No need to overwrite
+      // TODO: sanity check if the newMemberIds are the same as the current configuration
+      raft.getCluster()
+          .configure(
+              new Configuration(
+                  request.index(),
+                  request.term(),
+                  request.term(),
+                  request.newMembers(),
+                  List.of(), // Skip joint consensus
+                  true));
+      raft.getCluster().commitCurrentConfiguration();
+    }
+
+    final var result = logResponse(ForceConfigureResponse.builder().withStatus(Status.OK).build());
     return CompletableFuture.completedFuture(result);
   }
 

@@ -17,6 +17,7 @@
 package io.atomix.raft.roles;
 
 import io.atomix.cluster.messaging.MessagingException.NoRemoteHandler;
+import io.atomix.raft.RaftError.Type;
 import io.atomix.raft.RaftServer;
 import io.atomix.raft.RaftServer.Role;
 import io.atomix.raft.cluster.RaftMember;
@@ -275,6 +276,16 @@ public final class CandidateRole extends ActiveRole {
     raft.checkThread();
     logRequest(request);
 
+    if (raft.getCluster().getConfiguration().forceReconfigure()
+        && !raft.getCluster().getConfiguration().hasMember(request.candidate())) {
+      // reject request because leader is not part of the new configuration which is being applied
+      // forcefully
+      return CompletableFuture.completedFuture(
+          logResponse(
+              VoteResponse.builder()
+                  .withError(Type.CONFIGURATION_ERROR, "Force Reconfigure in progress")
+                  .build()));
+    }
     // If the request indicates a term that is greater than the current term then
     // assign that term and leader to the current context and step down as a candidate.
     if (updateTermAndLeader(request.term(), null)) {

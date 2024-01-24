@@ -189,4 +189,7 @@ public interface RaftServerProtocol {
 
   /** Unregisters the append request handler. */
   void unregisterAppendHandler();
+
+  CompletableFuture<ForceConfigureResponse> forceConfigure(
+      MemberId newMemberId, ForceConfigureRequest build);
 }

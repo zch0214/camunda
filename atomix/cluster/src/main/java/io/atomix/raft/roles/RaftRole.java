@@ -20,6 +20,8 @@ import io.atomix.raft.RaftServer;
 import io.atomix.raft.protocol.AppendResponse;
 import io.atomix.raft.protocol.ConfigureRequest;
 import io.atomix.raft.protocol.ConfigureResponse;
+import io.atomix.raft.protocol.ForceConfigureRequest;
+import io.atomix.raft.protocol.ForceConfigureResponse;
 import io.atomix.raft.protocol.InstallRequest;
 import io.atomix.raft.protocol.InstallResponse;
 import io.atomix.raft.protocol.InternalAppendRequest;
@@ -71,6 +73,8 @@ public interface RaftRole extends Managed<RaftRole> {
    * @return A completable future to be completed with the request response.
    */
   CompletableFuture<ReconfigureResponse> onReconfigure(ReconfigureRequest request);
+
+  CompletableFuture<ForceConfigureResponse> onForceConfigure(ForceConfigureRequest request);
 
   /** Handles a request to join the cluster. */
   CompletableFuture<JoinResponse> onJoin(JoinRequest request);
