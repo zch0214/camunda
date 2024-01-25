@@ -121,16 +121,24 @@ public class TopologyChangeCoordinatorImpl implements TopologyChangeCoordinator 
               // TODO: Allow updating other memberstate in TopologyChangeApplier so that we don't
               // built the new topology here, instead updated after forceReconfigure is applied.
               var newTopology = currentClusterTopology;
-              for (final MemberId idToRemove : memberIdsToRemove) {
-                newTopology = newTopology.updateMember(idToRemove, member -> null);
-              }
-
-              final List<TopologyChangeOperation> operations = new ArrayList<>();
 
               final var partitions =
                   newTopology.members().values().stream()
                       .flatMap(memberState -> memberState.partitions().keySet().stream())
                       .collect(Collectors.toSet());
+
+              for (final MemberId idToRemove : memberIdsToRemove) {
+                for (final var partition : partitions) {
+                  if (newTopology.members().get(idToRemove).hasPartition(partition)) {
+                    newTopology =
+                        newTopology.updateMember(
+                            idToRemove, member -> member.removePartition(partition));
+                  }
+                }
+              }
+
+              final List<TopologyChangeOperation> operations = new ArrayList<>();
+
               for (final var partition : partitions) {
                 final var anyMember =
                     newTopology.members().entrySet().stream()
