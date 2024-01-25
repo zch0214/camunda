@@ -321,4 +321,8 @@ public class RaftPartitionServer implements HealthMonitorable {
   public Collection<RaftMember> getMembers() {
     return server.cluster().getMembers();
   }
+
+  public CompletableFuture<RaftServer> forceReconfigure(final Collection<MemberId> members) {
+    return server.forceReconfigure(members);
+  }
 }

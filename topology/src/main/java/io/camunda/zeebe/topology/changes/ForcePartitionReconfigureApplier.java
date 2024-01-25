@@ -49,8 +49,10 @@ public class ForcePartitionReconfigureApplier implements OperationApplier {
     final CompletableActorFuture<UnaryOperator<MemberState>> result =
         new CompletableActorFuture<>();
 
+    // TODO: Allow updating other membersstate after force reconfiguring
+
     partitionChangeExecutor
-        .reconfigurePartition(partitionId, partitionMembersWithPriority, awaitReadiness)
+        .forceReconfigure(partitionId, partitionMembersWithPriority.keySet())
         .onComplete(
             (ignore, error) -> {
               if (error == null) {

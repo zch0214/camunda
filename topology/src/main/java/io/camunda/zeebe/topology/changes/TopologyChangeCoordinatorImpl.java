@@ -118,6 +118,8 @@ public class TopologyChangeCoordinatorImpl implements TopologyChangeCoordinator 
                 failFuture(future, new ConcurrentModificationException("fail"));
                 return;
               }
+              // TODO: Allow updating other memberstate in TopologyChangeApplier so that we don't
+              // built the new topology here, instead updated after forceReconfigure is applied.
               var newTopology = currentClusterTopology;
               for (final MemberId idToRemove : memberIdsToRemove) {
                 newTopology = newTopology.updateMember(idToRemove, member -> null);
@@ -130,17 +132,16 @@ public class TopologyChangeCoordinatorImpl implements TopologyChangeCoordinator 
                       .flatMap(memberState -> memberState.partitions().keySet().stream())
                       .collect(Collectors.toSet());
               for (final var partition : partitions) {
-                final var members =
+                final var anyMember =
                     newTopology.members().entrySet().stream()
                         .filter(member -> member.getValue().hasPartition(partition))
                         .map(Entry::getKey)
                         .collect(Collectors.toSet())
                         .stream()
-                        .toList();
-                for (int i = 0; i < members.size() - 1; i++) {
-                  operations.add(new ForcePartitionReconfigure(members.get(i), partition, false));
-                }
-                operations.add(new ForcePartitionReconfigure(members.getLast(), partition, true));
+                        .findAny()
+                        .orElseThrow();
+
+                operations.add(new ForcePartitionReconfigure(anyMember, partition, false));
               }
 
               final var newTopologyWithChanges = newTopology.startTopologyChange(operations);

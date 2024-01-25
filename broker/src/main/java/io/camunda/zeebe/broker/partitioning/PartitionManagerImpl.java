@@ -354,6 +354,30 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
     return result;
   }
 
+  @Override
+  public ActorFuture<Void> forceReconfigure(
+      final int partitionId, final Collection<MemberId> members) {
+    final var result = concurrencyControl.<Void>createFuture();
+    concurrencyControl.run(
+        () -> {
+          partitions
+              .get(partitionId)
+              .raftPartition()
+              .getServer()
+              .forceReconfigure(members)
+              .whenComplete(
+                  (ok, error) -> {
+                    if (error != null) {
+                      result.completeExceptionally(error);
+                    } else {
+                      result.complete(null);
+                    }
+                  });
+        });
+
+    return result;
+  }
+
   private static PartitionMetadata getPartitionMetadata(
       final int partitionId, final Map<MemberId, Integer> membersWithPriority) {
     final int targetPriority = Collections.max(membersWithPriority.values());

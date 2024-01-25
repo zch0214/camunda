@@ -10,6 +10,7 @@ package io.camunda.zeebe.topology.changes;
 import io.atomix.cluster.MemberId;
 import io.camunda.zeebe.scheduler.future.ActorFuture;
 import io.camunda.zeebe.scheduler.future.CompletableActorFuture;
+import java.util.Collection;
 import java.util.Map;
 
 public final class NoopPartitionChangeExecutor implements PartitionChangeExecutor {
@@ -35,6 +36,12 @@ public final class NoopPartitionChangeExecutor implements PartitionChangeExecuto
       final int partitionId,
       final Map<MemberId, Integer> membersWithPriority,
       final boolean awaitReadiness) {
+    return CompletableActorFuture.completed(null);
+  }
+
+  @Override
+  public ActorFuture<Void> forceReconfigure(
+      final int partitionId, final Collection<MemberId> members) {
     return CompletableActorFuture.completed(null);
   }
 }

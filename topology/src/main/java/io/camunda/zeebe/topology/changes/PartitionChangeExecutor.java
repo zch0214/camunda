@@ -9,6 +9,7 @@ package io.camunda.zeebe.topology.changes;
 
 import io.atomix.cluster.MemberId;
 import io.camunda.zeebe.scheduler.future.ActorFuture;
+import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -52,4 +53,6 @@ public interface PartitionChangeExecutor {
 
   ActorFuture<Void> reconfigurePartition(
       int partitionId, Map<MemberId, Integer> membersWithPriority, boolean awaitReadiness);
+
+  ActorFuture<Void> forceReconfigure(int partitionId, Collection<MemberId> members);
 }
