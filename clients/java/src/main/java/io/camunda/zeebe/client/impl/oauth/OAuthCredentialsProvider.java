@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import io.camunda.zeebe.client.CredentialsProvider;
+import io.camunda.zeebe.client.RestCredentialsProvider;
 import io.camunda.zeebe.client.impl.ZeebeClientCredentials;
 import io.camunda.zeebe.client.impl.util.VersionUtil;
 import io.grpc.Metadata;
@@ -42,6 +43,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import net.jcip.annotations.ThreadSafe;
+import org.apache.hc.core5.http.HttpHeaders;
+import org.apache.hc.core5.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,7 +55,8 @@ import org.slf4j.LoggerFactory;
  * Auth server
  */
 @ThreadSafe
-public final class OAuthCredentialsProvider implements CredentialsProvider {
+public final class OAuthCredentialsProvider
+    implements CredentialsProvider, RestCredentialsProvider {
   public static final Key<String> HEADER_AUTH_KEY =
       Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER);
 
@@ -80,18 +84,8 @@ public final class OAuthCredentialsProvider implements CredentialsProvider {
   /** Adds an access token to the Authorization header of a gRPC call. */
   @Override
   public void applyCredentials(final Metadata headers) throws IOException {
-    final ZeebeClientCredentials zeebeClientCredentials =
-        credentialsCache.computeIfMissingOrInvalid(endpoint, this::fetchCredentials);
-
-    String type = zeebeClientCredentials.getTokenType();
-    if (type == null || type.isEmpty()) {
-      throw new IOException(
-          String.format("Expected valid token type but was absent or invalid '%s'", type));
-    }
-
-    type = Character.toUpperCase(type.charAt(0)) + type.substring(1);
-    headers.put(
-        HEADER_AUTH_KEY, String.format("%s %s", type, zeebeClientCredentials.getAccessToken()));
+    final Token token = getToken();
+    headers.put(HEADER_AUTH_KEY, String.format("%s %s", token.type, token.token));
   }
 
   /**
@@ -115,6 +109,45 @@ public final class OAuthCredentialsProvider implements CredentialsProvider {
       LOG.error("Failed while fetching credentials: ", e);
       return false;
     }
+  }
+
+  @Override
+  public void applyCredentials(final Map<String, String> headers) throws IOException {
+    final Token auth = getToken();
+    headers.put(HttpHeaders.AUTHORIZATION, String.format("%s %s", auth.type, auth.token));
+  }
+
+  @Override
+  public boolean shouldRetryRequest(final int status) {
+    try {
+      return status == HttpStatus.SC_UNAUTHORIZED
+          && credentialsCache
+              .withCache(
+                  endpoint,
+                  value -> {
+                    final ZeebeClientCredentials fetchedCredentials = fetchCredentials();
+                    credentialsCache.put(endpoint, fetchedCredentials).writeCache();
+                    return !fetchedCredentials.equals(value) || !value.isValid();
+                  })
+              .orElse(true);
+    } catch (final IOException e) {
+      LOG.error("Failed while fetching credentials: ", e);
+      return false;
+    }
+  }
+
+  private Token getToken() throws IOException {
+    final ZeebeClientCredentials zeebeClientCredentials =
+        credentialsCache.computeIfMissingOrInvalid(endpoint, this::fetchCredentials);
+
+    String type = zeebeClientCredentials.getTokenType();
+    if (type == null || type.isEmpty()) {
+      throw new IOException(
+          String.format("Expected valid token type but was absent or invalid '%s'", type));
+    }
+
+    type = Character.toUpperCase(type.charAt(0)) + type.substring(1);
+    return new Token(zeebeClientCredentials.getAccessToken(), type);
   }
 
   private static String createParams(final OAuthCredentialsProviderBuilder builder) {
@@ -142,6 +175,7 @@ public final class OAuthCredentialsProvider implements CredentialsProvider {
   }
 
   private ZeebeClientCredentials fetchCredentials() throws IOException {
+    // TODO: how to get the HC5 client here to use instead of HttpURLConnection?
     final HttpURLConnection connection =
         (HttpURLConnection) authorizationServerUrl.openConnection();
     connection.setRequestMethod("POST");
@@ -173,6 +207,17 @@ public final class OAuthCredentialsProvider implements CredentialsProvider {
       }
 
       return fetchedCredentials;
+    }
+  }
+
+  private static class Token {
+
+    public final String token;
+    public final String type;
+
+    public Token(final String token, final String type) {
+      this.token = token;
+      this.type = type;
     }
   }
 }

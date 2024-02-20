@@ -18,6 +18,7 @@ package io.camunda.zeebe.client.impl.response;
 import io.camunda.zeebe.client.api.response.BrokerInfo;
 import io.camunda.zeebe.client.api.response.PartitionInfo;
 import io.camunda.zeebe.gateway.protocol.GatewayOuterClass;
+import io.camunda.zeebe.gateway.protocol.rest.Partition;
 import io.netty.util.NetUtil;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,14 +31,14 @@ public final class BrokerInfoImpl implements BrokerInfo {
   private final String version;
   private final List<PartitionInfo> partitions;
 
-  public BrokerInfoImpl(final GatewayOuterClass.BrokerInfo broker) {
+  public BrokerInfoImpl(final io.camunda.zeebe.gateway.protocol.rest.BrokerInfo broker) {
     nodeId = broker.getNodeId();
     host = broker.getHost();
     port = broker.getPort();
     version = broker.getVersion();
 
     partitions = new ArrayList<>();
-    for (final GatewayOuterClass.Partition partition : broker.getPartitionsList()) {
+    for (final Partition partition : broker.getPartitions()) {
       partitions.add(new PartitionInfoImpl(partition));
     }
   }

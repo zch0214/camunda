@@ -19,54 +19,44 @@ import io.camunda.zeebe.client.api.ZeebeFuture;
 import io.camunda.zeebe.client.api.command.FinalCommandStep;
 import io.camunda.zeebe.client.api.command.TopologyRequestStep1;
 import io.camunda.zeebe.client.api.response.Topology;
-import io.camunda.zeebe.client.impl.RetriableClientFutureImpl;
+import io.camunda.zeebe.client.impl.http.HttpClient;
+import io.camunda.zeebe.client.impl.http.HttpZeebeFuture;
 import io.camunda.zeebe.client.impl.response.TopologyImpl;
-import io.camunda.zeebe.gateway.protocol.GatewayGrpc.GatewayStub;
-import io.camunda.zeebe.gateway.protocol.GatewayOuterClass.TopologyRequest;
-import io.camunda.zeebe.gateway.protocol.GatewayOuterClass.TopologyResponse;
-import io.grpc.stub.StreamObserver;
+import io.camunda.zeebe.gateway.protocol.rest.TopologyResponse;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
+import org.apache.hc.client5.http.config.RequestConfig;
 
 public final class TopologyRequestImpl implements TopologyRequestStep1 {
 
-  private final GatewayStub asyncStub;
-  private final Predicate<Throwable> retryPredicate;
-  private Duration requestTimeout;
+  private final HttpClient client;
+  private final RequestConfig.Builder requestConfig;
 
-  public TopologyRequestImpl(
-      final GatewayStub asyncStub,
-      final Duration requestTimeout,
-      final Predicate<Throwable> retryPredicate) {
-    this.asyncStub = asyncStub;
-    this.requestTimeout = requestTimeout;
-    this.retryPredicate = retryPredicate;
+  public TopologyRequestImpl(final HttpClient client) {
+    this.client = client;
+    this.requestConfig = client.newRequestConfig();
   }
 
   @Override
   public FinalCommandStep<Topology> requestTimeout(final Duration requestTimeout) {
-    this.requestTimeout = requestTimeout;
+    requestConfig.setResponseTimeout(requestTimeout.toMillis(), TimeUnit.MILLISECONDS);
     return this;
   }
 
   @Override
   public ZeebeFuture<Topology> send() {
-    final TopologyRequest request = TopologyRequest.getDefaultInstance();
-
-    final RetriableClientFutureImpl<Topology, TopologyResponse> future =
-        new RetriableClientFutureImpl<>(
-            TopologyImpl::new, retryPredicate, streamObserver -> send(request, streamObserver));
-
-    send(request, future);
-
-    return future;
+    final HttpZeebeFuture<Topology> result = new HttpZeebeFuture<>();
+    sendRequest(result);
+    return result;
   }
 
-  private void send(
-      final TopologyRequest request, final StreamObserver<TopologyResponse> streamObserver) {
-    asyncStub
-        .withDeadlineAfter(requestTimeout.toMillis(), TimeUnit.MILLISECONDS)
-        .topology(request, streamObserver);
+  private void sendRequest(final HttpZeebeFuture<Topology> result) {
+    client.get(
+        "/topology",
+        requestConfig.build(),
+        TopologyResponse.class,
+        TopologyImpl::new,
+        result,
+        () -> sendRequest(result));
   }
 }

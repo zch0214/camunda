@@ -15,46 +15,59 @@
  */
 package io.camunda.zeebe.client.impl.response;
 
+import io.camunda.zeebe.client.api.command.ClientException;
 import io.camunda.zeebe.client.api.response.PartitionBrokerHealth;
 import io.camunda.zeebe.client.api.response.PartitionBrokerRole;
 import io.camunda.zeebe.client.api.response.PartitionInfo;
-import io.camunda.zeebe.gateway.protocol.GatewayOuterClass;
-import io.camunda.zeebe.gateway.protocol.GatewayOuterClass.Partition;
+import io.camunda.zeebe.gateway.protocol.rest.Partition;
+import io.camunda.zeebe.gateway.protocol.rest.Partition.HealthEnum;
+import io.camunda.zeebe.gateway.protocol.rest.Partition.RoleEnum;
 import java.util.Arrays;
+import java.util.Objects;
 
 public class PartitionInfoImpl implements PartitionInfo {
 
   private final int partitionId;
   private final PartitionBrokerRole role;
-  private final PartitionBrokerHealth partitionBrokerHealth;
+  private final PartitionBrokerHealth health;
 
-  public PartitionInfoImpl(final GatewayOuterClass.Partition partition) {
+  public PartitionInfoImpl(final Partition partition) {
+    Objects.requireNonNull(partition, "must specify a partition");
+
     partitionId = partition.getPartitionId();
+    role = mapRole(partition.getRole());
+    health = mapHealth(partition.getHealth());
+  }
 
-    if (partition.getRole() == Partition.PartitionBrokerRole.LEADER) {
-      role = PartitionBrokerRole.LEADER;
-    } else if (partition.getRole() == Partition.PartitionBrokerRole.FOLLOWER) {
-      role = PartitionBrokerRole.FOLLOWER;
-    } else if (partition.getRole() == Partition.PartitionBrokerRole.INACTIVE) {
-      role = PartitionBrokerRole.INACTIVE;
-    } else {
-      throw new RuntimeException(
-          String.format(
-              "Unexpected partition broker role %s, should be one of %s",
-              partition.getRole(), Arrays.toString(PartitionBrokerRole.values())));
+  private PartitionBrokerRole mapRole(final RoleEnum role) {
+    switch (role) {
+      case LEADER:
+        return PartitionBrokerRole.LEADER;
+      case FOLLOWER:
+        return PartitionBrokerRole.FOLLOWER;
+      case INACTIVE:
+        return PartitionBrokerRole.INACTIVE;
+      default:
+        throw new ClientException(
+            String.format(
+                "Expected partition role to be one of %s, but was %s",
+                Arrays.toString(PartitionBrokerRole.values()), role));
     }
+  }
 
-    if (partition.getHealth() == Partition.PartitionBrokerHealth.HEALTHY) {
-      partitionBrokerHealth = PartitionBrokerHealth.HEALTHY;
-    } else if (partition.getHealth() == Partition.PartitionBrokerHealth.UNHEALTHY) {
-      partitionBrokerHealth = PartitionBrokerHealth.UNHEALTHY;
-    } else if (partition.getHealth() == Partition.PartitionBrokerHealth.DEAD) {
-      partitionBrokerHealth = PartitionBrokerHealth.DEAD;
-    } else {
-      throw new RuntimeException(
-          String.format(
-              "Unexpected partition broker health %s, should be one of %s",
-              partition.getHealth(), Arrays.toString(PartitionBrokerHealth.values())));
+  private PartitionBrokerHealth mapHealth(final HealthEnum health) {
+    switch (health) {
+      case HEALTHY:
+        return PartitionBrokerHealth.HEALTHY;
+      case UNHEALTHY:
+        return PartitionBrokerHealth.UNHEALTHY;
+      case DEAD:
+        return PartitionBrokerHealth.DEAD;
+      default:
+        throw new ClientException(
+            String.format(
+                "Expected partition health to be one of %s, but was %s",
+                Arrays.toString(PartitionBrokerHealth.values()), health));
     }
   }
 
@@ -75,7 +88,7 @@ public class PartitionInfoImpl implements PartitionInfo {
 
   @Override
   public PartitionBrokerHealth getHealth() {
-    return partitionBrokerHealth;
+    return health;
   }
 
   @Override
@@ -86,7 +99,7 @@ public class PartitionInfoImpl implements PartitionInfo {
         + ", role="
         + role
         + ", health="
-        + partitionBrokerHealth
+        + health
         + '}';
   }
 }

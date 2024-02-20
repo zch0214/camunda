@@ -17,7 +17,7 @@ package io.camunda.zeebe.client.impl.response;
 
 import io.camunda.zeebe.client.api.response.BrokerInfo;
 import io.camunda.zeebe.client.api.response.Topology;
-import io.camunda.zeebe.gateway.protocol.GatewayOuterClass.TopologyResponse;
+import io.camunda.zeebe.gateway.protocol.rest.TopologyResponse;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -31,7 +31,7 @@ public final class TopologyImpl implements Topology {
 
   public TopologyImpl(final TopologyResponse response) {
     brokers =
-        response.getBrokersList().stream().map(BrokerInfoImpl::new).collect(Collectors.toList());
+        response.getBrokers().stream().map(BrokerInfoImpl::new).collect(Collectors.toList());
     clusterSize = response.getClusterSize();
     partitionsCount = response.getPartitionsCount();
     replicationFactor = response.getReplicationFactor();
