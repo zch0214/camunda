@@ -21,50 +21,29 @@ name: Operate Release manual
 
 on:
   workflow_dispatch:
-    inputs:
-      branch:
-        description: "The branch name to build release from."
-        type: string
-        required: true
-      releaseVersion:
-        description: "Version to release (applied to pom.xml and Git tag)."
-        type: string
-        required: true
-      nextDevelopmentVersion:
-        description: "Next development version."
-        type: string
-        required: true
-      dryRun:
-        description: "Whether to perform a dry release, where no changes or artifacts(Docker, Maven) are pushed, defaults to `true`."
-        type: boolean
-        required: false
-        default: true
-      githubUploadRelease:
-        description: "Should upload the release to GitHub."
-        type: boolean
-        required: false
-        default: false
-      isLatest:
-        description: "Should tag the docker image with 'latest' tag."
-        type: boolean
-        required: false
-        default: false
-      fromCommit:
-        description: "Commit id which the changelog should be generated from."
-        type: string
-        required: true
-        default: ""
 
 jobs:
   release:
-    name: "release manually v${{ inputs.releaseVersion }}"
-    uses: camunda/zeebe/.github/workflows/operate-release-reusable.yml@c8as-operate-stable-8.5
-    secrets: inherit
-    with:
-      branch: ${{ inputs.branch }}
-      releaseVersion: ${{ inputs.releaseVersion }}
-      nextDevelopmentVersion: ${{ inputs.nextDevelopmentVersion }}
-      dryRun: ${{ inputs.dryRun }}
-      githubUploadRelease: ${{ inputs.githubUploadRelease }}
-      isLatest: ${{ inputs.isLatest }}
-      fromCommit: ${{ inputs.fromCommit }}
+    - name: Import Secrets
+      id: secrets # important to refer to it in later steps
+      uses: hashicorp/vault-action@v2.8.1
+      with:
+        url: ${{ secrets.VAULT_ADDR }}
+        method: approle
+        roleId: ${{ secrets.VAULT_ROLE_ID }}
+        secretId: ${{ secrets.VAULT_SECRET_ID }}
+        exportEnv: false # we rely on step outputs, no need for environment variables
+        secrets: |
+          secret/data/products/operate/release_process GITHUB_TOKEN;
+    - name: Create a release
+      env:
+        GITHUB_TOKEN: ${{ steps.secrets.outputs.GITHUB_TOKEN }}
+      uses: octokit/request-action@v2.1.9
+      with:
+        route: POST /repos/camunda/zeebe/releases
+        draft: true
+        name: operate-8.5.0-test1
+        tag_name: operate-8.5.0-test1
+        body: "" # TODO: changelog too big with Zeebe merge
+        generate_release_notes: true
+        make_latest: "false"
