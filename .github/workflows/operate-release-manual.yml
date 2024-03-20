@@ -24,26 +24,29 @@ on:
 
 jobs:
   release:
-    - name: Import Secrets
-      id: secrets # important to refer to it in later steps
-      uses: hashicorp/vault-action@v2.8.1
-      with:
-        url: ${{ secrets.VAULT_ADDR }}
-        method: approle
-        roleId: ${{ secrets.VAULT_ROLE_ID }}
-        secretId: ${{ secrets.VAULT_SECRET_ID }}
-        exportEnv: false # we rely on step outputs, no need for environment variables
-        secrets: |
-          secret/data/products/operate/release_process GITHUB_TOKEN;
-    - name: Create a release
-      env:
-        GITHUB_TOKEN: ${{ steps.secrets.outputs.GITHUB_TOKEN }}
-      uses: octokit/request-action@v2.1.9
-      with:
-        route: POST /repos/camunda/zeebe/releases
-        draft: true
-        name: operate-8.5.0-test1
-        tag_name: operate-8.5.0-test1
-        body: "" # TODO: changelog too big with Zeebe merge
-        generate_release_notes: true
-        make_latest: "false"
+    name: "create release"
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Import Secrets
+        id: secrets # important to refer to it in later steps
+        uses: hashicorp/vault-action@v2.8.1
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          exportEnv: false # we rely on step outputs, no need for environment variables
+          secrets: |
+            secret/data/products/operate/release_process GITHUB_TOKEN;
+      - name: Create a release
+        env:
+          GITHUB_TOKEN: ${{ steps.secrets.outputs.GITHUB_TOKEN }}
+        uses: octokit/request-action@v2.1.9
+        with:
+          route: POST /repos/camunda/zeebe/releases
+          draft: true
+          name: operate-8.5.0-test1
+          tag_name: operate-8.5.0-test1
+          body: "" # TODO: changelog too big with Zeebe merge
+          generate_release_notes: true
+          make_latest: "false"
