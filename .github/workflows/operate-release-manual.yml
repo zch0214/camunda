@@ -49,4 +49,4 @@ jobs:
           tag_name: operate-8.5.0-test1
           body: "" # TODO: changelog too big with Zeebe merge
           generate_release_notes: true
-          make_latest: "false"
+          make_latest: 'false'
