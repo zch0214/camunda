@@ -15,8 +15,13 @@ import io.camunda.zeebe.stream.api.scheduling.TaskResult;
 import io.camunda.zeebe.stream.api.scheduling.TaskResultBuilder;
 import java.time.Duration;
 import java.util.function.Function;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class DueDateChecker implements StreamProcessorLifecycleAware {
+
+  private static final Logger LOG = LoggerFactory.getLogger(DueDateChecker.class);
+
   private ScheduleDelayed scheduleService;
   private final boolean scheduleAsync;
 
@@ -39,6 +44,7 @@ public final class DueDateChecker implements StreamProcessorLifecycleAware {
   }
 
   public void schedule(final long dueDate) {
+    LOG.info("Due date checker schedule");
 
     // We schedule only one runnable for all timers.
     // - The runnable is scheduled when the first timer is scheduled.
@@ -48,6 +54,15 @@ public final class DueDateChecker implements StreamProcessorLifecycleAware {
     // executed.
 
     final Duration delay = calculateDelayForNextRun(dueDate);
+
+    LOG.info(
+        "Schedule with this value: shouldRescheduleChecher={}, checkerRunning={}, nextDueDate={}, dueDate={}, timerResolution={}, delay={}",
+        shouldRescheduleChecker,
+        checkerRunning,
+        nextDueDate,
+        dueDate,
+        timerResolution,
+        delay);
 
     if (shouldRescheduleChecker) {
       if (!checkerRunning) {
@@ -85,6 +100,7 @@ public final class DueDateChecker implements StreamProcessorLifecycleAware {
 
   @Override
   public void onRecovered(final ReadonlyStreamProcessorContext processingContext) {
+    LOG.info("OnRecovered");
     final var scheduleService = processingContext.getScheduleService();
     if (scheduleAsync) {
       this.scheduleService = scheduleService::runDelayedAsync;
@@ -99,6 +115,7 @@ public final class DueDateChecker implements StreamProcessorLifecycleAware {
 
   @Override
   public void onPaused() {
+    LOG.info("OnPaused update nextDueDate");
     shouldRescheduleChecker = false;
     nextDueDate = -1;
   }
@@ -108,29 +125,6 @@ public final class DueDateChecker implements StreamProcessorLifecycleAware {
     shouldRescheduleChecker = true;
     if (!checkerRunning) {
       scheduleTriggerEntitiesTask();
-    }
-  }
-
-  private final class TriggerEntitiesTask implements Task {
-
-    @Override
-    public TaskResult execute(final TaskResultBuilder taskResultBuilder) {
-      if (shouldRescheduleChecker) {
-        nextDueDate = nextDueDateSupplier.apply(taskResultBuilder);
-
-        // reschedule the runnable if there are timers left
-
-        if (nextDueDate > 0) {
-          final Duration delay = calculateDelayForNextRun(nextDueDate);
-          scheduleService.runDelayed(delay, this);
-          checkerRunning = true;
-        } else {
-          checkerRunning = false;
-        }
-      } else {
-        checkerRunning = false;
-      }
-      return taskResultBuilder.build();
     }
   }
 
@@ -148,5 +142,34 @@ public final class DueDateChecker implements StreamProcessorLifecycleAware {
      * Task)}
      */
     void runDelayed(final Duration delay, final Task task);
+  }
+
+  private final class TriggerEntitiesTask implements Task {
+
+    @Override
+    public TaskResult execute(final TaskResultBuilder taskResultBuilder) {
+      LOG.info("TriggerEntitiesTask execute");
+
+      if (shouldRescheduleChecker) {
+        nextDueDate = nextDueDateSupplier.apply(taskResultBuilder);
+        LOG.info(
+            "TriggerEntitiesTask execute with this value: shouldRescheduleChecher={}, checkerRunning={}, nextDueDate={}",
+            shouldRescheduleChecker,
+            checkerRunning,
+            nextDueDate);
+        // reschedule the runnable if there are timers left
+
+        if (nextDueDate > 0) {
+          final Duration delay = calculateDelayForNextRun(nextDueDate);
+          scheduleService.runDelayed(delay, this);
+          checkerRunning = true;
+        } else {
+          checkerRunning = false;
+        }
+      } else {
+        checkerRunning = false;
+      }
+      return taskResultBuilder.build();
+    }
   }
 }
