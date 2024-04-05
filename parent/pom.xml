@@ -120,7 +120,6 @@
     <version.easy-random>5.0.0</version.easy-random>
     <version.jcip>1.0</version.jcip>
     <version.jnr-posix>3.1.19</version.jnr-posix>
-    <version.zpt>8.4.5</version.zpt>
     <version.feign>13.2.1</version.feign>
     <version.google-sdk>26.35.0</version.google-sdk>
     <version.azure-sdk>1.2.22</version.azure-sdk>
@@ -460,18 +459,48 @@
         <version>${project.version}</version>
       </dependency>
 
-      <!-- sibling projects -->
+      <!-- zeebe-process-test dependencies -->
+
+      <dependency>
+        <groupId>io.camunda</groupId>
+        <artifactId>zeebe-process-test-api</artifactId>
+        <version>${project.version}</version>
+      </dependency>
 
       <dependency>
         <groupId>io.camunda</groupId>
         <artifactId>zeebe-process-test-assertions</artifactId>
-        <version>${version.zpt}</version>
+        <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.camunda</groupId>
+        <artifactId>zeebe-process-test-engine</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.camunda</groupId>
+        <artifactId>zeebe-process-test-extension</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.camunda</groupId>
+        <artifactId>zeebe-process-test-extension-testcontainer</artifactId>
+        <version>${project.version}</version>
       </dependency>
 
       <dependency>
         <groupId>io.camunda</groupId>
         <artifactId>zeebe-process-test-filters</artifactId>
-        <version>${version.zpt}</version>
+        <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.camunda</groupId>
+        <artifactId>zeebe-process-test-engine-protocol</artifactId>
+        <version>${project.version}</version>
       </dependency>
 
       <!-- Third party dependencies -->
