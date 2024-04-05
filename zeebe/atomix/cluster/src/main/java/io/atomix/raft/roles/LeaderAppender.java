@@ -321,7 +321,7 @@ final class LeaderAppender {
   /** Connects to the member and sends a configure request. */
   private void sendConfigureRequest(
       final RaftMemberContext member, final ConfigureRequest request) {
-    log.debug("Configuring {} : {}", member.getMember().memberId(), request);
+    log.info("Configuring {} : {}", member.getMember().memberId(), request);
 
     // Start the configure to the member.
     member.startConfigure();

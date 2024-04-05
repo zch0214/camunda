@@ -104,8 +104,15 @@ public final class LeaderRole extends ActiveRole implements ZeebeLogAppender {
       raft.getThreadContext()
           .execute(
               () -> {
+                log.info("Transitioning out of joint consensus or forced configuration");
                 final var currentMembers = raft.getCluster().getConfiguration().newMembers();
-                configure(currentMembers, List.of());
+                configure(currentMembers, List.of())
+                    .thenAccept(
+                        index ->
+                            log.info(
+                                "Committed new configuration at index {} {}",
+                                index,
+                                raft.getCluster().getConfiguration()));
               });
     }
 
@@ -233,6 +240,9 @@ public final class LeaderRole extends ActiveRole implements ZeebeLogAppender {
     final Configuration currentConfiguration = raft.getCluster().getConfiguration();
     if (currentConfiguration != null // this is not expected in a leader
         && request.newMembers().equals(currentConfiguration.allMembers())) {
+      log.info(
+          "Ignoring force-configure request, as the new members are the same as the current {}",
+          currentConfiguration);
       // It is likely that the previous force configure was successfully completed, and this is a
       // retry. So just respond success.
       return CompletableFuture.completedFuture(
@@ -244,6 +254,7 @@ public final class LeaderRole extends ActiveRole implements ZeebeLogAppender {
                   .build()));
     }
 
+    log.info("Transitioning to follower due to force-configure");
     // Do not force-configure when you are leader.
     raft.transition(Role.FOLLOWER);
     return super.onForceConfigure(request);
