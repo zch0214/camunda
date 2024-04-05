@@ -81,7 +81,7 @@ public abstract class AbstractMultiThreadTest {
 
   public abstract RecordStream getRecordStream();
 
-  private class ProcessRunner implements Callable<Boolean> {
+  private final class ProcessRunner implements Callable<Boolean> {
 
     @Override
     public Boolean call() throws InterruptedException, TimeoutException {

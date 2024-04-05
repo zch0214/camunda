@@ -74,7 +74,7 @@ class InMemoryLogStorage implements LogStorage {
     commitListeners.remove(listener);
   }
 
-  private class ListLogStorageReader implements LogStorageReader {
+  private final class ListLogStorageReader implements LogStorageReader {
 
     private int currentIndex = 0;
 

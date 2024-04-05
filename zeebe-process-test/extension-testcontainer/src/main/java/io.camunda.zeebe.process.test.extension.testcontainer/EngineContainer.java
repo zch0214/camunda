@@ -27,7 +27,7 @@ public final class EngineContainer extends GenericContainer<EngineContainer> {
 
   private static final Logger LOG = LoggerFactory.getLogger("io.camunda.zeebe-process-test");
 
-  private static EngineContainer INSTANCE;
+  private static EngineContainer instance;
 
   private EngineContainer(final String imageName) {
     super(DockerImageName.parse(imageName));
@@ -39,14 +39,14 @@ public final class EngineContainer extends GenericContainer<EngineContainer> {
    * @return the testcontainer
    */
   public static EngineContainer getContainer() {
-    if (INSTANCE == null) {
+    if (instance == null) {
       createContainer();
     }
-    return INSTANCE;
+    return instance;
   }
 
   private static void createContainer() {
-    INSTANCE =
+    instance =
         new EngineContainer(ContainerProperties.getDockerImageName())
             .withExposedPorts(
                 ContainerProperties.getContainerPort(), ContainerProperties.getGatewayPort())

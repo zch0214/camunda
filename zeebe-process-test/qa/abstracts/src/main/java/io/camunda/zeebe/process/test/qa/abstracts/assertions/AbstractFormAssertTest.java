@@ -174,7 +174,6 @@ public class AbstractFormAssertTest {
           .hasMessage(
               "Expected to find a form with id to be '%s', but no form with the provided id was found.",
               WRONG_VALUE);
-      ;
     }
   }
 }

@@ -73,7 +73,7 @@ public abstract class AbstractProcessEventInspectionsTest {
   }
 
   @Test
-  void testFindFirstProcessInstance_wrongTimer() throws InterruptedException {
+  void testFindFirstProcessInstanceWithWrongTimer() throws InterruptedException {
     // given
     Utilities.deployResource(getClient(), ProcessPackTimerStartEvent.RESOURCE_NAME);
 
@@ -89,7 +89,7 @@ public abstract class AbstractProcessEventInspectionsTest {
   }
 
   @Test
-  void testFindProcessInstance_highIndex() throws InterruptedException {
+  void testFindProcessInstanceWithHighIndex() throws InterruptedException {
     // given
     Utilities.deployResource(getClient(), ProcessPackTimerStartEvent.RESOURCE_NAME);
 

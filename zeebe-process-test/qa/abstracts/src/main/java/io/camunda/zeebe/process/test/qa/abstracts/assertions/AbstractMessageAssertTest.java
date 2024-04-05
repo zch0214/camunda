@@ -167,7 +167,7 @@ public abstract class AbstractMessageAssertTest {
     }
 
     @Test
-    void testExtractingProcessInstance_messageStartEvent()
+    void testExtractingProcessInstanceWithMessageStartEvent()
         throws InterruptedException, TimeoutException {
       // given
       Utilities.deployResource(client, ProcessPackMessageStartEvent.RESOURCE_NAME);
@@ -346,7 +346,7 @@ public abstract class AbstractMessageAssertTest {
     }
 
     @Test
-    void testExtractingProcessInstanceFailure_messageStartEvent()
+    void testExtractingProcessInstanceFailureWithMessageStartEvent()
         throws InterruptedException, TimeoutException {
       // given
       Utilities.deployResource(client, ProcessPackMessageStartEvent.RESOURCE_NAME);

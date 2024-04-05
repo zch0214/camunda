@@ -41,7 +41,7 @@ public class ProcessDefinitionInspectionUtility {
    * @param bpmnElementName the name of the BPMN element
    * @return the id of the found BPMN element
    */
-  public static String getBpmnElementId(String bpmnElementName) {
+  public static String getBpmnElementId(final String bpmnElementName) {
     return getBpmnElementId(
         StreamFilter.processRecords(BpmnAssert.getRecordStream()).getProcessDefinitions(),
         bpmnElementName);
@@ -57,7 +57,7 @@ public class ProcessDefinitionInspectionUtility {
    * @param bpmnElementName the name of the BPMN element
    * @return the id of the found BPMN in the given process
    */
-  public static String getBpmnElementId(String bpmnProcessId, String bpmnElementName) {
+  public static String getBpmnElementId(final String bpmnProcessId, final String bpmnElementName) {
     return getBpmnElementId(
         StreamFilter.processRecords(BpmnAssert.getRecordStream())
             .withBpmnProcessId(bpmnProcessId)
@@ -75,7 +75,8 @@ public class ProcessDefinitionInspectionUtility {
    * @param bpmnElementName
    * @return
    */
-  public static String getBpmnElementId(DeploymentEvent deployment, String bpmnElementName) {
+  public static String getBpmnElementId(
+      final DeploymentEvent deployment, final String bpmnElementName) {
     return getBpmnElementId(
         StreamFilter.processRecords(BpmnAssert.getRecordStream())
             .withDeployment(deployment)
@@ -83,8 +84,9 @@ public class ProcessDefinitionInspectionUtility {
         bpmnElementName);
   }
 
-  private static String getBpmnElementId(Stream<Process> stream, String bpmnElementName) {
-    List<String> potentialElementIds =
+  private static String getBpmnElementId(
+      final Stream<Process> stream, final String bpmnElementName) {
+    final List<String> potentialElementIds =
         stream
             .map(
                 processResource ->
@@ -102,8 +104,8 @@ public class ProcessDefinitionInspectionUtility {
     return potentialElementIds.get(0);
   }
 
-  private static Set<DomElement> getChildElementsFlattened(DomElement parent) {
-    Set<DomElement> elements = new HashSet<>();
+  private static Set<DomElement> getChildElementsFlattened(final DomElement parent) {
+    final Set<DomElement> elements = new HashSet<>();
     elements.add(parent);
     parent.getChildElements().forEach(child -> elements.addAll(getChildElementsFlattened(child)));
     return elements;

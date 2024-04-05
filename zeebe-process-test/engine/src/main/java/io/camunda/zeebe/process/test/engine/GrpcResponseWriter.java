@@ -28,7 +28,7 @@ import org.agrona.concurrent.UnsafeBuffer;
 class GrpcResponseWriter implements CommandResponseWriter {
 
   private static long key = -1;
-  private static final DirectBuffer valueBufferView = new UnsafeBuffer();
+  private static final DirectBuffer VALUE_BUFFER_VIEW = new UnsafeBuffer();
   private static Intent intent = Intent.UNKNOWN;
   final GrpcToLogStreamGateway gateway;
   private final GatewayRequestStore gatewayRequestStore;
@@ -95,7 +95,7 @@ class GrpcResponseWriter implements CommandResponseWriter {
   @Override
   public CommandResponseWriter valueWriter(final BufferWriter value) {
     value.write(valueBuffer, 0);
-    valueBufferView.wrap(valueBuffer, 0, value.getLength());
+    VALUE_BUFFER_VIEW.wrap(valueBuffer, 0, value.getLength());
     return this;
   }
 
@@ -115,7 +115,7 @@ class GrpcResponseWriter implements CommandResponseWriter {
       }
       final Request request = gatewayRequestStore.removeRequest(requestId);
       final GeneratedMessageV3 response =
-          responseMapper.map(request.requestType(), valueBufferView, key, intent);
+          responseMapper.map(request.requestType(), VALUE_BUFFER_VIEW, key, intent);
       sendResponse(request, response);
     } catch (final Exception e) {
       throw new RuntimeException(e);

@@ -52,7 +52,7 @@ final class InMemoryDbColumnFamily<
   }
 
   private void ensureInOpenTransaction(
-      final TransactionContext context, final inMemoryDbStateOperation operation) {
+      final TransactionContext context, final InMemoryDbStateOperation operation) {
     context.runInTransaction(
         () -> operation.run((InMemoryDbState) context.getCurrentTransaction()));
   }

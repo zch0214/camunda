@@ -34,7 +34,7 @@ import org.assertj.core.api.StringAssert;
 /** Assertions for incidents. An incident is identified by its incident key. */
 public class IncidentAssert extends AbstractAssert<IncidentAssert, Long> {
 
-  private final String LINE_SEPARATOR = System.lineSeparator();
+  private static final String LINE_SEPARATOR = System.lineSeparator();
 
   private final RecordStream recordStream;
 

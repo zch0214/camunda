@@ -41,7 +41,7 @@ import java.util.stream.StreamSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class RecordStream {
+public final class RecordStream {
 
   private static final Logger LOG = LoggerFactory.getLogger("io.camunda.zeebe.process.test");
 

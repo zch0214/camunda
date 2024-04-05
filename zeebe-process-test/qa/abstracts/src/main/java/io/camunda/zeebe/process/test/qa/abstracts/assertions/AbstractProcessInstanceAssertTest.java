@@ -1109,7 +1109,7 @@ public abstract class AbstractProcessInstanceAssertTest {
     }
 
     @Test
-    void testProcessInstanceIsWaitingExactlyAtElementsFailure_tooManyElements()
+    void testProcessInstanceIsWaitingExactlyAtElementsFailureWithTooManyElements()
         throws InterruptedException, TimeoutException {
       // given
       Utilities.deployResource(client, ProcessPackMultipleTasks.RESOURCE_NAME);
@@ -1134,7 +1134,7 @@ public abstract class AbstractProcessInstanceAssertTest {
     }
 
     @Test
-    void testProcessInstanceIsWaitingExactlyAtElementsFailure_tooLittleElements()
+    void testProcessInstanceIsWaitingExactlyAtElementsFailureWithTooLittleElements()
         throws InterruptedException, TimeoutException {
       // given
       Utilities.deployResource(client, ProcessPackMultipleTasks.RESOURCE_NAME);
@@ -1164,7 +1164,7 @@ public abstract class AbstractProcessInstanceAssertTest {
     }
 
     @Test
-    void testProcessInstanceIsWaitingExactlyAtElementsFailure_combination()
+    void testProcessInstanceIsWaitingExactlyAtElementsFailureWithCombination()
         throws InterruptedException, TimeoutException {
       // given
       Utilities.deployResource(client, ProcessPackMultipleTasks.RESOURCE_NAME);

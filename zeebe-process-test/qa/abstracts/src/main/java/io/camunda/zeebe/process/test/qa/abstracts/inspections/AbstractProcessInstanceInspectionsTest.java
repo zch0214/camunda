@@ -57,7 +57,7 @@ public abstract class AbstractProcessInstanceInspectionsTest {
   }
 
   @Test
-  void testStartedByProcessInstanceWithProcessId_wrongId()
+  void testStartedByProcessInstanceWithProcessIdWithWrongId()
       throws InterruptedException, TimeoutException {
     // given
     Utilities.deployResources(
