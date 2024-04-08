@@ -58,6 +58,11 @@
       <artifactId>junit-jupiter-api</artifactId>
     </dependency>
 
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+
     <!-- Test scope-->
     <dependency>
       <groupId>org.assertj</groupId>
@@ -83,22 +88,12 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>analyze</id>
-            <goals>
-              <goal>analyze-only</goal>
-              <goal>analyze-dep-mgt</goal>
-              <goal>analyze-duplicate</goal>
-            </goals>
-            <configuration>
-              <!-- TODO remove this after version of
-              plugin is released which includes
-              https://github.com/apache/maven-dependency-plugin/pull/194 -->
-              <failOnWarning>false</failOnWarning>
-            </configuration>
-          </execution>
-        </executions>
+        <configuration>
+          <ignoredUnusedDeclaredDependencies>
+            <!-- runtime binding for tests -->
+            <ignoredUnusedDeclaredDependency>org.slf4j:slf4j-simple</ignoredUnusedDeclaredDependency>
+          </ignoredUnusedDeclaredDependencies>
+        </configuration>
       </plugin>
 
       <plugin>
