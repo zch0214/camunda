@@ -37,6 +37,7 @@ import io.camunda.zeebe.util.health.FailureListener;
 import io.camunda.zeebe.util.health.HealthMonitorable;
 import io.camunda.zeebe.util.health.HealthReport;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -187,6 +188,41 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
           if (exporterMode == ExporterMode.ACTIVE) {
             actor.submit(this::readNextEvent);
           }
+        });
+  }
+
+  public ActorFuture<Void> disableExporter(final String exporterId) {
+    return actor.call(
+        () -> {
+          final ExporterContainer container = containers.get(exporterId);
+          if (container != null) {
+            container.close();
+            containers.remove(exporterId);
+            state.removeExporterState(exporterId);
+            recordExporter.removeExporter(exporterId);
+          }
+          LOG.info("Disabled exporter '{}'", exporterId);
+        });
+  }
+
+  public ActorFuture<Void> enableExporter(final ExporterDescriptor descriptor) {
+    // TODO: ability to initialize metadata when re-enabling.
+    return actor.call(
+        () -> {
+          try {
+            final ExporterContainer container = new ExporterContainer(descriptor, partitionId);
+            container.initContainer(actor, metrics, state);
+            container.configureExporter();
+            container.initPosition();
+            container.openExporter();
+            containers.put(descriptor.getId(), container);
+            recordExporter.addContainer(container);
+            // TODO, should we consider pause state?
+          } catch (final Exception e) {
+            LOG.error("Failed to enable exporter '{}'", descriptor.getId(), e);
+            throw new RuntimeException(e);
+          }
+          LOG.info("Enabled exporter '{}'", descriptor.getId());
         });
   }
 
@@ -531,7 +567,7 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
 
     private final RecordValues recordValues = new RecordValues();
     private final RecordMetadata rawMetadata = new RecordMetadata();
-    private final List<ExporterContainer> containers;
+    private final ArrayList<ExporterContainer> containers;
     private final TypedRecordImpl typedEvent;
     private final ExporterMetrics exporterMetrics;
 
@@ -542,7 +578,7 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
         final ExporterMetrics exporterMetrics,
         final List<ExporterContainer> containers,
         final int partitionId) {
-      this.containers = containers;
+      this.containers = new ArrayList<>(containers);
       typedEvent = new TypedRecordImpl(partitionId);
       this.exporterMetrics = exporterMetrics;
     }
@@ -585,6 +621,15 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
 
     TypedRecordImpl getTypedEvent() {
       return typedEvent;
+    }
+
+    void removeExporter(final String exporterId) {
+      containers.removeIf(container -> container.getId().equals(exporterId));
+      exporterIndex = 0; // should re-export to ensure no exporters are missed
+    }
+
+    void addContainer(final ExporterContainer container) {
+      containers.add(container);
     }
   }
 

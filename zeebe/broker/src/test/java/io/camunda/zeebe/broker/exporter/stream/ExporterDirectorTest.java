@@ -89,6 +89,69 @@ public final class ExporterDirectorTest {
   }
 
   @Test
+  public void shouldDisableExporter() {
+    // given
+    startExporterDirector(exporterDescriptors);
+    final ControlledTestExporter survivingExporter = exporters.get(1);
+    survivingExporter.onExport(
+        r -> survivingExporter.getController().updateLastExportedRecordPosition(r.getPosition()));
+    final var exporterToDisable = exporters.get(0);
+    rule.writeEvent(DeploymentIntent.CREATED, new DeploymentRecord());
+    Awaitility.await("director has read all records until now")
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(() -> assertThat(exporterToDisable.getExportedRecords()).hasSize(1));
+
+    // when
+    rule.getDirector()
+        .disableExporter(exporterToDisable.getContext().getConfiguration().getId())
+        .join();
+    final var secondPosition = rule.writeEvent(DeploymentIntent.CREATED, new DeploymentRecord());
+
+    // then
+    Awaitility.await()
+        .untilAsserted(
+            () ->
+                assertThat(rule.getDirector().getLowestPosition().join())
+                    .isEqualTo(secondPosition));
+    assertThat(exporterToDisable.getExportedRecords()).hasSize(1);
+  }
+
+  @Test
+  public void shouldReEnableExporter() {
+    // given
+    startExporterDirector(exporterDescriptors);
+    final ControlledTestExporter survivingExporter = exporters.get(1);
+    survivingExporter.onExport(
+        r -> survivingExporter.getController().updateLastExportedRecordPosition(r.getPosition()));
+    final var exporterToDisable = exporters.get(0);
+    rule.writeEvent(DeploymentIntent.CREATED, new DeploymentRecord());
+    Awaitility.await("director has read all records until now")
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(() -> assertThat(exporterToDisable.getExportedRecords()).hasSize(1));
+
+    rule.getDirector()
+        .disableExporter(exporterToDisable.getContext().getConfiguration().getId())
+        .join();
+    final var secondPosition = rule.writeEvent(DeploymentIntent.CREATED, new DeploymentRecord());
+
+    Awaitility.await()
+        .untilAsserted(
+            () ->
+                assertThat(rule.getDirector().getLowestPosition().join())
+                    .isEqualTo(secondPosition));
+
+    // when
+    rule.getDirector().enableExporter(exporterDescriptors.get(0)).join();
+
+    final var thirdPosition = rule.writeEvent(DeploymentIntent.CREATED, new DeploymentRecord());
+    Awaitility.await()
+        .untilAsserted(
+            () ->
+                assertThat(exporterToDisable.getExportedRecords().getLast().getPosition())
+                    .isEqualTo(thirdPosition));
+  }
+
+  @Test
   public void shouldUpdatePositionWhenInitialRecordsAreSkipped() {
     // given
     final ControlledTestExporter tailingExporter = exporters.get(1);
