@@ -16,6 +16,9 @@ import io.camunda.zeebe.broker.PartitionListener;
 import io.camunda.zeebe.broker.PartitionRaftListener;
 import io.camunda.zeebe.broker.clustering.ClusterServices;
 import io.camunda.zeebe.broker.exporter.repo.ExporterRepository;
+import io.camunda.zeebe.broker.partitioning.DynamicPartitionConfig.DynamicExporterConfig;
+import io.camunda.zeebe.broker.partitioning.DynamicPartitionConfig.DynamicExporterConfig.State;
+import io.camunda.zeebe.broker.partitioning.DynamicPartitionConfig.DynamicExportersConfig;
 import io.camunda.zeebe.broker.partitioning.startup.PartitionStartupContext;
 import io.camunda.zeebe.broker.partitioning.startup.RaftPartitionFactory;
 import io.camunda.zeebe.broker.partitioning.startup.ZeebePartitionFactory;
@@ -43,6 +46,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -130,6 +135,8 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
   private ActorFuture<Void> bootstrapPartition(final PartitionMetadata partitionMetadata) {
     final var result = concurrencyControl.<Void>createFuture();
     final var id = partitionMetadata.id().id();
+
+    final DynamicPartitionConfig dynamicConfig = getDynamicPartitionConfig();
     final var context =
         new PartitionStartupContext(
             actorSchedulingService,
@@ -141,13 +148,26 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
             partitionMetadata,
             raftPartitionFactory,
             zeebePartitionFactory,
-            brokerCfg);
+            brokerCfg,
+            dynamicConfig);
     final var partition = Partition.bootstrapping(context);
     partitions.put(id, partition);
 
     concurrencyControl.runOnCompletion(
         partition.start(), (started, error) -> completePartitionStart(id, error, result));
     return result;
+  }
+
+  private DynamicPartitionConfig getDynamicPartitionConfig() {
+    // TODO: Generate DyamicPartitionConfig from the gossip state
+    final var configMap =
+        brokerCfg.getExporters().keySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Function.identity(), e -> new DynamicExporterConfig(State.ENABLED)));
+    final DynamicPartitionConfig dynamicConfig =
+        new DynamicPartitionConfig(new DynamicExportersConfig(configMap));
+    return dynamicConfig;
   }
 
   private ActorFuture<Void> joinPartition(final PartitionMetadata partitionMetadata) {
@@ -164,7 +184,8 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
             partitionMetadata,
             raftPartitionFactory,
             zeebePartitionFactory,
-            brokerCfg);
+            brokerCfg,
+            getDynamicPartitionConfig());
     final var partition = Partition.joining(context);
     final var previousPartition = partitions.putIfAbsent(id, partition);
     if (previousPartition != null) {

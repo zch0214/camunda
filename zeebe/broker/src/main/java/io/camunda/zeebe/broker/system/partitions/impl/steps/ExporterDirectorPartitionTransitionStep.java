@@ -83,6 +83,7 @@ public final class ExporterDirectorPartitionTransitionStep implements PartitionT
   private ActorFuture<Void> openExporter(
       final PartitionTransitionContext context, final Role targetRole) {
     final Collection<ExporterDescriptor> exporterDescriptors = context.getExportedDescriptors();
+    // TODO: remove disabled exporterDescriptors
     final var exporterFilter =
         SkipPositionsFilter.of(
             context.getBrokerCfg() != null

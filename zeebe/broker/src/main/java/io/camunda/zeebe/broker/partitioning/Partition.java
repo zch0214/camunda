@@ -10,6 +10,7 @@ package io.camunda.zeebe.broker.partitioning;
 import io.atomix.cluster.MemberId;
 import io.atomix.raft.cluster.RaftMember.Type;
 import io.atomix.raft.partition.RaftPartition;
+import io.camunda.zeebe.broker.partitioning.DynamicPartitionConfig.DynamicExporterConfig.State;
 import io.camunda.zeebe.broker.partitioning.startup.PartitionStartupContext;
 import io.camunda.zeebe.broker.partitioning.startup.steps.PartitionDirectoryStep;
 import io.camunda.zeebe.broker.partitioning.startup.steps.PartitionRegistrationStep;
@@ -246,5 +247,47 @@ final class Partition {
 
   int id() {
     return context.partitionMetadata().id().id();
+  }
+
+  public ActorFuture<Void> disableExporter(final String exporterId) {
+    final ActorFuture<Void> result = context.concurrencyControl().createFuture();
+    context
+        .concurrencyControl()
+        .run(
+            () -> {
+              final DynamicPartitionConfig dynamicConfig = context.getDynamicConfig();
+              final var exporters = dynamicConfig.config().exporters();
+              final var exporterConfig = exporters.get(exporterId);
+              if (exporterConfig == null) {
+                result.complete(null);
+                return;
+              }
+              // TODO: May be not thread safe since ZeebePartition actor is reading from this.
+              exporterConfig.setState(State.DISABLED);
+
+              zeebePartition().disableExporter(exporterId).onComplete(result);
+            });
+    return result;
+  }
+
+  public ActorFuture<Void> enableExporter(final String exporterId) {
+    final ActorFuture<Void> result = context.concurrencyControl().createFuture();
+    context
+        .concurrencyControl()
+        .run(
+            () -> {
+              final DynamicPartitionConfig dynamicConfig = context.getDynamicConfig();
+              final var exporters = dynamicConfig.config().exporters();
+              final var exporterConfig = exporters.get(exporterId);
+              if (exporterConfig == null) {
+                result.complete(null);
+                return;
+              }
+              // TODO: May be not thread safe since ZeebePartition actor is reading from this.
+              exporterConfig.setState(State.ENABLED);
+
+              zeebePartition().enableExporter(exporterId).onComplete(result);
+            });
+    return result;
   }
 }

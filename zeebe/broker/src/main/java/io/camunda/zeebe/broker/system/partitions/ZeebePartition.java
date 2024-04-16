@@ -507,4 +507,45 @@ public final class ZeebePartition extends Actor
   public ActorFuture<Role> getCurrentRole() {
     return actor.call(() -> context.getCurrentRole());
   }
+
+  public ActorFuture<Void> disableExporter(final String exporterId) {
+    final ActorFuture<Void> result = new CompletableActorFuture<>();
+    actor.run(
+        () -> {
+          final var exporterDirector = context.getExporterDirector();
+          if (exporterDirector != null) {
+            exporterDirector.disableExporter(exporterId).onComplete(result);
+          } else {
+            // TODO: May be we can complete it successfully??
+            result.completeExceptionally(
+                new IllegalStateException("Exporter director is not available"));
+          }
+        });
+    return result;
+  }
+
+  public ActorFuture<Void> enableExporter(final String exporterId) {
+    final ActorFuture<Void> result = new CompletableActorFuture<>();
+    actor.run(
+        () -> {
+          final var exporterDirector = context.getExporterDirector();
+          if (exporterDirector != null) {
+            final var exporterDescriptor =
+                transition.getTransitionContext().getExportedDescriptors().stream()
+                    .filter(e -> e.getId().equals(exporterId))
+                    .findFirst();
+            if (exporterDescriptor.isEmpty()) {
+              result.completeExceptionally(
+                  new IllegalArgumentException("Exporter with id " + exporterId + " not found"));
+              return;
+            }
+            exporterDirector.enableExporter(exporterDescriptor.get()).onComplete(result);
+          } else {
+            // TODO: may be we can complete it successfully??
+            result.completeExceptionally(
+                new IllegalStateException("Exporter director is not available"));
+          }
+        });
+    return result;
+  }
 }

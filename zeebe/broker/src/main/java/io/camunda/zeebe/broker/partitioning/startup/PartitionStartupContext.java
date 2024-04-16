@@ -10,6 +10,7 @@ package io.camunda.zeebe.broker.partitioning.startup;
 import io.atomix.primitive.partition.PartitionManagementService;
 import io.atomix.primitive.partition.PartitionMetadata;
 import io.atomix.raft.partition.RaftPartition;
+import io.camunda.zeebe.broker.partitioning.DynamicPartitionConfig;
 import io.camunda.zeebe.broker.partitioning.topology.TopologyManager;
 import io.camunda.zeebe.broker.system.configuration.BrokerCfg;
 import io.camunda.zeebe.broker.system.monitoring.BrokerHealthCheckService;
@@ -31,6 +32,7 @@ public final class PartitionStartupContext {
   private final RaftPartitionFactory raftPartitionFactory;
   private final ZeebePartitionFactory zeebePartitionFactory;
   private final BrokerCfg brokerConfig;
+  private DynamicPartitionConfig dynamicConfig;
 
   private Path partitionDirectory;
 
@@ -48,7 +50,8 @@ public final class PartitionStartupContext {
       final PartitionMetadata partitionMetadata,
       final RaftPartitionFactory raftPartitionFactory,
       final ZeebePartitionFactory zeebePartitionFactory,
-      final BrokerCfg brokerConfig) {
+      final BrokerCfg brokerConfig,
+      final DynamicPartitionConfig dynamicConfig) {
     this.schedulingService = schedulingService;
     this.topologyManager = topologyManager;
     this.concurrencyControl = concurrencyControl;
@@ -59,6 +62,7 @@ public final class PartitionStartupContext {
     this.raftPartitionFactory = raftPartitionFactory;
     this.zeebePartitionFactory = zeebePartitionFactory;
     this.brokerConfig = brokerConfig;
+    this.dynamicConfig = dynamicConfig;
   }
 
   @Override
@@ -140,5 +144,13 @@ public final class PartitionStartupContext {
   public PartitionStartupContext partitionDirectory(final Path partitionDirectory) {
     this.partitionDirectory = partitionDirectory;
     return this;
+  }
+
+  public DynamicPartitionConfig getDynamicConfig() {
+    return dynamicConfig;
+  }
+
+  public void setDynamicConfig(final DynamicPartitionConfig newDynamicConfig) {
+    dynamicConfig = newDynamicConfig;
   }
 }

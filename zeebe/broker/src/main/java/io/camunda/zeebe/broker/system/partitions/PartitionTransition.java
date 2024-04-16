@@ -63,6 +63,8 @@ public interface PartitionTransition {
    */
   HealthIssue getHealthIssue();
 
+  PartitionTransitionContext getTransitionContext();
+
   /** Used to exceptionally complete transition futures when the transition was cancelled. */
   final class CancelledPartitionTransition extends RecoverablePartitionTransitionException {
 
