@@ -37,10 +37,14 @@ public record ExporterState(long version, State state, Optional<String> initiali
   }
 
   ExporterState enabling() {
+    return enabling(null);
+  }
+
+  ExporterState enabling(final String intializeFrom) {
     if (state == State.DISABLED) {
-      return new ExporterState(version + 1, State.ENABLING, initializeFrom);
+      return new ExporterState(version + 1, State.ENABLING, Optional.ofNullable(intializeFrom));
     } else if (state == State.DISABLING) {
-      return new ExporterState(version + 2, State.ENABLING, initializeFrom);
+      return new ExporterState(version + 2, State.ENABLING, Optional.ofNullable(intializeFrom));
     } else {
       return this;
     }

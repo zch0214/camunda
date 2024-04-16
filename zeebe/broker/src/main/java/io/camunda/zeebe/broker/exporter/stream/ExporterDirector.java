@@ -8,6 +8,7 @@
 package io.camunda.zeebe.broker.exporter.stream;
 
 import io.camunda.zeebe.broker.Loggers;
+import io.camunda.zeebe.broker.exporter.repo.ExporterDescriptor;
 import io.camunda.zeebe.broker.exporter.stream.ExporterDirectorContext.ExporterMode;
 import io.camunda.zeebe.broker.system.partitions.PartitionMessagingService;
 import io.camunda.zeebe.db.ZeebeDb;
@@ -37,6 +38,7 @@ import io.camunda.zeebe.util.health.HealthMonitorable;
 import io.camunda.zeebe.util.health.HealthReport;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +60,7 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
 
   private static final Logger LOG = Loggers.EXPORTER_LOGGER;
   private final AtomicBoolean isOpened = new AtomicBoolean(false);
-  private final List<ExporterContainer> containers;
+  private final Map<String, ExporterContainer> containers;
   private final LogStream logStream;
   private final RecordExporter recordExporter;
   private final ZeebeDb zeebeDb;
@@ -92,11 +94,13 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
     partitionId = logStream.getPartitionId();
     containers =
         context.getDescriptors().stream()
-            .map(descriptor -> new ExporterContainer(descriptor, partitionId))
-            .collect(Collectors.toList());
+            .collect(
+                Collectors.toMap(
+                    ExporterDescriptor::getId, d -> new ExporterContainer(d, partitionId)));
     metrics = new ExporterMetrics(partitionId);
     metrics.initializeExporterState(exporterPhase);
-    recordExporter = new RecordExporter(metrics, containers, partitionId);
+    recordExporter =
+        new RecordExporter(metrics, containers.values().stream().toList(), partitionId);
     exportingRetryStrategy = new BackOffRetryStrategy(actor, Duration.ofSeconds(10));
     recordWrapStrategy = new EndlessRetryStrategy(actor);
     zeebeDb = context.getZeebeDb();
@@ -154,7 +158,7 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
     }
     return actor.call(
         () -> {
-          containers.stream().forEach(ExporterContainer::softPauseExporter);
+          containers.values().stream().forEach(ExporterContainer::softPauseExporter);
           exporterPhase = ExporterPhase.SOFT_PAUSED;
           metrics.setExporterSoftPaused();
         });
@@ -176,7 +180,7 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
     return actor.call(
         () -> {
           if (exporterPhase == ExporterPhase.SOFT_PAUSED) {
-            containers.stream().forEach(ExporterContainer::undoSoftPauseExporter);
+            containers.values().forEach(ExporterContainer::undoSoftPauseExporter);
           }
           exporterPhase = ExporterPhase.EXPORTING;
           metrics.setExporterActive();
@@ -276,7 +280,7 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
   protected void onActorCloseRequested() {
     isOpened.set(false);
     if (exporterMode == ExporterMode.ACTIVE) {
-      containers.forEach(ExporterContainer::close);
+      containers.values().forEach(ExporterContainer::close);
     } else {
       exporterDistributionService.close();
     }
@@ -316,12 +320,12 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
   }
 
   private void initContainers() throws Exception {
-    for (final ExporterContainer container : containers) {
+    for (final ExporterContainer container : containers.values()) {
       container.initContainer(actor, metrics, state);
       container.configureExporter();
     }
 
-    eventFilter = positionsToSkipFilter.and(createEventFilter(containers));
+    eventFilter = positionsToSkipFilter.and(createEventFilter(containers.values()));
     LOG.debug("Set event filter for exporters: {}", eventFilter);
   }
 
@@ -334,7 +338,7 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
         snapshotPosition);
   }
 
-  private ExporterEventFilter createEventFilter(final List<ExporterContainer> containers) {
+  private ExporterEventFilter createEventFilter(final Collection<ExporterContainer> containers) {
 
     final List<Context.RecordFilter> recordFilters =
         containers.stream().map(c -> c.getContext().getFilter()).collect(Collectors.toList());
@@ -365,7 +369,7 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
     logStream.registerRecordAvailableListener(this);
 
     // start reading
-    for (final ExporterContainer container : containers) {
+    for (final ExporterContainer container : containers.values()) {
       container.initPosition();
       container.openExporter();
     }
@@ -390,7 +394,7 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
 
   private void startPassiveExportingMode() {
     // Only initialize the positions, do not open and start exporting
-    for (final ExporterContainer container : containers) {
+    for (final ExporterContainer container : containers.values()) {
       container.initPosition();
     }
 
@@ -419,7 +423,7 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
 
     // increase position of all up to date exporters - an up to date exporter is one which has
     // acknowledged the last record we passed to it
-    for (final ExporterContainer container : containers) {
+    for (final ExporterContainer container : containers.values()) {
       container.updatePositionOnSkipIfUpToDate(eventPosition);
     }
 
@@ -479,7 +483,7 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
 
   private void clearExporterState() {
     final List<String> exporterIds =
-        containers.stream().map(ExporterContainer::getId).collect(Collectors.toList());
+        containers.values().stream().map(ExporterContainer::getId).collect(Collectors.toList());
 
     state.visitExporterState(
         (exporterId, exporterStateEntry) -> {
