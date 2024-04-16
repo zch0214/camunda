@@ -10,7 +10,7 @@ package io.camunda.zeebe.topology.configurations;
 import java.util.HashMap;
 import java.util.Map;
 
-public record PartitionConfig(Map<String, ExporterState> exporters) {
+public record PartitionConfig(Map<String, ExporterStateCRDT> exporters) {
 
   PartitionConfig merge(final PartitionConfig other) {
     final var mergedExporters = new HashMap<>(exporters);

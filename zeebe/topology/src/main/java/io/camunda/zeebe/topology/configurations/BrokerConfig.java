@@ -11,6 +11,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public record BrokerConfig(Map<Integer, PartitionConfig> partitionConfigs) {
+  // TODO: allow capability to remove brokers and partitions. Right now when merging, removed
+  // brokers can be re-added.
   BrokerConfig merge(final BrokerConfig other) {
     final var mergedPartitions = new HashMap<>(partitionConfigs);
     other

@@ -192,6 +192,7 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
   }
 
   public ActorFuture<Void> disableExporter(final String exporterId) {
+    // TODO: noop if exporter is already disabled
     return actor.call(
         () -> {
           final ExporterContainer container = containers.get(exporterId);
@@ -207,6 +208,7 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
 
   public ActorFuture<Void> enableExporter(final ExporterDescriptor descriptor) {
     // TODO: ability to initialize metadata when re-enabling.
+    // TODO: noop if exporter is already enabled
     return actor.call(
         () -> {
           try {
