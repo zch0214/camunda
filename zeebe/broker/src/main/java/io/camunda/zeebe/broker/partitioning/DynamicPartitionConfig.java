@@ -46,9 +46,11 @@ public final class DynamicPartitionConfig {
   static final class DynamicExporterConfig {
     private State state;
 
-    DynamicExporterConfig(final State state) {
-      this.state = state;
-    }
+    // Use this information to initialize the metadata version. If no snapshot was taken after
+    // re-enabling the exporter, the metadata in the snapshot is outdated. Compare the version to
+    // know that it has to be re-initialized after a restart or leader change.
+    private long metadataVersion;
+    private String initializeFrom;
 
     public void setState(final State state) {
       this.state = state;

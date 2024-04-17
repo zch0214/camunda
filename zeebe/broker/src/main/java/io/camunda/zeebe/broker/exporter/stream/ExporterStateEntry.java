@@ -23,9 +23,13 @@ public class ExporterStateEntry extends UnpackedObject implements DbValue {
   private final BinaryProperty metadataProp =
       new BinaryProperty("exporterMetadata", EMPTY_METADATA);
 
+  private final LongProperty metadataVersion = new LongProperty("metadataVersion", 0L);
+
   public ExporterStateEntry() {
-    super(2);
+    // TODO: Check backward compatibility
+    super(3);
     declareProperty(positionProp).declareProperty(metadataProp);
+    declareProperty(metadataVersion);
   }
 
   public long getPosition() {
@@ -44,6 +48,15 @@ public class ExporterStateEntry extends UnpackedObject implements DbValue {
 
   public ExporterStateEntry setMetadata(final DirectBuffer metadata) {
     metadataProp.setValue(metadata);
+    return this;
+  }
+
+  public long getMetadataVersion() {
+    return metadataVersion.getValue();
+  }
+
+  public ExporterStateEntry setMetadataVersion(final long metadataVersion) {
+    this.metadataVersion.setValue(metadataVersion);
     return this;
   }
 }

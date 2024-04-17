@@ -44,6 +44,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -206,7 +207,10 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
         });
   }
 
-  public ActorFuture<Void> enableExporter(final ExporterDescriptor descriptor) {
+  public ActorFuture<Void> enableExporter(
+      final ExporterDescriptor descriptor,
+      final Optional<Long> metadataVersion,
+      final Optional<String> initializeFrom) {
     // TODO: ability to initialize metadata when re-enabling.
     // TODO: noop if exporter is already enabled
     return actor.call(
@@ -215,6 +219,9 @@ public final class ExporterDirector extends Actor implements HealthMonitorable, 
             final ExporterContainer container = new ExporterContainer(descriptor, partitionId);
             container.initContainer(actor, metrics, state);
             container.configureExporter();
+            initializeFrom.ifPresent(
+                otherExporterId ->
+                    container.initMetadata(otherExporterId, metadataVersion.orElseThrow()));
             container.initPosition();
             container.openExporter();
             containers.put(descriptor.getId(), container);

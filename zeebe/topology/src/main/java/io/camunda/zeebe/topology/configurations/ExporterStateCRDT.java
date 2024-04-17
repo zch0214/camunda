@@ -10,6 +10,7 @@ package io.camunda.zeebe.topology.configurations;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 
 public record ExporterStateCRDT(List<Operation> operations, StateCRDT state) {
   ExporterStateCRDT merge(final ExporterStateCRDT other) {
@@ -33,7 +34,7 @@ public record ExporterStateCRDT(List<Operation> operations, StateCRDT state) {
     // means we don't need a dedicated broker to act as the coordinator.
   }
 
-  private record StateCRDT(State state, long idOfLastOperation) {
+  private record StateCRDT(State state, long idOfLastOperation, Optional<String> initializeFrom) {
 
     StateCRDT merge(final StateCRDT other) {
       if (idOfLastOperation >= other.idOfLastOperation) {

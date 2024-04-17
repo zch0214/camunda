@@ -52,9 +52,24 @@ public final class ExportersState {
     exporterPositionColumnFamily.upsert(this.exporterId, exporterStateEntry);
   }
 
+  public void setExporterStateMetadataVersion(final String exporterId, final long metadataVersion) {
+    this.exporterId.wrapString(exporterId);
+
+    final var exporterStateEntry =
+        findExporterStateEntry(exporterId).orElse(new ExporterStateEntry());
+    exporterStateEntry.setMetadataVersion(metadataVersion);
+    exporterPositionColumnFamily.upsert(this.exporterId, exporterStateEntry);
+  }
+
   public long getPosition(final String exporterId) {
     return findExporterStateEntry(exporterId)
         .map(ExporterStateEntry::getPosition)
+        .orElse(VALUE_NOT_FOUND);
+  }
+
+  public long getMetadataVersion(final String exporterId) {
+    return findExporterStateEntry(exporterId)
+        .map(ExporterStateEntry::getMetadataVersion)
         .orElse(VALUE_NOT_FOUND);
   }
 

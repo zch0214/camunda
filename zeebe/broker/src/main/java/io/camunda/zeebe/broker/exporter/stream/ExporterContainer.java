@@ -61,6 +61,23 @@ final class ExporterContainer implements Controller {
     exportersState = state;
   }
 
+  void initMetadata(final String otherExporterId, final long expectedMetadataVersion) {
+    final long metadataVersion = exportersState.getMetadataVersion(getId());
+    if (metadataVersion == expectedMetadataVersion) {
+      return;
+    }
+
+    final DirectBuffer metadata = exportersState.getExporterMetadata(otherExporterId);
+    final var positionToInitializeFrom = exportersState.getPosition(otherExporterId);
+    if (positionToInitializeFrom != ExportersState.VALUE_NOT_FOUND) {
+      exportersState.setPosition(getId(), positionToInitializeFrom);
+    }
+    if (metadata != null && metadata.capacity() > 0) {
+      exportersState.setExporterState(getId(), positionToInitializeFrom, metadata);
+    }
+    exportersState.setExporterStateMetadataVersion(getId(), expectedMetadataVersion);
+  }
+
   void initPosition() {
     position = exportersState.getPosition(getId());
     lastUnacknowledgedPosition = position;
