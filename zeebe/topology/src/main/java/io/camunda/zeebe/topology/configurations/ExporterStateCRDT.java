@@ -27,7 +27,7 @@ public record ExporterStateCRDT(List<Operation> operations, StateCRDT state) {
     return new ExporterStateCRDT(mergedList, mergedState);
   }
 
-  private record Operation(String operation, long uniqueId) {
+  record Operation(String operation, long uniqueId) {
     // uniqueId could be anything that is unique and comparable like SnowflakeId
     // Concurrent operations will be ordered by the uniqueId as a way of conflict resolution. That
     // means we don't need a dedicated broker to act as the coordinator.
