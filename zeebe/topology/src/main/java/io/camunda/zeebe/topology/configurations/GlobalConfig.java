@@ -30,4 +30,7 @@ public record GlobalConfig(long hash, Map<Integer, BrokerConfig> brokerConfigs) 
                 mergedBrokers.put(key, mergedBrokers.getOrDefault(key, value).merge(value)));
     return new GlobalConfig(Map.copyOf(mergedBrokers));
   }
+
+  // TODO: Add update methods. The object is immutable, so the update should return a new object
+  // with new state. See ClusterTopology as an example
 }

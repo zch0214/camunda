@@ -15,6 +15,7 @@ import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+// This is the equivalent to ClusterTopologyManager
 public class ConfigurationManager {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ConfigurationManager.class);
@@ -57,9 +58,11 @@ public class ConfigurationManager {
   }
 
   private ConfigChangeOperationApplier getApplier(final ConfigChangeOperation o) {
+    // This is the equivalent of several TopologyChangeAppliers
     return new ConfigChangeOperationApplier() {
       @Override
       public ActorFuture<Function<BrokerConfig, BrokerConfig>> apply() {
+        // TODO: invoke the registered callback to apply the change
         // TODO: apply change, eg:- exporter enabled -> disabled
         return CompletableActorFuture.completed(Function.identity());
       }
