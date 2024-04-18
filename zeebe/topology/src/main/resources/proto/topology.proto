@@ -26,6 +26,15 @@ message MemberState {
 message PartitionState {
   State state = 1;
   int32 priority = 2;
+  DynamicConfiguration config=3;
+}
+
+message DynamicConfiguration {
+  map<string, ExporterConfig> exporters=1;
+}
+
+message ExporterConfig{
+  ExporterState state=1;
 }
 
 message ClusterChangePlan {
@@ -55,6 +64,8 @@ message TopologyChangeOperation {
     PartitionReconfigurePriorityOperation partitionReconfigurePriority = 6;
     PartitionForceReconfigureOperation partitionForceReconfigure = 7;
     MemberRemoveOperation memberRemove = 8;
+    PartitionExporterEnableOperation partitionExporterEnable = 9;
+    PartitionExporterDisableOperation partitionExporterDisable = 10;
   }
 }
 
@@ -90,6 +101,16 @@ message MemberRemoveOperation {
   string memberToRemove = 1;
 }
 
+message PartitionExporterEnableOperation {
+  int32 partitionId = 1;
+  string exporterId = 2;
+}
+
+message PartitionExporterDisableOperation {
+  int32 partitionId = 1;
+  string exporterId = 2;
+}
+
 enum State {
   UNKNOWN = 0;
   JOINING = 1;
@@ -106,4 +127,9 @@ enum ChangeStatus {
   CANCELLED = 4;
 }
 
+enum ExporterState {
+  EXPORTER_STATE_UNKNOWN = 0;
+  ENABLED = 1;
+  DISABLED =2;
+}
 

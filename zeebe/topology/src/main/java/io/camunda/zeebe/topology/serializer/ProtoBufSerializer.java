@@ -21,21 +21,32 @@ import io.camunda.zeebe.topology.api.TopologyManagementRequest.RemoveMembersRequ
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.ScaleRequest;
 import io.camunda.zeebe.topology.gossip.ClusterTopologyGossipState;
 import io.camunda.zeebe.topology.protocol.Requests;
+import io.camunda.zeebe.topology.protocol.Requests.CancelTopologyChangeRequest;
 import io.camunda.zeebe.topology.protocol.Requests.ErrorCode;
+import io.camunda.zeebe.topology.protocol.Requests.ReassignAllPartitionsRequest;
 import io.camunda.zeebe.topology.protocol.Requests.Response;
 import io.camunda.zeebe.topology.protocol.Requests.TopologyChangeResponse.Builder;
 import io.camunda.zeebe.topology.protocol.Topology;
 import io.camunda.zeebe.topology.protocol.Topology.ChangeStatus;
 import io.camunda.zeebe.topology.protocol.Topology.CompletedChange;
+import io.camunda.zeebe.topology.protocol.Topology.CompletedTopologyChangeOperation;
+import io.camunda.zeebe.topology.protocol.Topology.ExporterConfig;
+import io.camunda.zeebe.topology.protocol.Topology.ExporterState;
+import io.camunda.zeebe.topology.protocol.Topology.GossipState;
 import io.camunda.zeebe.topology.protocol.Topology.MemberState;
+import io.camunda.zeebe.topology.protocol.Topology.State;
 import io.camunda.zeebe.topology.state.ClusterChangePlan;
 import io.camunda.zeebe.topology.state.ClusterChangePlan.CompletedOperation;
+import io.camunda.zeebe.topology.state.ClusterChangePlan.Status;
 import io.camunda.zeebe.topology.state.ClusterTopology;
+import io.camunda.zeebe.topology.state.DynamicConfiguration;
 import io.camunda.zeebe.topology.state.PartitionState;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberLeaveOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberRemoveOperation;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionDisableExporterOperation;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionEnableExporterOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionForceReconfigureOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionLeaveOperation;
@@ -52,7 +63,7 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
 
   @Override
   public byte[] encode(final ClusterTopologyGossipState gossipState) {
-    final var builder = Topology.GossipState.newBuilder();
+    final var builder = GossipState.newBuilder();
 
     final ClusterTopology topologyToEncode = gossipState.getClusterTopology();
     if (topologyToEncode != null) {
@@ -66,10 +77,10 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
 
   @Override
   public ClusterTopologyGossipState decode(final byte[] encodedState) {
-    final Topology.GossipState gossipState;
+    final GossipState gossipState;
 
     try {
-      gossipState = Topology.GossipState.parseFrom(encodedState);
+      gossipState = GossipState.parseFrom(encodedState);
     } catch (final InvalidProtocolBufferException e) {
       throw new DecodingFailed(e);
     }
@@ -108,7 +119,7 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
     }
   }
 
-  private io.camunda.zeebe.topology.state.ClusterTopology decodeClusterTopology(
+  private ClusterTopology decodeClusterTopology(
       final Topology.ClusterTopology encodedClusterTopology) {
 
     final var members = decodeMemberStateMap(encodedClusterTopology.getMembersMap());
@@ -122,7 +133,7 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
             ? Optional.of(decodeChangePlan(encodedClusterTopology.getCurrentChange()))
             : Optional.empty();
 
-    return new io.camunda.zeebe.topology.state.ClusterTopology(
+    return new ClusterTopology(
         encodedClusterTopology.getVersion(), members, completedChange, currentChange);
   }
 
@@ -133,8 +144,7 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
         .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
   }
 
-  private Topology.ClusterTopology encodeClusterTopology(
-      final io.camunda.zeebe.topology.state.ClusterTopology clusterTopology) {
+  private Topology.ClusterTopology encodeClusterTopology(final ClusterTopology clusterTopology) {
     final var members = encodeMemberStateMap(clusterTopology.members());
 
     final var builder =
@@ -153,7 +163,7 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
   }
 
   private io.camunda.zeebe.topology.state.MemberState decodeMemberState(
-      final Topology.MemberState memberState) {
+      final MemberState memberState) {
     final var partitions =
         memberState.getPartitionsMap().entrySet().stream()
             .map(e -> Map.entry(e.getKey(), decodePartitionState(e.getValue())))
@@ -166,13 +176,14 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
         partitions);
   }
 
-  private io.camunda.zeebe.topology.state.PartitionState decodePartitionState(
-      final Topology.PartitionState partitionState) {
-    return new io.camunda.zeebe.topology.state.PartitionState(
-        toPartitionState(partitionState.getState()), partitionState.getPriority());
+  private PartitionState decodePartitionState(final Topology.PartitionState partitionState) {
+    return new PartitionState(
+        toPartitionState(partitionState.getState()),
+        partitionState.getPriority(),
+        decodeDynamicConfig(partitionState.getConfig()));
   }
 
-  private Topology.MemberState encodeMemberState(
+  private MemberState encodeMemberState(
       final io.camunda.zeebe.topology.state.MemberState memberState) {
     final var partitions =
         memberState.partitions().entrySet().stream()
@@ -195,22 +206,21 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
     return Topology.PartitionState.newBuilder()
         .setState(toSerializedState(partitionState.state()))
         .setPriority(partitionState.priority())
+        .setConfig(encodeDynamicConfiguration(partitionState.config()))
         .build();
   }
 
-  private Topology.State toSerializedState(
-      final io.camunda.zeebe.topology.state.MemberState.State state) {
+  private State toSerializedState(final io.camunda.zeebe.topology.state.MemberState.State state) {
     return switch (state) {
-      case UNINITIALIZED -> Topology.State.UNKNOWN;
-      case ACTIVE -> Topology.State.ACTIVE;
-      case JOINING -> Topology.State.JOINING;
-      case LEAVING -> Topology.State.LEAVING;
-      case LEFT -> Topology.State.LEFT;
+      case UNINITIALIZED -> State.UNKNOWN;
+      case ACTIVE -> State.ACTIVE;
+      case JOINING -> State.JOINING;
+      case LEAVING -> State.LEAVING;
+      case LEFT -> State.LEFT;
     };
   }
 
-  private io.camunda.zeebe.topology.state.MemberState.State toMemberState(
-      final Topology.State state) {
+  private io.camunda.zeebe.topology.state.MemberState.State toMemberState(final State state) {
     return switch (state) {
       case UNRECOGNIZED, UNKNOWN -> io.camunda.zeebe.topology.state.MemberState.State.UNINITIALIZED;
       case ACTIVE -> io.camunda.zeebe.topology.state.MemberState.State.ACTIVE;
@@ -220,8 +230,7 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
     };
   }
 
-  private io.camunda.zeebe.topology.state.PartitionState.State toPartitionState(
-      final Topology.State state) {
+  private PartitionState.State toPartitionState(final State state) {
     return switch (state) {
       case UNRECOGNIZED, UNKNOWN, LEFT -> PartitionState.State.UNKNOWN;
       case ACTIVE -> PartitionState.State.ACTIVE;
@@ -230,13 +239,12 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
     };
   }
 
-  private Topology.State toSerializedState(
-      final io.camunda.zeebe.topology.state.PartitionState.State state) {
+  private State toSerializedState(final PartitionState.State state) {
     return switch (state) {
-      case UNKNOWN -> Topology.State.UNKNOWN;
-      case ACTIVE -> Topology.State.ACTIVE;
-      case JOINING -> Topology.State.JOINING;
-      case LEAVING -> Topology.State.LEAVING;
+      case UNKNOWN -> State.UNKNOWN;
+      case ACTIVE -> State.ACTIVE;
+      case JOINING -> State.JOINING;
+      case LEAVING -> State.LEAVING;
     };
   }
 
@@ -263,7 +271,7 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
 
   private CompletedChange encodeCompletedChange(
       final io.camunda.zeebe.topology.state.CompletedChange completedChange) {
-    final var builder = Topology.CompletedChange.newBuilder();
+    final var builder = CompletedChange.newBuilder();
     builder
         .setId(completedChange.id())
         .setStatus(fromTopologyChangeStatus(completedChange.status()))
@@ -282,7 +290,7 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
   }
 
   private Topology.TopologyChangeOperation encodeOperation(
-      final io.camunda.zeebe.topology.state.TopologyChangeOperation operation) {
+      final TopologyChangeOperation operation) {
     final var builder =
         Topology.TopologyChangeOperation.newBuilder().setMemberId(operation.memberId().id());
     switch (operation) {
@@ -317,6 +325,18 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
               Topology.MemberRemoveOperation.newBuilder()
                   .setMemberToRemove(memberRemoveOperation.memberToRemove().id())
                   .build());
+      case final PartitionDisableExporterOperation disableExporterOperation ->
+          builder.setPartitionExporterDisable(
+              Topology.PartitionExporterDisableOperation.newBuilder()
+                  .setPartitionId(disableExporterOperation.partitionId())
+                  .setExporterId(disableExporterOperation.exporterId())
+                  .build());
+      case final PartitionEnableExporterOperation enableExporterOperation ->
+          builder.setPartitionExporterEnable(
+              Topology.PartitionExporterEnableOperation.newBuilder()
+                  .setPartitionId(enableExporterOperation.partitionId())
+                  .setExporterId(enableExporterOperation.exporterId())
+                  .build());
       default ->
           throw new IllegalArgumentException(
               "Unknown operation type: " + operation.getClass().getSimpleName());
@@ -324,9 +344,9 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
     return builder.build();
   }
 
-  private Topology.CompletedTopologyChangeOperation encodeCompletedOperation(
-      final ClusterChangePlan.CompletedOperation completedOperation) {
-    return Topology.CompletedTopologyChangeOperation.newBuilder()
+  private CompletedTopologyChangeOperation encodeCompletedOperation(
+      final CompletedOperation completedOperation) {
+    return CompletedTopologyChangeOperation.newBuilder()
         .setOperation(encodeOperation(completedOperation.operation()))
         .setCompletedAt(
             Timestamp.newBuilder()
@@ -402,6 +422,16 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
       return new MemberRemoveOperation(
           MemberId.from(topologyChangeOperation.getMemberId()),
           MemberId.from(topologyChangeOperation.getMemberRemove().getMemberToRemove()));
+    } else if (topologyChangeOperation.hasPartitionExporterDisable()) {
+      return new PartitionDisableExporterOperation(
+          MemberId.from(topologyChangeOperation.getMemberId()),
+          topologyChangeOperation.getPartitionExporterDisable().getPartitionId(),
+          topologyChangeOperation.getPartitionExporterDisable().getExporterId());
+    } else if (topologyChangeOperation.hasPartitionExporterEnable()) {
+      return new PartitionEnableExporterOperation(
+          MemberId.from(topologyChangeOperation.getMemberId()),
+          topologyChangeOperation.getPartitionExporterEnable().getPartitionId(),
+          topologyChangeOperation.getPartitionExporterEnable().getExporterId());
     } else {
       // If the node does not know of a type, the exception thrown will prevent
       // ClusterTopologyGossiper from processing the incoming topology. This helps to prevent any
@@ -413,7 +443,7 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
   }
 
   private CompletedOperation decodeCompletedOperation(
-      final Topology.CompletedTopologyChangeOperation operation) {
+      final CompletedTopologyChangeOperation operation) {
     return new CompletedOperation(
         decodeOperation(operation.getOperation()),
         Instant.ofEpochSecond(operation.getCompletedAt().getSeconds()));
@@ -461,7 +491,7 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
   @Override
   public byte[] encodeReassignPartitionsRequest(
       final ReassignPartitionsRequest reassignPartitionsRequest) {
-    return Requests.ReassignAllPartitionsRequest.newBuilder()
+    return ReassignAllPartitionsRequest.newBuilder()
         .addAllMemberIds(reassignPartitionsRequest.members().stream().map(MemberId::id).toList())
         .setDryRun(reassignPartitionsRequest.dryRun())
         .build()
@@ -482,7 +512,7 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
 
   @Override
   public byte[] encodeCancelChangeRequest(final CancelChangeRequest cancelChangeRequest) {
-    return Requests.CancelTopologyChangeRequest.newBuilder()
+    return CancelTopologyChangeRequest.newBuilder()
         .setChangeId(cancelChangeRequest.changeId())
         .build()
         .toByteArray();
@@ -546,8 +576,7 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
   @Override
   public ReassignPartitionsRequest decodeReassignPartitionsRequest(final byte[] encodedState) {
     try {
-      final var reassignPartitionsRequest =
-          Requests.ReassignAllPartitionsRequest.parseFrom(encodedState);
+      final var reassignPartitionsRequest = ReassignAllPartitionsRequest.parseFrom(encodedState);
       return new ReassignPartitionsRequest(
           reassignPartitionsRequest.getMemberIdsList().stream()
               .map(MemberId::from)
@@ -578,7 +607,7 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
   @Override
   public CancelChangeRequest decodeCancelChangeRequest(final byte[] encodedState) {
     try {
-      final var cancelChangeRequest = Requests.CancelTopologyChangeRequest.parseFrom(encodedState);
+      final var cancelChangeRequest = CancelTopologyChangeRequest.parseFrom(encodedState);
       return new CancelChangeRequest(cancelChangeRequest.getChangeId());
     } catch (final InvalidProtocolBufferException e) {
       throw new DecodingFailed(e);
@@ -702,22 +731,67 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
         .collect(Collectors.toMap(e -> e.getKey().id(), e -> encodeMemberState(e.getValue())));
   }
 
-  private Topology.ChangeStatus fromTopologyChangeStatus(final ClusterChangePlan.Status status) {
+  private ChangeStatus fromTopologyChangeStatus(final Status status) {
     return switch (status) {
-      case IN_PROGRESS -> Topology.ChangeStatus.IN_PROGRESS;
-      case COMPLETED -> Topology.ChangeStatus.COMPLETED;
-      case FAILED -> Topology.ChangeStatus.FAILED;
+      case IN_PROGRESS -> ChangeStatus.IN_PROGRESS;
+      case COMPLETED -> ChangeStatus.COMPLETED;
+      case FAILED -> ChangeStatus.FAILED;
       case CANCELLED -> ChangeStatus.CANCELLED;
     };
   }
 
-  private ClusterChangePlan.Status toChangeStatus(final Topology.ChangeStatus status) {
+  private Status toChangeStatus(final ChangeStatus status) {
     return switch (status) {
-      case IN_PROGRESS -> ClusterChangePlan.Status.IN_PROGRESS;
-      case COMPLETED -> ClusterChangePlan.Status.COMPLETED;
-      case FAILED -> ClusterChangePlan.Status.FAILED;
-      case CANCELLED -> ClusterChangePlan.Status.CANCELLED;
+      case IN_PROGRESS -> Status.IN_PROGRESS;
+      case COMPLETED -> Status.COMPLETED;
+      case FAILED -> Status.FAILED;
+      case CANCELLED -> Status.CANCELLED;
       default -> throw new IllegalStateException("Unknown status: " + status);
+    };
+  }
+
+  private Topology.DynamicConfiguration encodeDynamicConfiguration(
+      final DynamicConfiguration configuration) {
+    final var builder = Topology.DynamicConfiguration.newBuilder();
+    configuration
+        .exporters()
+        .forEach(
+            (expoterId, config) -> builder.putExporters(expoterId, encodeExporterConfig(config)));
+    return builder.build();
+  }
+
+  private DynamicConfiguration decodeDynamicConfig(
+      final Topology.DynamicConfiguration configuration) {
+    final var exporters =
+        configuration.getExportersMap().entrySet().stream()
+            .collect(Collectors.toMap(Entry::getKey, e -> decodeExporterConfig(e.getValue())));
+    return new DynamicConfiguration(exporters);
+  }
+
+  private DynamicConfiguration.ExporterConfig decodeExporterConfig(
+      final ExporterConfig encodedConfig) {
+    return new DynamicConfiguration.ExporterConfig(
+        decodeExporterState(encodedConfig.getState()), Optional.empty());
+  }
+
+  private ExporterConfig encodeExporterConfig(final DynamicConfiguration.ExporterConfig config) {
+    return ExporterConfig.newBuilder().setState(encodeExporterState(config.state())).build();
+  }
+
+  private ExporterState encodeExporterState(
+      final DynamicConfiguration.ExporterConfig.ExporterState state) {
+    return switch (state) {
+      case ENABLED -> ExporterState.ENABLED;
+      case DISABLED -> ExporterState.DISABLED;
+    };
+  }
+
+  private DynamicConfiguration.ExporterConfig.ExporterState decodeExporterState(
+      final ExporterState state) {
+    return switch (state) {
+      case ENABLED -> DynamicConfiguration.ExporterConfig.ExporterState.ENABLED;
+      case DISABLED -> DynamicConfiguration.ExporterConfig.ExporterState.DISABLED;
+      default -> throw new IllegalStateException("Unknown status: " + state);
     };
   }
 }
