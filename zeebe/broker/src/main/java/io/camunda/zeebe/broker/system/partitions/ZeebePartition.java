@@ -539,9 +539,11 @@ public final class ZeebePartition extends Actor
                   new IllegalArgumentException("Exporter with id " + exporterId + " not found"));
               return;
             }
-            exporterDirector.enableExporter(exporterDescriptor.get()).onComplete(result);
+            // TODO: allow specifying initialize from
+            exporterDirector
+                .enableExporter(exporterDescriptor.get(), Optional.empty(), Optional.empty())
+                .onComplete(result);
           } else {
-            // TODO: may be we can complete it successfully??
             result.completeExceptionally(
                 new IllegalStateException("Exporter director is not available"));
           }

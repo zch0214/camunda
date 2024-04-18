@@ -84,5 +84,12 @@ public sealed interface TopologyChangeOperation {
     record PartitionForceReconfigureOperation(
         MemberId memberId, int partitionId, Collection<MemberId> members)
         implements PartitionChangeOperation {}
+
+    record PartitionDisableExporterOperation(MemberId memberId, int partitionId, String exporterId)
+        implements PartitionChangeOperation {}
+
+    // TODO: allow initialize from other exporter
+    record PartitionEnableExporterOperation(MemberId memberId, int partitionId, String exporterId)
+        implements PartitionChangeOperation {}
   }
 }

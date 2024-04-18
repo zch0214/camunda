@@ -16,6 +16,8 @@ import io.camunda.zeebe.topology.state.TopologyChangeOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberLeaveOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberRemoveOperation;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionDisableExporterOperation;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionEnableExporterOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionForceReconfigureOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionLeaveOperation;
@@ -68,6 +70,18 @@ public class TopologyChangeAppliersImpl implements TopologyChangeAppliers {
           // not the member that is leaving
           new MemberLeaveApplier(
               memberRemoveOperation.memberToRemove(), topologyMembershipChangeExecutor);
+      case final PartitionDisableExporterOperation disableExporterOperation ->
+          new PartitionDisableExporterApplier(
+              disableExporterOperation.partitionId(),
+              disableExporterOperation.memberId(),
+              disableExporterOperation.exporterId(),
+              partitionChangeExecutor);
+      case final PartitionEnableExporterOperation enableExporterOperation ->
+          new PartitionEnableExporterApplier(
+              enableExporterOperation.partitionId(),
+              enableExporterOperation.memberId(),
+              enableExporterOperation.exporterId(),
+              partitionChangeExecutor);
       case null, default -> new FailingApplier(operation);
     };
   }

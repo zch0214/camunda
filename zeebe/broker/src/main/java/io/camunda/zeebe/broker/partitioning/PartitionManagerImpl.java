@@ -16,9 +16,6 @@ import io.camunda.zeebe.broker.PartitionListener;
 import io.camunda.zeebe.broker.PartitionRaftListener;
 import io.camunda.zeebe.broker.clustering.ClusterServices;
 import io.camunda.zeebe.broker.exporter.repo.ExporterRepository;
-import io.camunda.zeebe.broker.partitioning.DynamicPartitionConfig.DynamicExporterConfig;
-import io.camunda.zeebe.broker.partitioning.DynamicPartitionConfig.DynamicExporterConfig.State;
-import io.camunda.zeebe.broker.partitioning.DynamicPartitionConfig.DynamicExportersConfig;
 import io.camunda.zeebe.broker.partitioning.startup.PartitionStartupContext;
 import io.camunda.zeebe.broker.partitioning.startup.RaftPartitionFactory;
 import io.camunda.zeebe.broker.partitioning.startup.ZeebePartitionFactory;
@@ -46,8 +43,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -159,15 +154,8 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
   }
 
   private DynamicPartitionConfig getDynamicPartitionConfig() {
-    // TODO: Generate DyamicPartitionConfig from the gossip state
-    final var configMap =
-        brokerCfg.getExporters().keySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Function.identity(), e -> new DynamicExporterConfig(State.ENABLED)));
-    final DynamicPartitionConfig dynamicConfig =
-        new DynamicPartitionConfig(new DynamicExportersConfig(configMap));
-    return dynamicConfig;
+    // TO BE removed : left over from previous POC
+    return null;
   }
 
   private ActorFuture<Void> joinPartition(final PartitionMetadata partitionMetadata) {
@@ -382,6 +370,61 @@ public final class PartitionManagerImpl implements PartitionManager, PartitionCh
 
                 LOGGER.info(
                     "Force reconfigured partition {} with members {}", partitionId, members);
+                result.complete(null);
+              });
+        });
+    return result;
+  }
+
+  @Override
+  public ActorFuture<Void> disableExporter(final int partitionId, final String exporterId) {
+    final var result = concurrencyControl.<Void>createFuture();
+    concurrencyControl.run(
+        () -> {
+          final var partition = partitions.get(partitionId);
+          if (partition == null) {
+            result.completeExceptionally(
+                new IllegalArgumentException("No partition with id %s".formatted(partitionId)));
+            return;
+          }
+          LOGGER.info("Disabling exporter {} on partition {}", exporterId, partitionId);
+          concurrencyControl.runOnCompletion(
+              partition.disableExporter(exporterId),
+              (ok, error) -> {
+                if (error != null) {
+                  result.completeExceptionally(error);
+                  return;
+                }
+
+                LOGGER.info("Disabled exporter {} on partition {}", exporterId, partitionId);
+                result.complete(null);
+              });
+        });
+
+    return result;
+  }
+
+  @Override
+  public ActorFuture<Void> enableExporter(final int partitionId, final String exporterId) {
+    final var result = concurrencyControl.<Void>createFuture();
+    concurrencyControl.run(
+        () -> {
+          final var partition = partitions.get(partitionId);
+          if (partition == null) {
+            result.completeExceptionally(
+                new IllegalArgumentException("No partition with id %s".formatted(partitionId)));
+            return;
+          }
+          LOGGER.info("Enabling exporter {} on partition {}", exporterId, partitionId);
+          concurrencyControl.runOnCompletion(
+              partition.enableExporter(exporterId),
+              (ok, error) -> {
+                if (error != null) {
+                  result.completeExceptionally(error);
+                  return;
+                }
+
+                LOGGER.info("Enabled exporter {} on partition {}", exporterId, partitionId);
                 result.complete(null);
               });
         });
