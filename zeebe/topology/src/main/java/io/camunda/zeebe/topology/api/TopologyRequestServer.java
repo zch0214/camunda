@@ -44,6 +44,8 @@ public final class TopologyRequestServer implements AutoCloseable {
     registerGetTopologyQueryHandler();
     registerTopologyCancelHandler();
     registerForceScaleDownHandler();
+    registerEnableExporterHandler();
+    registerDisableExporterHandler();
   }
 
   @Override
@@ -139,6 +141,22 @@ public final class TopologyRequestServer implements AutoCloseable {
         serializer::decodeCancelChangeRequest,
         request -> mapClusterTopologyResponse(topologyManagementApi.cancelTopologyChange(request)),
         this::encodeClusterTopologyResponse);
+  }
+
+  private void registerEnableExporterHandler() {
+    communicationService.replyTo(
+        TopologyRequestTopics.ENABLE_EXPORTER.topic(),
+        serializer::decodeExporterEnableRequest,
+        request -> mapResponse(topologyManagementApi.enableExporter(request)),
+        this::encodeResponse);
+  }
+
+  private void registerDisableExporterHandler() {
+    communicationService.replyTo(
+        TopologyRequestTopics.DISABLE_EXPORTER.topic(),
+        serializer::decodeExporterDisableRequest,
+        request -> mapResponse(topologyManagementApi.disableExporter(request)),
+        this::encodeResponse);
   }
 
   private CompletableFuture<Either<ErrorResponse, TopologyChangeResponse>> mapResponse(

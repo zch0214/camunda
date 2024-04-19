@@ -17,6 +17,7 @@ import io.atomix.cluster.MemberId;
 import io.camunda.zeebe.scheduler.future.CompletableActorFuture;
 import io.camunda.zeebe.topology.ClusterTopologyAssert;
 import io.camunda.zeebe.topology.state.ClusterTopology;
+import io.camunda.zeebe.topology.state.DynamicConfiguration;
 import io.camunda.zeebe.topology.state.MemberState;
 import io.camunda.zeebe.topology.state.PartitionState;
 import io.camunda.zeebe.topology.state.PartitionState.State;
@@ -84,7 +85,8 @@ final class PartitionLeaveApplierTest {
     // then
     ClusterTopologyAssert.assertThatClusterTopology(resultingTopology)
         .member(localMemberId)
-        .hasPartitionWithState(1, new PartitionState(State.LEAVING, 1));
+        .hasPartitionWithState(
+            1, new PartitionState(State.LEAVING, 1, new DynamicConfiguration(Map.of())));
   }
 
   @Test

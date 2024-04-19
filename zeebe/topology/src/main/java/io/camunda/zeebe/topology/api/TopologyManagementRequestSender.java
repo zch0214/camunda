@@ -114,6 +114,28 @@ public final class TopologyManagementRequestSender {
         TIMEOUT);
   }
 
+  public CompletableFuture<Either<ErrorResponse, TopologyChangeResponse>> enableExporter(
+      final TopologyManagementRequest.EnableExporterRequest enableExporterRequest) {
+    return communicationService.send(
+        TopologyRequestTopics.ENABLE_EXPORTER.topic(),
+        enableExporterRequest,
+        serializer::encodeExporterEnableRequest,
+        serializer::decodeTopologyChangeResponse,
+        coordinatorSupplier.getDefaultCoordinator(),
+        TIMEOUT);
+  }
+
+  public CompletableFuture<Either<ErrorResponse, TopologyChangeResponse>> disableExporter(
+      final TopologyManagementRequest.DisableExporterRequest disableExporterRequest) {
+    return communicationService.send(
+        TopologyRequestTopics.DISABLE_EXPORTER.topic(),
+        disableExporterRequest,
+        serializer::encodeExporterDisableRequest,
+        serializer::decodeTopologyChangeResponse,
+        coordinatorSupplier.getDefaultCoordinator(),
+        TIMEOUT);
+  }
+
   public CompletableFuture<Either<ErrorResponse, ClusterTopology>> getTopology() {
     return communicationService.send(
         TopologyRequestTopics.QUERY_TOPOLOGY.topic(),

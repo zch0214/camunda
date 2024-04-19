@@ -7,16 +7,34 @@
  */
 package io.camunda.zeebe.topology.state;
 
+import io.camunda.zeebe.topology.state.DynamicConfiguration.ExporterConfig;
+import io.camunda.zeebe.topology.state.DynamicConfiguration.ExporterConfig.ExporterState;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.UnaryOperator;
 
 public record PartitionState(State state, int priority, DynamicConfiguration config) {
+  // TODO: remove this constructor
+  public PartitionState(final State state, final int priority) {
+    this(
+        state,
+        priority,
+        // TODO: temporary for testing
+        new DynamicConfiguration(
+            Map.of(
+                "recordingExporter", new ExporterConfig(ExporterState.ENABLED, Optional.empty()))));
+  }
+
   public static PartitionState active(final int priority) {
-    return new PartitionState(State.ACTIVE, priority, new DynamicConfiguration(Map.of()));
+    return new PartitionState(State.ACTIVE, priority);
   }
 
   public static PartitionState joining(final int priority) {
-    return new PartitionState(State.JOINING, priority, new DynamicConfiguration(Map.of()));
+    return new PartitionState(State.JOINING, priority);
+  }
+
+  public PartitionState updatePriority(final int newPriority) {
+    return new PartitionState(state, newPriority, config);
   }
 
   public PartitionState toActive() {

@@ -14,6 +14,8 @@ import io.camunda.zeebe.topology.api.ErrorResponse;
 import io.camunda.zeebe.topology.api.TopologyChangeResponse;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.AddMembersRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.CancelChangeRequest;
+import io.camunda.zeebe.topology.api.TopologyManagementRequest.DisableExporterRequest;
+import io.camunda.zeebe.topology.api.TopologyManagementRequest.EnableExporterRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.JoinPartitionRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.LeavePartitionRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.ReassignPartitionsRequest;
@@ -519,6 +521,22 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
   }
 
   @Override
+  public byte[] encodeExporterEnableRequest(final EnableExporterRequest req) {
+    return Requests.ExporterEnableRequest.newBuilder()
+        .setExporterId(req.exporterId())
+        .build()
+        .toByteArray();
+  }
+
+  @Override
+  public byte[] encodeExporterDisableRequest(final DisableExporterRequest req) {
+    return Requests.ExporterDisableRequest.newBuilder()
+        .setExporterId(req.exporterId())
+        .build()
+        .toByteArray();
+  }
+
+  @Override
   public AddMembersRequest decodeAddMembersRequest(final byte[] encodedState) {
     try {
       final var addMemberRequest = Requests.AddMembersRequest.parseFrom(encodedState);
@@ -609,6 +627,26 @@ public class ProtoBufSerializer implements ClusterTopologySerializer, TopologyRe
     try {
       final var cancelChangeRequest = CancelTopologyChangeRequest.parseFrom(encodedState);
       return new CancelChangeRequest(cancelChangeRequest.getChangeId());
+    } catch (final InvalidProtocolBufferException e) {
+      throw new DecodingFailed(e);
+    }
+  }
+
+  @Override
+  public EnableExporterRequest decodeExporterEnableRequest(final byte[] encodedState) {
+    try {
+      final var enableExporterRequest = Requests.ExporterEnableRequest.parseFrom(encodedState);
+      return new EnableExporterRequest(enableExporterRequest.getExporterId(), false);
+    } catch (final InvalidProtocolBufferException e) {
+      throw new DecodingFailed(e);
+    }
+  }
+
+  @Override
+  public DisableExporterRequest decodeExporterDisableRequest(final byte[] encodedState) {
+    try {
+      final var disableExporterRequest = Requests.ExporterDisableRequest.parseFrom(encodedState);
+      return new DisableExporterRequest(disableExporterRequest.getExporterId(), false);
     } catch (final InvalidProtocolBufferException e) {
       throw new DecodingFailed(e);
     }

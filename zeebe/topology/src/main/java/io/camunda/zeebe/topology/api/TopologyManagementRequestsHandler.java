@@ -12,6 +12,8 @@ import io.camunda.zeebe.scheduler.ConcurrencyControl;
 import io.camunda.zeebe.scheduler.future.ActorFuture;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.AddMembersRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.CancelChangeRequest;
+import io.camunda.zeebe.topology.api.TopologyManagementRequest.DisableExporterRequest;
+import io.camunda.zeebe.topology.api.TopologyManagementRequest.EnableExporterRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.JoinPartitionRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.LeavePartitionRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.ReassignPartitionsRequest;
@@ -22,9 +24,13 @@ import io.camunda.zeebe.topology.changes.TopologyChangeCoordinator;
 import io.camunda.zeebe.topology.changes.TopologyChangeCoordinator.TopologyChangeRequest;
 import io.camunda.zeebe.topology.changes.TopologyChangeCoordinator.TopologyChangeResult;
 import io.camunda.zeebe.topology.state.ClusterTopology;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionDisableExporterOperation;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionEnableExporterOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionLeaveOperation;
 import io.camunda.zeebe.util.Either;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -121,6 +127,48 @@ public final class TopologyManagementRequestsHandler implements TopologyManageme
     return handleRequest(
         forceScaleDownRequest.dryRun(),
         new ForceScaleDownRequestTransformer(forceScaleDownRequest.members(), localMemberId));
+  }
+
+  @Override
+  public ActorFuture<TopologyChangeResponse> enableExporter(
+      final EnableExporterRequest enableExporterRequest) {
+    return handleRequest(
+        enableExporterRequest.dryRun(),
+        currentTopology -> {
+          final var exporterId = enableExporterRequest.exporterId();
+          final ArrayList<TopologyChangeOperation> operations = new ArrayList<>();
+          currentTopology
+              .members()
+              .forEach(
+                  (brokerId, brokerState) -> {
+                    for (final var partition : brokerState.partitions().keySet()) {
+                      operations.add(
+                          new PartitionEnableExporterOperation(brokerId, partition, exporterId));
+                    }
+                  });
+          return Either.right(operations);
+        });
+  }
+
+  @Override
+  public ActorFuture<TopologyChangeResponse> disableExporter(
+      final DisableExporterRequest disableExporterRequest) {
+    return handleRequest(
+        disableExporterRequest.dryRun(),
+        currentTopology -> {
+          final var exporterId = disableExporterRequest.exporterId();
+          final ArrayList<TopologyChangeOperation> operations = new ArrayList<>();
+          currentTopology
+              .members()
+              .forEach(
+                  (brokerId, brokerState) -> {
+                    for (final var partition : brokerState.partitions().keySet()) {
+                      operations.add(
+                          new PartitionDisableExporterOperation(brokerId, partition, exporterId));
+                    }
+                  });
+          return Either.right(operations);
+        });
   }
 
   @Override

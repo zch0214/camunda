@@ -151,6 +151,26 @@
             ]
           },
           {
+            "name": "ExporterEnableRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "exporterId",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "ExporterDisableRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "exporterId",
+                "type": "string"
+              }
+            ]
+          },
+          {
             "name": "TopologyChangeResponse",
             "fields": [
               {
@@ -287,6 +307,22 @@
                 "integer": 4
               }
             ]
+          },
+          {
+            "name": "ExporterState",
+            "enum_fields": [
+              {
+                "name": "EXPORTER_STATE_UNKNOWN"
+              },
+              {
+                "name": "ENABLED",
+                "integer": 1
+              },
+              {
+                "name": "DISABLED",
+                "integer": 2
+              }
+            ]
           }
         ],
         "messages": [
@@ -372,6 +408,34 @@
                 "id": 2,
                 "name": "priority",
                 "type": "int32"
+              },
+              {
+                "id": 3,
+                "name": "config",
+                "type": "DynamicConfiguration"
+              }
+            ]
+          },
+          {
+            "name": "DynamicConfiguration",
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 1,
+                  "name": "exporters",
+                  "type": "ExporterConfig"
+                }
+              }
+            ]
+          },
+          {
+            "name": "ExporterConfig",
+            "fields": [
+              {
+                "id": 1,
+                "name": "state",
+                "type": "ExporterState"
               }
             ]
           },
@@ -479,6 +543,16 @@
                 "id": 8,
                 "name": "memberRemove",
                 "type": "MemberRemoveOperation"
+              },
+              {
+                "id": 9,
+                "name": "partitionExporterEnable",
+                "type": "PartitionExporterEnableOperation"
+              },
+              {
+                "id": 10,
+                "name": "partitionExporterDisable",
+                "type": "PartitionExporterDisableOperation"
               }
             ]
           },
@@ -565,6 +639,36 @@
               {
                 "id": 1,
                 "name": "memberToRemove",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "PartitionExporterEnableOperation",
+            "fields": [
+              {
+                "id": 1,
+                "name": "partitionId",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "exporterId",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "PartitionExporterDisableOperation",
+            "fields": [
+              {
+                "id": 1,
+                "name": "partitionId",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "exporterId",
                 "type": "string"
               }
             ]

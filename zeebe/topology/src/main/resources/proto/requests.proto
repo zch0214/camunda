@@ -44,6 +44,14 @@ message CancelTopologyChangeRequest {
   int64 changeId = 1;
 }
 
+message ExporterEnableRequest {
+  string exporterId = 1;
+}
+
+message ExporterDisableRequest{
+  string exporterId = 1;
+}
+
 message TopologyChangeResponse {
   int64 changeId = 1;
   map<string, topology_protocol.MemberState> currentTopology = 2;

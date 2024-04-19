@@ -31,6 +31,10 @@ public interface TopologyRequestsSerializer {
   byte[] encodeCancelChangeRequest(
       TopologyManagementRequest.CancelChangeRequest cancelChangeRequest);
 
+  byte[] encodeExporterEnableRequest(TopologyManagementRequest.EnableExporterRequest req);
+
+  byte[] encodeExporterDisableRequest(TopologyManagementRequest.DisableExporterRequest req);
+
   TopologyManagementRequest.AddMembersRequest decodeAddMembersRequest(byte[] encodedState);
 
   TopologyManagementRequest.RemoveMembersRequest decodeRemoveMembersRequest(byte[] encodedState);
@@ -45,6 +49,11 @@ public interface TopologyRequestsSerializer {
   TopologyManagementRequest.ScaleRequest decodeScaleRequest(byte[] encodedState);
 
   TopologyManagementRequest.CancelChangeRequest decodeCancelChangeRequest(byte[] encodedState);
+
+  TopologyManagementRequest.EnableExporterRequest decodeExporterEnableRequest(byte[] encodedState);
+
+  TopologyManagementRequest.DisableExporterRequest decodeExporterDisableRequest(
+      byte[] encodedState);
 
   byte[] encodeResponse(TopologyChangeResponse response);
 

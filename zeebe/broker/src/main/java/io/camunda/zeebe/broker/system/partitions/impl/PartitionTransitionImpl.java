@@ -70,6 +70,11 @@ public final class PartitionTransitionImpl implements PartitionTransition {
     return null;
   }
 
+  @Override
+  public PartitionTransitionContext getTransitionContext() {
+    return context;
+  }
+
   public ActorFuture<Void> transitionTo(final long term, final Role role) {
     LOG.info("Transition to {} on term {} requested.", role, term);
 

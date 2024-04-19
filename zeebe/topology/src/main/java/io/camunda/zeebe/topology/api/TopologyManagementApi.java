@@ -9,6 +9,8 @@ package io.camunda.zeebe.topology.api;
 
 import io.camunda.zeebe.scheduler.future.ActorFuture;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.AddMembersRequest;
+import io.camunda.zeebe.topology.api.TopologyManagementRequest.DisableExporterRequest;
+import io.camunda.zeebe.topology.api.TopologyManagementRequest.EnableExporterRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.JoinPartitionRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.LeavePartitionRequest;
 import io.camunda.zeebe.topology.api.TopologyManagementRequest.ReassignPartitionsRequest;
@@ -40,6 +42,11 @@ public interface TopologyManagementApi {
    * <p>This is expected to be used to force remove a set of brokers when they are unreachable.
    */
   ActorFuture<TopologyChangeResponse> forceScaleDown(ScaleRequest forceScaleDownRequest);
+
+  ActorFuture<TopologyChangeResponse> enableExporter(EnableExporterRequest enableExporterRequest);
+
+  ActorFuture<TopologyChangeResponse> disableExporter(
+      DisableExporterRequest disableExporterRequest);
 
   ActorFuture<ClusterTopology> cancelTopologyChange(
       TopologyManagementRequest.CancelChangeRequest cancelChangeRequest);

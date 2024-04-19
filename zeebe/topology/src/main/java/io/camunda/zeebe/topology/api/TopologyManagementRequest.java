@@ -42,6 +42,12 @@ public sealed interface TopologyManagementRequest {
     }
   }
 
+  record EnableExporterRequest(String exporterId, boolean dryRun)
+      implements TopologyManagementRequest {}
+
+  record DisableExporterRequest(String exporterId, boolean dryRun)
+      implements TopologyManagementRequest {}
+
   record CancelChangeRequest(long changeId) implements TopologyManagementRequest {
 
     @Override

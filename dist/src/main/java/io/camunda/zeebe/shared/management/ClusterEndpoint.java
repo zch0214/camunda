@@ -41,6 +41,8 @@ import io.camunda.zeebe.topology.state.TopologyChangeOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberLeaveOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.MemberRemoveOperation;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionDisableExporterOperation;
+import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionEnableExporterOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionForceReconfigureOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionJoinOperation;
 import io.camunda.zeebe.topology.state.TopologyChangeOperation.PartitionChangeOperation.PartitionLeaveOperation;
@@ -384,6 +386,18 @@ public class ClusterEndpoint {
               .operation(OperationEnum.BROKER_REMOVE)
               .brokerId(Integer.parseInt(memberRemoveOperation.memberId().id()))
               .brokers(List.of(Integer.parseInt(memberRemoveOperation.memberToRemove().id())));
+        // TODO: temp fix to avoid compilation error
+      case final PartitionEnableExporterOperation enableOperation ->
+          new Operation()
+              .operation(OperationEnum.PARTITION_JOIN) // TODO: FIX
+              .brokerId(Integer.parseInt(enableOperation.memberId().id()))
+              .partitionId(enableOperation.partitionId())
+              .priority(-1);
+      case final PartitionDisableExporterOperation disableOperation ->
+          new Operation()
+              .operation(OperationEnum.PARTITION_JOIN) // TODO: FIX
+              .brokerId(Integer.parseInt(disableOperation.memberId().id()))
+              .partitionId(disableOperation.partitionId());
     };
   }
 
@@ -537,6 +551,17 @@ public class ClusterEndpoint {
                   .operation(TopologyChangeCompletedInner.OperationEnum.BROKER_REMOVE)
                   .brokerId(Integer.parseInt(memberRemoveOperation.memberId().id()))
                   .brokers(List.of(Integer.parseInt(memberRemoveOperation.memberToRemove().id())));
+          case final PartitionEnableExporterOperation enableOperation ->
+              new TopologyChangeCompletedInner()
+                  .operation(TopologyChangeCompletedInner.OperationEnum.PARTITION_JOIN) // TODO: FIX
+                  .brokerId(Integer.parseInt(enableOperation.memberId().id()))
+                  .partitionId(enableOperation.partitionId())
+                  .priority(-1);
+          case final PartitionDisableExporterOperation disableOperation ->
+              new TopologyChangeCompletedInner()
+                  .operation(TopologyChangeCompletedInner.OperationEnum.PARTITION_JOIN) // TODO: FIX
+                  .brokerId(Integer.parseInt(disableOperation.memberId().id()))
+                  .partitionId(disableOperation.partitionId());
         };
 
     mappedOperation.completedAt(mapInstantToDateTime(operation.completedAt()));

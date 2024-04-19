@@ -16,7 +16,9 @@ public enum TopologyRequestTopics {
   SCALE_MEMBERS("topology-member-scale"),
   QUERY_TOPOLOGY("topology-query"),
   CANCEL_CHANGE("topology-change-cancel"),
-  FORCE_SCALE_DOWN("topology-force-scale-down");
+  FORCE_SCALE_DOWN("topology-force-scale-down"),
+  ENABLE_EXPORTER("topology-exporter-enable"),
+  DISABLE_EXPORTER("topology-exporter-disable");
   private final String topic;
 
   TopologyRequestTopics(final String topic) {

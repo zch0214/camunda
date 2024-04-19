@@ -39,6 +39,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -141,7 +142,9 @@ public final class ExporterDirectorTest {
                     .isEqualTo(secondPosition));
 
     // when
-    rule.getDirector().enableExporter(exporterDescriptors.get(0)).join();
+    rule.getDirector()
+        .enableExporter(exporterDescriptors.get(0), Optional.empty(), Optional.empty())
+        .join();
 
     final var thirdPosition = rule.writeEvent(DeploymentIntent.CREATED, new DeploymentRecord());
     Awaitility.await()
