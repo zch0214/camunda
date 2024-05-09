@@ -27,3 +27,11 @@
   align-items: center;
   min-height: layout.to-rem(32px);
 }
+
+.actionBar {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--cds-spacing-05);
+}

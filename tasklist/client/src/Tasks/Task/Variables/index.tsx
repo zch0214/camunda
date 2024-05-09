@@ -8,7 +8,6 @@
 
 import {Suspense, lazy, useRef, useState} from 'react';
 import {Form} from 'react-final-form';
-import intersection from 'lodash/intersection';
 import get from 'lodash/get';
 import arrayMutators from 'final-form-arrays';
 import {match, Pattern} from 'ts-pattern';
@@ -27,13 +26,20 @@ import {Separator} from 'modules/components/Separator';
 import {useAllVariables} from 'modules/queries/useAllVariables';
 import {FailedVariableFetchError} from 'modules/components/FailedVariableFetchError';
 import {CompleteTaskButton} from 'modules/components/CompleteTaskButton';
-import {createVariableFieldName} from './createVariableFieldName';
 import {getVariableFieldName} from './getVariableFieldName';
 import {VariableEditor} from './VariableEditor';
 import {IconButton} from './IconButton';
 import {ResetForm} from './ResetForm';
 import {FormValues} from './types';
 import styles from './styles.module.scss';
+import {
+  SaveButton,
+  SuccessMessage as SaveSuccessMessage,
+  FailedMessage as SaveFailedMessage,
+} from 'modules/components/SaveButton';
+import {FormState} from 'final-form';
+import {createVariableFieldName} from './createVariableFieldName';
+import {useSaveButton} from 'modules/hooks/useSaveButton';
 
 const JSONEditorModal = lazy(async () => {
   const [{loadMonaco}, {JSONEditorModal}] = await Promise.all([
@@ -53,6 +59,56 @@ type Props = {
   task: Task;
   user: CurrentUser;
 };
+
+function createInitialFormValuesFromVariables(variables: Variable[]) {
+  const entries: Array<[string, string | null]> = [];
+  const newVariables: Array<Pick<Variable, 'name' | 'value'>> = [];
+
+  variables.forEach((variable) => {
+    if (variable.draft) {
+      if (variable.value === null) {
+        newVariables.push({
+          name: variable.name,
+          value: variable.draft.value ?? variable.draft.previewValue,
+        });
+      } else {
+        entries.push([
+          createVariableFieldName(variable.name),
+          variable.draft.value ?? variable.draft.previewValue,
+        ]);
+      }
+    } else {
+      entries.push([
+        createVariableFieldName(variable.name),
+        variable.value ?? variable.previewValue,
+      ]);
+    }
+  });
+
+  return Object.fromEntries([...entries, ['newVariables', newVariables]]);
+}
+
+function extractVariablesFromFormState(
+  formState: FormState<FormValues, Partial<FormValues>>,
+) {
+  const {dirtyFields, values} = formState;
+
+  const dirtyVariables = Object.keys(dirtyFields)
+    .filter((key) => !key.startsWith('newVariables'))
+    .filter((key) => dirtyFields[key])
+    .map((key) => ({
+      name: getVariableFieldName(key),
+      value: values[key],
+    }));
+
+  const newVariables = get(values, 'newVariables') || [];
+
+  return [...dirtyVariables, ...newVariables];
+}
+
+function hasEmptyNewVariable(values: FormValues) {
+  return values.newVariables?.some((variable) => variable === undefined);
+}
 
 const Variables: React.FC<Props> = ({
   onSubmit,
@@ -87,10 +143,9 @@ const Variables: React.FC<Props> = ({
     taskState === 'CREATED' &&
     hasPermission &&
     status === 'success';
-  const hasEmptyNewVariable = (values: FormValues) =>
-    values.newVariables?.some((variable) => variable === undefined);
   const variables = data ?? [];
   const isJsonEditorModalOpen = editingVariable !== undefined;
+  const {save, savingState} = useSaveButton(task.id);
 
   if (isLoading) {
     return null;
@@ -99,42 +154,17 @@ const Variables: React.FC<Props> = ({
   return (
     <Form<FormValues>
       mutators={{...arrayMutators}}
-      onSubmit={async (values, form) => {
-        const {dirtyFields, initialValues = []} = form.getState();
-
-        const existingVariables = intersection(
-          Object.keys(initialValues),
-          Object.keys(dirtyFields),
-        ).map((name) => ({
-          name,
-          value: values[name],
-        }));
-        const newVariables = get(values, 'newVariables') || [];
-
+      onSubmit={async (_, form) => {
         try {
           setSubmissionState('active');
-          await onSubmit([
-            ...existingVariables.map((variable) => ({
-              ...variable,
-              name: getVariableFieldName(variable.name),
-            })),
-            ...newVariables,
-          ]);
-
+          await onSubmit(extractVariablesFromFormState(form.getState()));
           setSubmissionState('finished');
         } catch (error) {
           onSubmitFailure(error as Error);
           setSubmissionState('error');
         }
       }}
-      initialValues={variables.reduce(
-        (values, variable) => ({
-          ...values,
-          [createVariableFieldName(variable.name)]:
-            variable.value ?? variable.previewValue,
-        }),
-        {},
-      )}
+      initialValues={createInitialFormValuesFromVariables(variables)}
       keepDirtyOnReinitialize
     >
       {({
@@ -144,6 +174,7 @@ const Variables: React.FC<Props> = ({
         validating,
         submitting,
         hasValidationErrors,
+        dirty,
       }) => (
         <>
           <TaskDetailsRow className={styles.panelHeader}>
@@ -244,7 +275,16 @@ const Variables: React.FC<Props> = ({
                   )
                   .otherwise(() => null)}
 
-                <DetailsFooter>
+                <DetailsFooter
+                  className={styles.actionBar}
+                  status={
+                    savingState === 'finished' ? (
+                      <SaveSuccessMessage />
+                    ) : savingState === 'error' ? (
+                      <SaveFailedMessage />
+                    ) : undefined
+                  }
+                >
                   {hasEmptyNewVariable(values) && (
                     <IconButton
                       className={styles.inlineIcon}
@@ -254,6 +294,23 @@ const Variables: React.FC<Props> = ({
                       <Information size={20} />
                     </IconButton>
                   )}
+
+                  <SaveButton
+                    savingState={savingState}
+                    onClick={() => {
+                      save(extractVariablesFromFormState(form.getState()));
+                    }}
+                    isHidden={!canCompleteTask}
+                    isDisabled={
+                      !dirty ||
+                      savingState === 'active' ||
+                      submitting ||
+                      hasValidationErrors ||
+                      validating ||
+                      hasEmptyNewVariable(values) ||
+                      !canCompleteTask
+                    }
+                  />
 
                   <CompleteTaskButton
                     submissionState={submissionState}
