@@ -53,6 +53,7 @@ const NON_FORM_TASK_VARIABLES = [
     name: 'small',
     previewValue: '"Hello World"',
     value: '"Hello World"',
+    draft: null,
     isValueTruncated: false,
   },
 ];
@@ -649,6 +650,8 @@ test.describe('tasks page', () => {
 
     await taskDetailsPage.goto(NON_FORM_TASK.id);
 
+    await expect(page.getByText('Variables')).toBeVisible();
+
     await expect(page).toHaveScreenshot();
   });
 
@@ -779,6 +782,8 @@ test.describe('tasks page', () => {
     );
 
     await taskDetailsPage.goto(NON_FORM_TASK.id);
+
+    await expect(page.getByText('Variables')).toBeVisible();
 
     await expect(page).toHaveScreenshot();
   });
