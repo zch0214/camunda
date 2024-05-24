@@ -19,6 +19,7 @@ import io.camunda.zeebe.engine.Loggers;
 import io.camunda.zeebe.engine.state.mutable.MutableDistributionState;
 import io.camunda.zeebe.protocol.ZbColumnFamilies;
 import io.camunda.zeebe.protocol.impl.record.value.distribution.CommandDistributionRecord;
+import io.camunda.zeebe.protocol.record.intent.Intent;
 import org.agrona.collections.MutableBoolean;
 import org.agrona.collections.MutableLong;
 import org.agrona.collections.MutableReference;
@@ -113,6 +114,11 @@ public class DbDistributionState implements MutableDistributionState {
     this.distributionKey.wrapLong(distributionKey);
     partitionKey.wrapInt(partition);
     return pendingDistributionColumnFamily.exists(distributionPartitionKey);
+  }
+
+  @Override
+  public boolean hasPendingDistribution(final long distributionKey, final Intent intent) {
+    throw new UnsupportedOperationException("not yet implemented");
   }
 
   @Override

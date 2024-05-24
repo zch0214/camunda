@@ -8,6 +8,7 @@
 package io.camunda.zeebe.engine.state.immutable;
 
 import io.camunda.zeebe.protocol.impl.record.value.distribution.CommandDistributionRecord;
+import io.camunda.zeebe.protocol.record.intent.Intent;
 
 public interface DistributionState {
 
@@ -27,6 +28,15 @@ public interface DistributionState {
    * @return {@code true} if the specific pending distribution exists, otherwise {@code false}.
    */
   boolean hasPendingDistribution(long distributionKey, int partition);
+
+  /**
+   * Returns whether there are any pending distributions for a given key and intent.
+   *
+   * @param distributionKey the key of the distribution that may be pending
+   * @param intent the intent of the distribution that may be pending
+   * @return {@code true} if the specific pending distribution exists, otherwise {@code false}.
+   */
+  boolean hasPendingDistribution(long distributionKey, Intent intent);
 
   /**
    * Returns the {@link CommandDistributionRecord} for the given distribution key. This method takes

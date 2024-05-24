@@ -353,6 +353,26 @@ public class ProcessInstanceMigrationMigrateProcessor
           return true;
         });
 
+    /*
+    Partition 1 migrates a process instance that is subscribed to a message catche event
+      - it starts distributing the msg-sub migration command to partition 2
+      - this continues to be retried because of some random reason
+
+    Partition 1 migrates that same process instance again to a different target again
+      - it starts distributing the msg-sub migration command to partition 2 for this target as well
+      - this continues to be retried
+
+    The order of these msg-sub migrate commands is not guaranteed
+    - So this could to data corruption on partition 2 (out of sync with partition 1)
+
+    So we should not allow migrating the process instance if it's currently 'migrating' (incl. distributing)
+    I.e. migration is no longer atomic, because distribution is not.
+
+    So how to avoid migrating the instance during the period that the instance is already migrating?
+    - retrieve pending distributions of command distribution
+
+     */
+
     processMessageSubscriptionsToMigrate.forEach(
         processMessageSubscription -> {
           final var processMessageSubscriptionRecord = processMessageSubscription.getRecord();
@@ -368,6 +388,12 @@ public class ProcessInstanceMigrationMigrateProcessor
           final long distributionKey = processMessageSubscription.getKey();
 
           // TODO:add hasPendingDistribution check in the state class and throw exception if pending
+          /* if (distributionState.hasPendingDistribution(
+              distributionKey, MessageSubscriptionIntent.MIGRATE)) {
+            // We can't migrate until the previous migration has completed
+            throw new ProcessInstanceMigrationPreconditionFailedException(
+                "", RejectionType.INVALID_STATE);
+          } */
 
           final var messageSubscription =
               new MessageSubscriptionRecord()
