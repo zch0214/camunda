@@ -21,7 +21,6 @@ import io.camunda.zeebe.protocol.record.Record;
 import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.IncidentIntent;
 import io.camunda.zeebe.protocol.record.intent.JobIntent;
-import io.camunda.zeebe.protocol.record.intent.MessageStartEventSubscriptionIntent;
 import io.camunda.zeebe.protocol.record.intent.MessageSubscriptionIntent;
 import io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent;
 import io.camunda.zeebe.protocol.record.intent.VariableIntent;
@@ -37,18 +36,17 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 
 public class ExecutionListenerTest {
   @ClassRule public static final EngineRule ENGINE = EngineRule.singlePartition();
 
-  private static final String PROCESS_ID = "process";
-  private static final String SUB_PROCESS_ID = "sub_".concat(PROCESS_ID);
+  static final String PROCESS_ID = "process";
+  static final String SUB_PROCESS_ID = "sub_".concat(PROCESS_ID);
+  static final String START_EL_TYPE = "start_execution_listener_job";
+  static final String END_EL_TYPE = "end_execution_listener_job";
   private static final String SERVICE_TASK_TYPE = "test_service_task";
-  private static final String START_EL_TYPE = "start_execution_listener_job";
-  private static final String END_EL_TYPE = "end_execution_listener_job";
 
   @Rule
   public final RecordingExporterTestWatcher recordingExporterTestWatcher =
@@ -1051,117 +1049,6 @@ public class ExecutionListenerTest {
   }
 
   // subprocess related tests: end
-
-  // event related tests: start
-  @Test
-  public void shouldCompleteNoneStartEventWithMultipleExecutionListeners() {
-    // given
-    final long processInstanceKey =
-        createProcessInstance(
-            Bpmn.createExecutableProcess(PROCESS_ID)
-                .startEvent()
-                .zeebeStartExecutionListener(START_EL_TYPE + "_1")
-                .zeebeStartExecutionListener(START_EL_TYPE + "_2")
-                .zeebeEndExecutionListener(END_EL_TYPE + "_1")
-                .zeebeEndExecutionListener(END_EL_TYPE + "_2")
-                .manualTask()
-                .endEvent()
-                .done());
-
-    // when: complete the start execution listener jobs
-    ENGINE.job().ofInstance(processInstanceKey).withType(START_EL_TYPE + "_1").complete();
-    ENGINE.job().ofInstance(processInstanceKey).withType(START_EL_TYPE + "_2").complete();
-
-    // complete the end execution listener jobs
-    ENGINE.job().ofInstance(processInstanceKey).withType(END_EL_TYPE + "_1").complete();
-    ENGINE.job().ofInstance(processInstanceKey).withType(END_EL_TYPE + "_2").complete();
-
-    // assert the process instance has completed as expected
-    assertThat(
-            RecordingExporter.processInstanceRecords()
-                .withProcessInstanceKey(processInstanceKey)
-                .limitToProcessInstanceCompleted())
-        .extracting(r -> r.getValue().getBpmnElementType(), Record::getIntent)
-        .containsSubsequence(
-            tuple(BpmnElementType.PROCESS, ProcessInstanceIntent.ELEMENT_ACTIVATED),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.ELEMENT_ACTIVATING),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.COMPLETE_EXECUTION_LISTENER),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.COMPLETE_EXECUTION_LISTENER),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.ELEMENT_ACTIVATED),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.ELEMENT_COMPLETING),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.COMPLETE_EXECUTION_LISTENER),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.COMPLETE_EXECUTION_LISTENER),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.ELEMENT_COMPLETED),
-            tuple(BpmnElementType.MANUAL_TASK, ProcessInstanceIntent.ELEMENT_COMPLETED),
-            tuple(BpmnElementType.END_EVENT, ProcessInstanceIntent.ELEMENT_COMPLETED),
-            tuple(BpmnElementType.PROCESS, ProcessInstanceIntent.ELEMENT_COMPLETED));
-  }
-
-  @Test
-  @Ignore
-  public void shouldCompleteMessageStartEventWithMultipleExecutionListeners() {
-    // given
-    final var deployment =
-        ENGINE
-            .deployment()
-            .withXmlResource(
-                Bpmn.createExecutableProcess(PROCESS_ID)
-                    .startEvent()
-                    .message(m -> m.name("startMessage"))
-                    .zeebeStartExecutionListener(START_EL_TYPE + "_1")
-                    .zeebeStartExecutionListener(START_EL_TYPE + "_2")
-                    .zeebeEndExecutionListener(END_EL_TYPE + "_1")
-                    .zeebeEndExecutionListener(END_EL_TYPE + "_2")
-                    .manualTask()
-                    .endEvent()
-                    .done())
-            .deploy();
-
-    RecordingExporter.messageStartEventSubscriptionRecords(
-            MessageStartEventSubscriptionIntent.CREATED)
-        .getFirst();
-
-    ENGINE.message().withName("startMessage").withCorrelationKey("id").publish();
-
-    final var processDefinitionKey =
-        deployment.getValue().getProcessesMetadata().getFirst().getProcessDefinitionKey();
-    final var processInstanceKey =
-        RecordingExporter.processInstanceRecords(ProcessInstanceIntent.ELEMENT_ACTIVATING)
-            .withProcessDefinitionKey(processDefinitionKey)
-            .withElementType(BpmnElementType.PROCESS)
-            .getFirst()
-            .getKey();
-
-    // when: complete the start execution listener jobs
-    ENGINE.job().ofInstance(processInstanceKey).withType(START_EL_TYPE + "_1").complete();
-    ENGINE.job().ofInstance(processInstanceKey).withType(START_EL_TYPE + "_2").complete();
-
-    // complete the end execution listener jobs
-    ENGINE.job().ofInstance(processInstanceKey).withType(END_EL_TYPE + "_1").complete();
-    ENGINE.job().ofInstance(processInstanceKey).withType(END_EL_TYPE + "_2").complete();
-
-    // assert the process instance has completed as expected
-    assertThat(
-            RecordingExporter.processInstanceRecords()
-                .withProcessInstanceKey(processInstanceKey)
-                .limitToProcessInstanceCompleted())
-        .extracting(r -> r.getValue().getBpmnElementType(), Record::getIntent)
-        .containsSubsequence(
-            tuple(BpmnElementType.PROCESS, ProcessInstanceIntent.ELEMENT_ACTIVATED),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.ELEMENT_ACTIVATING),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.COMPLETE_EXECUTION_LISTENER),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.COMPLETE_EXECUTION_LISTENER),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.ELEMENT_ACTIVATED),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.ELEMENT_COMPLETING),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.COMPLETE_EXECUTION_LISTENER),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.COMPLETE_EXECUTION_LISTENER),
-            tuple(BpmnElementType.START_EVENT, ProcessInstanceIntent.ELEMENT_COMPLETED),
-            tuple(BpmnElementType.MANUAL_TASK, ProcessInstanceIntent.ELEMENT_COMPLETED),
-            tuple(BpmnElementType.END_EVENT, ProcessInstanceIntent.ELEMENT_COMPLETED),
-            tuple(BpmnElementType.PROCESS, ProcessInstanceIntent.ELEMENT_COMPLETED));
-  }
-
-  // event related tests: end
 
   // test util methods
   private static long createProcessInstance(final BpmnModelInstance modelInstance) {

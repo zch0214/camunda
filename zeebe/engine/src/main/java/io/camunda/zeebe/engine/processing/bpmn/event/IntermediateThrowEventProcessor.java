@@ -17,7 +17,6 @@ import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnEventPublicationBeha
 import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnIncidentBehavior;
 import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnJobBehavior;
 import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnSignalBehavior;
-import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnStateBehavior;
 import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnStateTransitionBehavior;
 import io.camunda.zeebe.engine.processing.bpmn.behavior.BpmnVariableMappingBehavior;
 import io.camunda.zeebe.engine.processing.common.ExpressionProcessor;
@@ -46,7 +45,6 @@ public class IntermediateThrowEventProcessor
   private final BpmnEventPublicationBehavior eventPublicationBehavior;
   private final ExpressionProcessor expressionProcessor;
   private final BpmnSignalBehavior signalBehavior;
-  private final BpmnStateBehavior stateBehavior;
   private final BpmnCompensationSubscriptionBehaviour compensationSubscriptionBehaviour;
 
   public IntermediateThrowEventProcessor(
@@ -59,7 +57,6 @@ public class IntermediateThrowEventProcessor
     eventPublicationBehavior = bpmnBehaviors.eventPublicationBehavior();
     expressionProcessor = bpmnBehaviors.expressionBehavior();
     signalBehavior = bpmnBehaviors.signalBehavior();
-    stateBehavior = bpmnBehaviors.stateBehavior();
     compensationSubscriptionBehaviour = bpmnBehaviors.compensationSubscriptionBehaviour();
   }
 
@@ -69,13 +66,13 @@ public class IntermediateThrowEventProcessor
   }
 
   @Override
-  public Either<Failure, ?> onActivate(
+  public Either<Failure, ?> finalizeActivation(
       final ExecutableIntermediateThrowEvent element, final BpmnElementContext activating) {
     return eventBehaviorOf(element).onActivate(element, activating);
   }
 
   @Override
-  public Either<Failure, ?> onComplete(
+  public Either<Failure, ?> finalizeCompletion(
       final ExecutableIntermediateThrowEvent element, final BpmnElementContext completing) {
     return eventBehaviorOf(element).onComplete(element, completing);
   }

@@ -45,7 +45,9 @@ public class ExecutionListenersValidator implements ModelElementValidator<ZeebeE
               BpmnModelConstants.BPMN_ELEMENT_RECEIVE_TASK,
               BpmnModelConstants.BPMN_ELEMENT_BUSINESS_RULE_TASK,
               BpmnModelConstants.BPMN_ELEMENT_MANUAL_TASK,
-              BpmnModelConstants.BPMN_ELEMENT_START_EVENT));
+              BpmnModelConstants.BPMN_ELEMENT_START_EVENT,
+              BpmnModelConstants.BPMN_ELEMENT_INTERMEDIATE_THROW_EVENT,
+              BpmnModelConstants.BPMN_ELEMENT_INTERMEDIATE_CATCH_EVENT));
 
   @Override
   public Class<ZeebeExecutionListeners> getElementType() {
