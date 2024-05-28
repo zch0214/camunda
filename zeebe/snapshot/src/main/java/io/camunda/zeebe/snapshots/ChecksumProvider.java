@@ -5,8 +5,16 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
+package io.camunda.zeebe.snapshots;
 
-.tabs {
-  border-top: 1px solid var(--cds-border-subtle);
-  border-bottom: 1px solid var(--cds-border-subtle);
+import java.nio.file.Path;
+import java.util.Map;
+
+public interface ChecksumProvider {
+
+  /**
+   * @param snapshotPath path of snapshot to get live file checksums
+   * @return Map containing fileName - checksums pairs
+   */
+  Map<String, Long> getSnapshotChecksums(final Path snapshotPath);
 }
