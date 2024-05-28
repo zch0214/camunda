@@ -22,6 +22,8 @@ import io.camunda.zeebe.transport.RequestType;
 import io.camunda.zeebe.transport.impl.AtomixServerTransport;
 import io.camunda.zeebe.util.Either;
 import java.io.IOException;
+import org.agrona.MutableDirectBuffer;
+import org.agrona.concurrent.UnsafeBuffer;
 
 public class AdminApiRequestHandler
     extends AsyncApiRequestHandler<ApiRequestReader, ApiResponseWriter> {
@@ -126,6 +128,12 @@ public class AdminApiRequestHandler
                 }
 
                 final int payloadLength = bytes.length;
+                // my jvm crashes if i dont preallocate the buffer.
+                final byte[] bytebuffer =
+                    new byte[payloadLength + 4]; // plus 4 for the header length
+                final MutableDirectBuffer buffer = new UnsafeBuffer(bytebuffer);
+                //                                buffer.setMemory(0, payloadLength, (byte) 0);
+                responseWriter.getResponseEncoder().wrap(buffer, 0);
                 responseWriter.getResponseEncoder().putPayload(bytes, 0, payloadLength);
                 result.complete(Either.right(responseWriter));
 

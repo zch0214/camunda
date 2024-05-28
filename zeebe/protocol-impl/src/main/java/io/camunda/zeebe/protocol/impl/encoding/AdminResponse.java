@@ -37,4 +37,8 @@ public class AdminResponse implements BufferReader, BufferWriter {
   public void write(final MutableDirectBuffer buffer, final int offset) {
     bodyEncoder.wrapAndApplyHeader(buffer, offset, headerEncoder);
   }
+
+  public String getFlowControlConfiguration() {
+    return bodyDecoder.payload();
+  }
 }

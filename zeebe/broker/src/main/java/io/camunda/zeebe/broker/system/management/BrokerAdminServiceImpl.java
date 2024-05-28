@@ -7,18 +7,22 @@
  */
 package io.camunda.zeebe.broker.system.management;
 
+import com.netflix.concurrency.limits.Limit;
 import io.atomix.raft.RaftServer.Role;
 import io.camunda.zeebe.broker.Loggers;
 import io.camunda.zeebe.broker.exporter.stream.ExporterDirector;
 import io.camunda.zeebe.broker.partitioning.PartitionAdminAccess;
 import io.camunda.zeebe.broker.partitioning.PartitionManagerImpl;
+import io.camunda.zeebe.broker.system.configuration.FlowControlCfg;
 import io.camunda.zeebe.broker.system.partitions.ZeebePartition;
+import io.camunda.zeebe.logstreams.impl.flowcontrol.LimitType;
 import io.camunda.zeebe.scheduler.Actor;
 import io.camunda.zeebe.scheduler.future.ActorFuture;
 import io.camunda.zeebe.scheduler.future.ActorFutureCollector;
 import io.camunda.zeebe.snapshots.PersistedSnapshot;
 import io.camunda.zeebe.snapshots.impl.FileBasedSnapshotId;
 import io.camunda.zeebe.stream.impl.StreamProcessor;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -114,6 +118,17 @@ public final class BrokerAdminServiceImpl extends Actor implements BrokerAdminSe
       return Map.of();
     }
   }
+
+  //  @Override
+  //  public void configureFlowControl(final FlowControlCfg flowControlCfg) {
+  //    actor.call(() -> configureFlowControlOnAllPartitions(flowControlCfg));
+  //  }
+  //
+  //  @Override
+  //  public ActorFuture<Map<Integer, Map<LimitType, Limit>>> getFlowControlConfiguration(
+  //      final LimitType limitType) {
+  //    return getFlowControlOnAllPartitions();
+  //  }
 
   private CompletableFuture<PartitionStatus> getPartitionStatus(final ZeebePartition partition) {
     final CompletableFuture<PartitionStatus> partitionStatus = new CompletableFuture<>();
@@ -255,5 +270,44 @@ public final class BrokerAdminServiceImpl extends Actor implements BrokerAdminSe
         .map(ZeebePartition::getAdminAccess)
         .map(PartitionAdminAccess::resumeExporting)
         .collect(new ActorFutureCollector<>(actor));
+  }
+
+  // probably not needed
+  private ActorFuture<List<Void>> configureFlowControlOnAllPartitions(
+      final FlowControlCfg flowControlCfg) {
+    LOG.info("Configuring flow control on all partitions.");
+    return partitionManager.getZeebePartitions().stream()
+        .map(ZeebePartition::getAdminAccess)
+        .map(partitionAdminAccess -> partitionAdminAccess.configureFlowControl(flowControlCfg))
+        .collect(new ActorFutureCollector<>(actor));
+  }
+
+  // probably not needed
+  private ActorFuture<Map<Integer, Map<LimitType, Limit>>> getFlowControlOnAllPartitions() {
+    LOG.info("Getting flow control on all partitions.");
+    final ActorFuture<Map<Integer, Map<LimitType, Limit>>> result = actor.createFuture();
+
+    actor.submit(
+        () -> {
+          final Map<Integer, Map<LimitType, Limit>> configs = new HashMap<>();
+          for (final var partition : partitionManager.getZeebePartitions()) {
+            final var adminAccess = partition.getAdminAccess();
+            final var flowControlConfiguration = adminAccess.getFlowControlConfiguration();
+
+            flowControlConfiguration.onComplete(
+                (cfg, error) -> {
+                  if (error != null) {
+                    result.completeExceptionally(error);
+                  } else {
+                    configs.put(partition.getPartitionId(), cfg);
+                    if (configs.size() == partitionManager.getZeebePartitions().size()) {
+                      result.complete(configs);
+                    }
+                  }
+                });
+          }
+        });
+
+    return result;
   }
 }

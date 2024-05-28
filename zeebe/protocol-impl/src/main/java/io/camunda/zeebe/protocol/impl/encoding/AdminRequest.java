@@ -72,6 +72,10 @@ public class AdminRequest implements BufferReader, BufferWriter {
     return type;
   }
 
+  public void setType(final AdminRequestType type) {
+    this.type = type;
+  }
+
   public long getKey() {
     return key;
   }
@@ -80,7 +84,8 @@ public class AdminRequest implements BufferReader, BufferWriter {
     this.key = key;
   }
 
-  public void setType(final AdminRequestType type) {
-    this.type = type;
+  public void setFlowControlConfiguration(
+      final byte[] payload, final int srcOffset, final int length) {
+    bodyEncoder.putPayload(payload, srcOffset, length);
   }
 }

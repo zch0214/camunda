@@ -21,7 +21,7 @@ import java.util.Optional;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 
-public class BrokerAdminRequest extends BrokerRequest<Void> {
+public class BrokerAdminRequest extends BrokerRequest<> {
   private final AdminRequest request = new AdminRequest();
   private final AdminResponse response = new AdminResponse();
 
@@ -43,6 +43,15 @@ public class BrokerAdminRequest extends BrokerRequest<Void> {
 
   public void resumeExporting() {
     request.setType(AdminRequestType.RESUME_EXPORTING);
+  }
+
+  public void getFLowControlConfiguration() {
+    request.setType(AdminRequestType.GET_FLOW_CONTROL);
+  }
+
+  public void setFlowControlConfiguration(final byte[] buffer, final int offset, final int length) {
+    request.setType(AdminRequestType.SET_FLOW_CONTROL);
+    request.setFlowControlConfiguration(buffer, offset, length);
   }
 
   public BrokerAdminRequest banInstance(final long key) {

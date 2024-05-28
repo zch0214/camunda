@@ -46,7 +46,8 @@ public class FlowControlEndpoint {
   @GetMapping
   public ResponseEntity<?> get() {
     try {
-      return ResponseEntity.status(WebEndpointResponse.STATUS_OK).body(flowControlService.get());
+      return ResponseEntity.status(WebEndpointResponse.STATUS_OK)
+          .body(flowControlService.get().join());
     } catch (final Exception e) {
       return ResponseEntity.internalServerError().body(e);
     }
